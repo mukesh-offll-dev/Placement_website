@@ -1,22 +1,22 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Users,
   Briefcase,
-  Bell,
+  FileText,
+  User,
   LogOut,
-  ShieldCheck,
+  GraduationCap,
   X,
 } from 'lucide-react';
 
 const navItems = [
-  { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/students', icon: Users, label: 'Students' },
-  { to: '/admin/jobs', icon: Briefcase, label: 'Job Drives' },
-  { to: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
+  { to: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/student/jobs', icon: Briefcase, label: 'Job Drives' },
+  { to: '/student/applications', icon: FileText, label: 'My Applications' },
+  { to: '/student/profile', icon: User, label: 'My Profile' },
 ];
 
-export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
+export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -28,13 +28,13 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
       {/* Brand Header */}
       <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-200">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-200">
+            <GraduationCap className="w-5 h-5" />
           </div>
           <div>
             <h1 className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</h1>
-            <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 mt-0.5">
-              Admin Portal
+            <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 mt-0.5">
+              Student Portal
             </div>
           </div>
         </div>
@@ -51,9 +51,9 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
       {/* Navigation section */}
       <div className="px-3 py-4 flex-1 overflow-y-auto space-y-1">
         <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-          Management
+          Student Menu
         </p>
-        {navItems.map(({ to, icon: NavIcon, label, badge }) => (
+        {navItems.map(({ to, icon: NavIcon, label }) => (
           <NavLink
             key={to}
             to={to}
@@ -67,21 +67,10 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
             }
           >
             {({ isActive }) => (
-              <>
-                <div className="flex items-center gap-3">
-                  <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                  <span>{label}</span>
-                </div>
-                {badge && (
-                  <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {badge}
-                  </span>
-                )}
-              </>
+              <div className="flex items-center gap-3">
+                <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                <span>{label}</span>
+              </div>
             )}
           </NavLink>
         ))}
@@ -91,13 +80,13 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
       <div className="p-3 border-t border-gray-100 bg-gray-50/70">
         <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-gray-200 shadow-xs mb-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+            <div className="relative w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
               A
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">Placement Officer</p>
-              <p className="text-[10px] text-gray-500 truncate">admin@gces.edu</p>
+              <p className="text-xs font-bold text-gray-900 truncate">Alex Harrison</p>
+              <p className="text-[10px] text-gray-500 truncate">B.E CSE · 7th Sem</p>
             </div>
           </div>
           <button

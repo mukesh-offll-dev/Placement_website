@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, UserCheck, Send, TrendingUp, Briefcase } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import AdminSidebar from '../components/AdminSidebar';
 
 const COMPANIES = ['Google', 'Amazon', 'Microsoft', 'Infosys', 'TCS', 'Wipro', 'Zoho'];
 const ROLES = ['Software Engineer', 'Data Analyst', 'Product Manager', 'DevOps Engineer'];
@@ -75,14 +73,8 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <Navbar variant="admin" notifications={notifCount} />
-
-      <div className="flex flex-1">
-        <AdminSidebar />
-
-        <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
-          <h2 className="text-2xl md:text-3xl font-bold mb-1">Admin Dashboard Overview</h2>
+    <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
+      <h2 className="text-2xl md:text-3xl font-bold mb-1">Admin Dashboard Overview</h2>
           <p className="text-gray-500 mb-6 text-sm">
             Welcome back, Admin. Here&apos;s what&apos;s happening today in the placement portal.
           </p>
@@ -232,7 +224,5 @@ export default function AdminDashboard() {
             </div>
           </div>
         </main>
-      </div>
-    </div>
   );
 }

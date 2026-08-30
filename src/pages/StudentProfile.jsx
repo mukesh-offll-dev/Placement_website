@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   GraduationCap,
   Mail,
@@ -7,9 +7,7 @@ import {
   MapPin,
   Pencil,
   Plus,
-  ArrowLeft,
 } from 'lucide-react';
-import Navbar from '../components/Navbar';
 
 const initProfile = {
   name: 'Alex Harrison',
@@ -70,19 +68,20 @@ const calcCompletion = (p) => {
 
 export default function StudentProfile() {
   const fileRef = useRef();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState(initProfile);
   const [editAbout, setEditAbout] = useState(false);
   const [aboutDraft, setAboutDraft] = useState(profile.about);
 
-  const [showProjectModal, setShowProjectModal] = useState(false);
-  const [projectForm, setProjectForm] = useState({
-    title: '',
-    tech: '',
-    description: '',
-    live: '',
-    repo: '',
-    media: ''
-  });
+  // Pick up a project returned from AddProjectPage via router state
+  useEffect(() => {
+    if (location.state?.newProject) {
+      setProfile((p) => ({ ...p, projects: [...p.projects, location.state.newProject] }));
+      // Clear the state so a back-navigation doesn't re-add it
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
 
   const completion = calcCompletion(profile);
 
@@ -110,40 +109,11 @@ export default function StudentProfile() {
     setProfile((p) => ({ ...p, skills: p.skills.filter((_, i) => i !== idx) }));
   };
 
-  const handleProjectFormChange = (e) => {
-    const { name, value } = e.target;
-    setProjectForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleProjectFormSubmit = (e) => {
-    if (e) e.preventDefault();
-    if (projectForm.title.trim()) {
-      const newProj = {
-        title: projectForm.title.trim(),
-        desc: projectForm.description.trim() || 'No description provided.',
-        tech: projectForm.tech ? projectForm.tech.split(',').map((t) => t.trim()).filter(Boolean) : [],
-        live: projectForm.live,
-        repo: projectForm.repo,
-        media: projectForm.media
-      };
-      setProfile((p) => ({ ...p, projects: [...p.projects, newProj] }));
-      setProjectForm({ title: '', tech: '', description: '', live: '', repo: '', media: '' });
-      setShowProjectModal(false);
-    }
-  };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
-
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Back */}
-        <Link
-          to="/student/dashboard"
-          className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-5"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </Link>
+    <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
+      <h2 className="text-2xl font-bold text-gray-900 mb-1">My Profile</h2>
+      <p className="text-gray-500 text-sm mb-6">Manage your academic and professional information.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LEFT — Main Content */}
@@ -280,112 +250,12 @@ export default function StudentProfile() {
                   <p className="text-gray-500 text-xs">Showcase your technical excellence.</p>
                 </div>
                 <button
-                  onClick={() => setShowProjectModal(!showProjectModal)}
+                  onClick={() => navigate('/student/add-project')}
                   className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Post New Project
+                  <Plus className="w-3.5 h-3.5" /> Add Project
                 </button>
               </div>
-
-              {/* Post New Project Form */}
-              {showProjectModal && (
-                <form onSubmit={handleProjectFormSubmit} className="bg-blue-50/50 border border-blue-100 p-5 rounded-xl mb-6 mt-3 space-y-4">
-                  <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-                    <h4 className="font-semibold text-blue-700 text-sm flex items-center gap-1.5">
-                      <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">+</span>
-                      Post New Project
-                    </h4>
-                    <button type="button" onClick={() => setShowProjectModal(false)} className="text-gray-400 hover:text-gray-600 text-sm font-bold">
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Project Title *</label>
-                      <input
-                        className="border border-gray-300 p-2 rounded-lg w-full text-xs bg-white focus:border-blue-500 focus:outline-none"
-                        placeholder="e.g., Distributed Cloud Engine"
-                        name="title"
-                        required
-                        value={projectForm.title}
-                        onChange={handleProjectFormChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Tech Stack</label>
-                      <input
-                        className="border border-gray-300 p-2 rounded-lg w-full text-xs bg-white focus:border-blue-500 focus:outline-none"
-                        placeholder="React, Node.js, AWS (comma separated)"
-                        name="tech"
-                        value={projectForm.tech}
-                        onChange={handleProjectFormChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                      className="border border-gray-300 p-2 rounded-lg w-full text-xs bg-white focus:border-blue-500 focus:outline-none resize-none"
-                      rows={3}
-                      placeholder="Describe your project, features, latency improvements..."
-                      name="description"
-                      value={projectForm.description}
-                      onChange={handleProjectFormChange}
-                    ></textarea>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Live Link</label>
-                      <input
-                        className="border border-gray-300 p-2 rounded-lg w-full text-xs bg-white focus:border-blue-500 focus:outline-none"
-                        placeholder="https://..."
-                        name="live"
-                        value={projectForm.live}
-                        onChange={handleProjectFormChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Repository</label>
-                      <input
-                        className="border border-gray-300 p-2 rounded-lg w-full text-xs bg-white focus:border-blue-500 focus:outline-none"
-                        placeholder="GitHub / GitLab URL"
-                        name="repo"
-                        value={projectForm.repo}
-                        onChange={handleProjectFormChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Media / Demo</label>
-                      <input
-                        className="border border-gray-300 p-2 rounded-lg w-full text-xs bg-white focus:border-blue-500 focus:outline-none"
-                        placeholder="YouTube / Video Link"
-                        name="media"
-                        value={projectForm.media}
-                        onChange={handleProjectFormChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowProjectModal(false)}
-                      className="px-4 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
-                    >
-                      Add Project to Portfolio
-                    </button>
-                  </div>
-                </form>
-              )}
 
               <div className="grid sm:grid-cols-2 gap-4">
                 {profile.projects.map((proj, i) => (
@@ -472,7 +342,6 @@ export default function StudentProfile() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </main>
   );
 }

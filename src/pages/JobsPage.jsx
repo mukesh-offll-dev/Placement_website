@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Briefcase, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import AdminSidebar from '../components/AdminSidebar';
 
 const ALL_JOBS = [
   { id: 1, company: 'Google', role: 'Software Engineer', cgpa: '8.5+', deadline: 'Nov 15, 2026', location: 'Bangalore', type: 'Full Time', ctc: '24 LPA', status: 'Open' },
@@ -198,22 +196,5 @@ export default function JobsPage({ isAdmin = false }) {
     </main>
   );
 
-  if (isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex flex-col">
-        <Navbar variant="admin" />
-        <div className="flex flex-1">
-          <AdminSidebar />
-          {content}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <Navbar />
-      {content}
-    </div>
-  );
+  return content;
 }

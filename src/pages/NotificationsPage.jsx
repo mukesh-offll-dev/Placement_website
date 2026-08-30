@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Bell, BriefcaseIcon, GraduationCap, AlertCircle, CheckCircle, X, Filter } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import AdminSidebar from '../components/AdminSidebar';
 
 const ALL_NOTIFS = [
   {
@@ -98,14 +96,8 @@ export default function NotificationsPage() {
   const unreadCount = notifs.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <Navbar variant="admin" notifications={unreadCount} />
-
-      <div className="flex flex-1">
-        <AdminSidebar />
-
-        <main className="flex-1 px-4 md:px-8 py-6">
-          <div className="flex items-center justify-between mb-1">
+    <main className="flex-1 px-4 md:px-8 py-6">
+      <div className="flex items-center justify-between mb-1">
             <h2 className="text-2xl font-bold">Notifications</h2>
             {unreadCount > 0 && (
               <button
@@ -197,7 +189,5 @@ export default function NotificationsPage() {
             )}
           </div>
         </main>
-      </div>
-    </div>
   );
 }

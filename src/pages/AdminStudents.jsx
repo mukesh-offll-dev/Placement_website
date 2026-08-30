@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Download, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import AdminSidebar from '../components/AdminSidebar';
 
 const ALL_STUDENTS = [
   { id: 1, name: 'Adithya K', dept: 'Computer Science (CSE)', cgpa: 8.92, sem: 7, profile: 95, status: 'Placed' },
@@ -68,14 +66,8 @@ export default function AdminStudents() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <Navbar variant="admin" />
-
-      <div className="flex flex-1">
-        <AdminSidebar />
-
-        <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
-          <h2 className="text-2xl font-bold mb-1">Student Management</h2>
+    <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
+      <h2 className="text-2xl font-bold mb-1">Student Management</h2>
           <p className="text-gray-500 text-sm mb-6">
             View, search, and manage all registered students.
           </p>
@@ -239,7 +231,5 @@ export default function AdminStudents() {
             </div>
           </div>
         </main>
-      </div>
-    </div>
   );
 }
