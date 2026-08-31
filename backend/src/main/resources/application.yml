@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: placement-cell
+
+  # Active profile: switch to 'prod' once PostgreSQL credentials are provided
+  profiles:
+    active: dev
+
+  jpa:
+    open-in-view: false
+
+  # Jackson global settings
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.gces.placementcell: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
