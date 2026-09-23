@@ -1,0 +1,532 @@
+[
+  {
+    "studentProfileSummary": {
+      "studentId": "STU1001",
+      "fullName": "Alex Harrison",
+      "degree": "B.E",
+      "department": "CSE",
+      "semester": "7th Sem",
+      "cgpa": 8.9,
+      "profileCompletionPercentage": 80,
+      "profileImageUrl": "https://example.com/profiles/alex_harrison.png"
+    },
+    "placementMetrics": {
+      "jobsAvailable": 24,
+      "applied": 4,
+      "shortlisted": 2,
+      "pending": 2
+    },
+    "recentJobDrives": [
+      {
+        "jobId": "JOB001",
+        "companyName": "Google",
+        "companyLogo": "GO",
+        "jobRole": "Software Engineer",
+        "minCgpa": 8.5,
+        "deadline": "2026-11-15",
+        "status": "Open",
+        "canApply": true
+      },
+      {
+        "jobId": "JOB002",
+        "companyName": "Amazon",
+        "companyLogo": "AM",
+        "jobRole": "Data Analyst",
+        "minCgpa": 7.5,
+        "deadline": "2026-11-01",
+        "status": "Open",
+        "canApply": true
+      },
+      {
+        "jobId": "JOB003",
+        "companyName": "Microsoft",
+        "companyLogo": "MI",
+        "jobRole": "Cloud Engineer",
+        "minCgpa": 8.0,
+        "deadline": "2026-10-30",
+        "status": "Open",
+        "canApply": true
+      },
+      {
+        "jobId": "JOB004",
+        "companyName": "Zoho",
+        "companyLogo": "ZO",
+        "jobRole": "UI/UX Designer",
+        "minCgpa": 7.0,
+        "deadline": "2026-10-28",
+        "status": "Closing Soon",
+        "canApply": true
+      }
+    ],
+    "myApplications": [
+      {
+        "applicationId": "APP001",
+        "companyName": "TCS",
+        "jobRole": "Systems Engineer",
+        "appliedDate": "2026-10-10",
+        "status": "Under Review"
+      },
+      {
+        "applicationId": "APP002",
+        "companyName": "Infosys",
+        "jobRole": "Associate Developer",
+        "appliedDate": "2026-10-05",
+        "status": "Shortlisted"
+      }
+    ]
+  },
+  {
+    "totalDrivesFound": 8,
+    "drivesList": [
+      {
+        "jobId": "JOB001",
+        "companyName": "Google",
+        "companyLogo": "GO",
+        "jobRole": "Software Engineer",
+        "location": "Bangalore",
+        "jobType": "Full Time",
+        "postedDate": "2026-10-15",
+        "status": "Open",
+        "ctc": "24 LPA",
+        "minCgpa": 8.5,
+        "vacancies": 15,
+        "deadline": "2026-11-15",
+        "bond": "None",
+        "aboutCompany": "Google LLC is an American multinational technology company that specializes in Internet-related services and products. The company is known for its search engine, advertising technologies, cloud computing, software, and hardware.",
+        "jobDescription": "We are looking for passionate Software Engineers to join our Engineering team in Bangalore. You will...",
+        "responsibilities": [
+          "Develop and maintain software applications",
+          "Understand and translate client requirements into technical solutions",
+          "Participate in testing, debugging, and deployment",
+          "Work in agile teams with daily stand-ups and sprint reviews"
+        ],
+        "perksAndBenefits": [
+          "Health insurance",
+          "PF & gratuity",
+          "Performance bonus",
+          "Internal mobility"
+        ],
+        "eligibleDepartments": [
+          "CSE",
+          "IT",
+          "ECE"
+        ],
+        "eligibilityAndRequirements": [
+          "B.E/B.Tech/M.E/M.Tech in any discipline",
+          "Minimum CGPA of 6.5",
+          "No active backlogs during application",
+          "Not more than 2 years of gap in education"
+        ],
+        "selectionProcess": [
+          {
+            "stepNumber": 1,
+            "title": "TCS NQT (National Qualifier Test)"
+          },
+          {
+            "stepNumber": 2,
+            "title": "Technical Interview"
+          },
+          {
+            "stepNumber": 3,
+            "title": "HR Interview"
+          }
+        ]
+      },
+      {
+        "jobId": "JOB002",
+        "companyName": "Amazon",
+        "companyLogo": "AM",
+        "jobRole": "Data Analyst",
+        "location": "Hyderabad",
+        "jobType": "Full Time",
+        "postedDate": "2026-10-12",
+        "status": "Open",
+        "ctc": "18 LPA",
+        "minCgpa": 7.5,
+        "vacancies": 10,
+        "deadline": "2026-11-01",
+        "bond": "None",
+        "aboutCompany": "",
+        "jobDescription": "",
+        "responsibilities": [],
+        "perksAndBenefits": [],
+        "eligibleDepartments": [],
+        "eligibilityAndRequirements": [],
+        "selectionProcess": []
+      },
+      {
+        "jobId": "JOB003",
+        "companyName": "Microsoft",
+        "companyLogo": "MI",
+        "jobRole": "Cloud Engineer",
+        "location": "Hyderabad",
+        "jobType": "Full Time",
+        "postedDate": "2026-10-10",
+        "status": "Open",
+        "ctc": "22 LPA",
+        "minCgpa": 8.0,
+        "vacancies": 12,
+        "deadline": "2026-10-30",
+        "bond": "None",
+        "aboutCompany": "",
+        "jobDescription": "",
+        "responsibilities": [],
+        "perksAndBenefits": [],
+        "eligibleDepartments": [],
+        "eligibilityAndRequirements": [],
+        "selectionProcess": []
+      }
+    ]
+  },
+  {
+    "summary": {
+      "totalApplied": 4,
+      "shortlisted": 1,
+      "underReview": 1,
+      "rejected": 1
+    },
+    "filterTabs": [
+      "All",
+      "Applied",
+      "Under Review",
+      "Shortlisted",
+      "Rejected"
+    ],
+    "applicationsList": [
+      {
+        "applicationId": "APP001",
+        "companyName": "Amazon",
+        "companyLogo": "AM",
+        "jobRole": "Data Analyst",
+        "location": "Hyderabad",
+        "ctc": "18 LPA",
+        "appliedDate": "2026-10-10",
+        "currentStage": "Technical Interview",
+        "status": "Shortlisted"
+      },
+      {
+        "applicationId": "APP002",
+        "companyName": "TCS",
+        "companyLogo": "TC",
+        "jobRole": "Systems Engineer",
+        "location": "Pan India",
+        "ctc": "7 LPA",
+        "appliedDate": "2026-10-05",
+        "currentStage": "Resume Screening",
+        "status": "Under Review"
+      },
+      {
+        "applicationId": "APP003",
+        "companyName": "Wipro",
+        "companyLogo": "WP",
+        "jobRole": "Project Engineer",
+        "location": "Pan India",
+        "ctc": "6 LPA",
+        "appliedDate": "2026-09-28",
+        "currentStage": "Online Test",
+        "status": "Rejected"
+      },
+      {
+        "applicationId": "APP004",
+        "companyName": "Freshworks",
+        "companyLogo": "FW",
+        "jobRole": "Frontend Developer",
+        "location": "Chennai",
+        "ctc": "12 LPA",
+        "appliedDate": "2026-10-18",
+        "currentStage": "Application Submitted",
+        "status": "Applied"
+      }
+    ]
+  },
+  {
+    "studentProfile": {
+      "studentId": "STU1001",
+      "fullName": "Alex Harrison",
+      "email": "alex.harrison@gces.ac.in",
+      "phone": "+91 98765 43210",
+      "institution": "GCE Srirangam",
+      "portal": "Student Portal",
+      "degree": "B.E",
+      "department": "Computer Science and Engineering",
+      "departmentCode": "CSE",
+      "semester": "7th Sem",
+      "cgpa": 8.9,
+      "profileCompletionPercentage": 80,
+      "profileImageUrl": "https://example.com/profiles/alex_harrison.png",
+      "skills": [
+        "Python",
+        "Data Analysis",
+        "Cloud Computing",
+        "UI/UX Design",
+        "Software Engineering"
+      ],
+      "educationHistory": [
+        {
+          "degree": "B.E - Computer Science and Engineering",
+          "institution": "GCE Srirangam",
+          "year": "2023 - Present",
+          "score": "8.9 CGPA"
+        }
+      ],
+      "documents": [
+        {
+          "documentName": "Resume.pdf",
+          "uploadedDate": "2026-09-01",
+          "status": "Verified"
+        }
+      ]
+    }
+  },
+  {
+    "student": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "rollNo": "220CSE001",
+      "name": "Alex Harrison",
+      "email": "alex.harrison@gce.edu.in",
+      "phone": "+91 98765 43210",
+      "address": "Srirangam, Trichy",
+      "avatarUrl": "https://storage.example.com/avatars/220CSE001.jpg",
+      "about": "Aspiring Software Engineer with a strong foundation in full-stack development and cloud technologies.",
+      "academic": {
+        "college": "Government College of Engineering, Srirangam",
+        "degree": "B.E Computer Science and Engineering",
+        "department": "CSE",
+        "batch": "2022-2026",
+        "semester": 7,
+        "cgpa": 8.9,
+        "activeBacklogs": 0
+      },
+      "placementStatus": "ACTIVE",
+      "isOpenToOpportunities": true,
+      "placedAt": null,
+      "placedCtc": null,
+      "profileCompletionPercent": 80,
+      "skills": [
+        "Python",
+        "Java",
+        "React",
+        "Node.js",
+        "AWS"
+      ],
+      "education": [
+        {
+          "id": "edu-001",
+          "institutionName": "GCE Srirangam",
+          "degree": "B.E Computer Science and Engineering",
+          "startYear": 2022,
+          "endYear": 2026,
+          "grade": "8.9 CGPA",
+          "isCurrent": true
+        },
+        {
+          "id": "edu-002",
+          "institutionName": "CBSE Higher Secondary",
+          "degree": "Class XII (Science)",
+          "startYear": 2021,
+          "endYear": 2022,
+          "grade": "92%",
+          "isCurrent": false
+        }
+      ],
+      "experience": [
+        {
+          "id": "exp-001",
+          "role": "Software Engineer Intern",
+          "company": "Tech Innovation Lab",
+          "startDate": "2025-05-01",
+          "endDate": "2025-08-31",
+          "isCurrent": false,
+          "description": "Improved system latency by 20% through cache optimization."
+        }
+      ],
+      "projects": [
+        {
+          "id": "proj-001",
+          "title": "CloudScaler",
+          "description": "Intelligent cloud resource optimization platform that dynamically scales infrastructure based on real-time usage.",
+          "techStack": [
+            "AWS",
+            "Python",
+            "Docker"
+          ],
+          "liveUrl": "https://cloudscaler.vercel.app",
+          "repoUrl": "https://github.com/alex/cloudscaler",
+          "mediaUrl": "https://storage.example.com/projects/cloudscaler.png",
+          "createdAt": "2026-09-01T10:00:00Z"
+        },
+        {
+          "id": "proj-002",
+          "title": "SecureAuth",
+          "description": "Blockchain-based identity and access management system for decentralized authentication.",
+          "techStack": [
+            "Solidity",
+            "React",
+            "Node.js"
+          ],
+          "liveUrl": null,
+          "repoUrl": "https://github.com/alex/secureauth",
+          "mediaUrl": null,
+          "createdAt": "2026-08-15T10:00:00Z"
+        }
+      ],
+      "savedJobIds": [
+        "job-001",
+        "job-003"
+      ],
+      "resumeUrl": "https://storage.example.com/resumes/220CSE001_resume.pdf",
+      "createdAt": "2026-07-01T10:00:00Z",
+      "updatedAt": "2026-09-10T14:30:00Z"
+    },
+    "studentDashboardStats": {
+      "jobsAvailable": 24,
+      "totalApplied": 4,
+      "shortlisted": 2,
+      "underReview": 2,
+      "rejected": 0,
+      "selected": 0
+    },
+    "jobs": [
+      {
+        "id": "job-001",
+        "company": "Google",
+        "logo": "GO",
+        "logoColor": "#1a73e8",
+        "role": "Software Engineer",
+        "minCgpa": 8.5,
+        "deadline": "2026-11-15",
+        "location": "Bangalore",
+        "jobType": "FULL_TIME",
+        "ctc": "24 LPA",
+        "ctcValue": 2400000,
+        "status": "OPEN",
+        "bond": "None",
+        "vacancies": 15,
+        "eligibleDepartments": [
+          "CSE",
+          "IT",
+          "ECE"
+        ],
+        "aboutCompany": "Google LLC is an American multinational technology company...",
+        "jobDescription": "We are looking for passionate Software Engineers to join our team in Bangalore.",
+        "responsibilities": [
+          "Design, develop, and maintain scalable software solutions",
+          "Collaborate with cross-functional teams including PMs and designers",
+          "Write clean, efficient, and well-documented code"
+        ],
+        "requirements": [
+          "B.E/B.Tech in CSE, IT, or related field",
+          "Minimum CGPA of 8.5",
+          "Strong problem-solving skills and knowledge of DSA"
+        ],
+        "selectionProcess": [
+          "Online Coding Test (90 min)",
+          "Technical Interview — Round 1",
+          "Technical Interview — Round 2",
+          "Hiring Manager Interview",
+          "HR Discussion"
+        ],
+        "perks": [
+          "Health insurance",
+          "Free meals",
+          "Gym membership",
+          "Stock options"
+        ],
+        "postedOn": "2026-10-15",
+        "isActive": true,
+        "isSavedByStudent": true
+      }
+    ],
+    "myApplications": [
+      {
+        "id": "app-001",
+        "jobId": "job-002",
+        "company": "Amazon",
+        "logo": "AM",
+        "logoColor": "#ff9900",
+        "role": "Data Analyst",
+        "location": "Hyderabad",
+        "ctc": "18 LPA",
+        "appliedOn": "2026-10-10T09:30:00Z",
+        "coverLetter": "I am excited to apply for the Data Analyst role at Amazon...",
+        "consentGiven": true,
+        "status": "SHORTLISTED",
+        "currentStage": "Technical Interview",
+        "timeline": [
+          {
+            "label": "Application Submitted",
+            "date": "2026-10-10",
+            "status": "DONE"
+          },
+          {
+            "label": "Resume Screened",
+            "date": "2026-10-13",
+            "status": "DONE"
+          },
+          {
+            "label": "Shortlisted",
+            "date": "2026-10-16",
+            "status": "DONE"
+          },
+          {
+            "label": "Technical Interview",
+            "date": "2026-10-28",
+            "status": "UPCOMING"
+          },
+          {
+            "label": "HR Round",
+            "date": null,
+            "status": "PENDING"
+          },
+          {
+            "label": "Offer",
+            "date": null,
+            "status": "PENDING"
+          }
+        ]
+      },
+      {
+        "id": "app-002",
+        "jobId": "job-007",
+        "company": "Wipro",
+        "logo": "WP",
+        "logoColor": "#00a4e4",
+        "role": "Project Engineer",
+        "location": "Pan India",
+        "ctc": "6 LPA",
+        "appliedOn": "2026-09-28T11:00:00Z",
+        "coverLetter": null,
+        "consentGiven": true,
+        "status": "REJECTED",
+        "currentStage": "Online Test",
+        "timeline": [
+          {
+            "label": "Application Submitted",
+            "date": "2026-09-28",
+            "status": "DONE"
+          },
+          {
+            "label": "Resume Screened",
+            "date": "2026-10-01",
+            "status": "DONE"
+          },
+          {
+            "label": "Online Test",
+            "date": "2026-10-06",
+            "status": "FAILED"
+          },
+          {
+            "label": "Technical Interview",
+            "date": null,
+            "status": "SKIPPED"
+          },
+          {
+            "label": "Offer",
+            "date": null,
+            "status": "SKIPPED"
+          }
+        ]
+      }
+    ]
+  }
+]

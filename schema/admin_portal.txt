@@ -1,0 +1,877 @@
+                                       Admin Portal -json format
+ "adminDashboard": {
+    "admin": {
+      "id": "admin-001",
+      "name": "Placement Officer",
+      "role": "PLACEMENT_OFFICER",
+      "department": "Placement Cell",
+      "email": "admin@gces.edu",
+      "avatar": "A"
+    },
+
+Dashboard :
+
+{
+    "dashboardStats": {
+      "totalActiveJobs": {
+        "value": 5,
+        "label": "Total Active Jobs",
+        "statusText": "Live",
+        "statusType": "POSITIVE"
+      },
+      "jobsPostedThisWeek": {
+        "value": 5,
+        "label": "Posted This Week",
+        "target": 20,
+        "progressPercent": 25
+      },
+      "registeredStudents": {
+        "value": 1251,
+        "label": "Registered Students",
+        "statusText": "Growing",
+        "statusType": "POSITIVE"
+      },
+      "applicationsToday": {
+        "value": 166,
+        "label": "Applied Today",
+        "statusText": "Active",
+        "statusType": "POSITIVE"
+      }
+    },
+
+    "recentJobActivity": {
+      "title": "Recent Job Activity Feed",
+      "viewAllEnabled": true,
+      "jobs": [
+        {
+          "id": "job-001",
+          "company": "Infosys",
+          "companyShortName": "IN",
+          "role": "DevOps Engineer",
+          "minCgpa": 6.6,
+          "deadline": "2026-11-30",
+          "status": "ACTIVE",
+          "postedAt": "2026-09-17T09:00:00+05:30"
+        },
+        {
+          "id": "job-002",
+          "company": "TCS",
+          "companyShortName": "TC",
+          "role": "Data Analyst",
+          "minCgpa": 7.3,
+          "deadline": "2026-11-30",
+          "status": "ACTIVE",
+          "postedAt": "2026-09-17T08:45:00+05:30"
+        },
+        {
+          "id": "job-003",
+          "company": "Infosys",
+          "companyShortName": "IN",
+          "role": "Data Analyst",
+          "minCgpa": 7.3,
+          "deadline": "2026-11-30",
+          "status": "ACTIVE",
+          "postedAt": "2026-09-17T08:30:00+05:30"
+        },
+        {
+          "id": "job-004",
+          "company": "Google",
+          "companyShortName": "GO",
+          "role": "Software Engineer",
+          "minCgpa": 8.5,
+          "deadline": "2026-10-25",
+          "status": "ACTIVE",
+          "postedAt": "2026-09-17T07:00:00+05:30"
+        },
+        {
+          "id": "job-005",
+          "company": "Amazon",
+          "companyShortName": "AM",
+          "role": "Data Analyst",
+          "minCgpa": 7.5,
+          "deadline": "2026-11-01",
+          "status": "ACTIVE",
+          "postedAt": "2026-09-17T04:00:00+05:30"
+        }
+      ]
+    },
+
+    "jobStatistics": {
+      "title": "Job Statistics",
+      "totalActiveJobs": 5,
+      "postedThisWeek": 5,
+      "weeklyTarget": 20,
+      "progressPercent": 25
+    },
+
+    "studentEngagement": {
+      "title": "Student Engagement",
+      "totalRegisteredStudents": 1251,
+      "applicationsToday": 166,
+      "generateReportEnabled": true,
+      "reportLabel": "Generate Engagement Report"
+    }
+  }
+}
+
+
+students:
+
+{
+  "studentsListPage": {
+    "pagination": {
+      "currentPage": 1,
+      "pageSize": 5,
+      "totalRecords": 8,
+      "totalPages": 2
+    },
+
+    "filters": {
+      "search": "",
+      "department": "ALL",
+      "minCgpa": null,
+      "placementStatus": "ALL"
+    },
+
+    "summaryCards": {
+      "eligibleStudents": 342,
+      "placedStudents": 128,
+      "pendingProfiles": 56
+    },
+
+    "students": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440001",
+        "name": "Adithya K",
+        "rollNo": null,
+        "department": "Computer Science (CSE)",
+        "cgpa": 8.92,
+        "semester": 7,
+        "profileCompletionPercent": 95,
+        "placementStatus": "PLACED"
+      },
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440002",
+        "name": "Priya M",
+        "rollNo": null,
+        "department": "Electronics (ECE)",
+        "cgpa": 7.5,
+        "semester": 7,
+        "profileCompletionPercent": 100,
+        "placementStatus": "ACTIVE"
+      },
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440003",
+        "name": "Rahul S",
+        "rollNo": null,
+        "department": "Mechanical (MECH)",
+        "cgpa": 8.1,
+        "semester": 5,
+        "profileCompletionPercent": 65,
+        "placementStatus": "PENDING"
+      },
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440004",
+        "name": "Sneha R",
+        "rollNo": null,
+        "department": "Civil Engineering",
+        "cgpa": 7.85,
+        "semester": 7,
+        "profileCompletionPercent": 85,
+        "placementStatus": "ACTIVE"
+      },
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440005",
+        "name": "Vijay T",
+        "rollNo": null,
+        "department": "Electrical (EEE)",
+        "cgpa": 9.1,
+        "semester": 7,
+        "profileCompletionPercent": 100,
+        "placementStatus": "PLACED"
+      }
+    ]
+  },
+
+  "studentDetailView": {
+    "id": null,
+    "name": null,
+    "rollNo": null,
+    "email": null,
+    "phone": null,
+    "address": null,
+    "about": null,
+    "avatarUrl": null,
+
+    "skills": [],
+
+    "academic": {
+      "college": "GCE Srirangam",
+      "degree": null,
+      "department": null,
+      "batch": null,
+      "semester": null,
+      "cgpa": null,
+      "totalBacklogs": null,
+      "activeBacklogs": null
+    },
+
+    "placementStatus": null,
+    "placedAt": null,
+    "placedCtc": null,
+    "profileCompletionPercent": null,
+
+    "totalApplications": null,
+    "shortlistedCount": null,
+
+    "education": [
+      {
+        "institutionName": "GCE Srirangam",
+        "degree": "B.E Computer Science and Engineering",
+        "startYear": 2022,
+        "endYear": 2026,
+        "grade": "8.92 CGPA"
+      },
+      {
+        "institutionName": "Government Higher Secondary School",
+        "degree": "Higher Secondary (12th)",
+        "startYear": 2020,
+        "endYear": 2022,
+        "grade": "86.16%"
+      }
+    ],
+
+    "experience": [
+      {
+        "role": "Software Developer Intern",
+        "company": "Zoho Corporation",
+        "startDate": "2025-06-01",
+        "endDate": "2025-08-31",
+        "description": "Worked on web application development and REST API integration."
+      },
+      {
+        "role": "Web Development Intern",
+        "company": "InAmigos Foundation",
+        "startDate": "2026-05-01",
+        "endDate": "2026-06-30",
+        "description": "Developed responsive web pages and implemented frontend features."
+      }
+    ],
+
+    "projects": [
+      {
+        "title": "SmartAttend",
+        "description": "Face recognition based attendance management system.",
+        "techStack": [
+          "Python",
+          "OpenCV",
+          "Flask"
+        ],
+        "repoUrl": null
+      },
+      {
+        "title": "Student Placement Portal",
+        "description": "Web-based platform for managing student placement information, job applications, and placement activities.",
+        "techStack": [
+          "HTML",
+          "CSS",
+          "JavaScript",
+          "Java",
+          "MySQL"
+        ],
+        "repoUrl": null
+      },
+      {
+        "title": "Weather Application",
+        "description": "Web application that displays current weather information using a weather API.",
+        "techStack": [
+          "HTML",
+          "CSS",
+          "JavaScript",
+          "Weather API"
+        ],
+        "repoUrl": null
+      }
+    ]
+  }
+}
+
+Job Drives
+{
+  "jobsListPage": {
+    "pagination": {
+      "currentPage": 1,
+      "pageSize": 5,
+      "totalRecords": 8,
+      "totalPages": 2
+    },
+
+    "filters": {
+      "search": "",
+      "jobType": "ALL",
+      "location": "ALL",
+      "status": "ALL",
+      "minCgpa": null
+    },
+
+    "summaryCards": {
+      "totalJobs": 8,
+      "activeJobs": 7,
+      "closingSoon": 1,
+      "upcomingDrives": 8
+    },
+
+    "jobs": [
+      {
+        "id": "job-001",
+        "company": "Google",
+        "companyShortName": "GO",
+        "role": "Software Engineer",
+        "jobDescription": "Software engineering role involving application development and problem solving.",
+        "cgpa": 8.5,
+        "backlogsAllowed": false,
+        "deadline": "2026-11-15",
+        "driveDate": "2026-11-20",
+        "location": "Bangalore",
+        "venue": "College Auditorium",
+        "type": "Full Time",
+        "ctc": "24 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-10"
+      },
+
+      {
+        "id": "job-002",
+        "company": "Amazon",
+        "companyShortName": "AM",
+        "role": "Data Analyst",
+        "jobDescription": "Data analysis role involving data processing, reporting and business insights.",
+        "cgpa": 7.5,
+        "backlogsAllowed": false,
+        "deadline": "2026-11-01",
+        "driveDate": "2026-11-08",
+        "location": "Hyderabad",
+        "venue": "Placement Cell",
+        "type": "Full Time",
+        "ctc": "18 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-11"
+      },
+
+      {
+        "id": "job-003",
+        "company": "Microsoft",
+        "companyShortName": "MS",
+        "role": "Cloud Engineer",
+        "jobDescription": "Cloud engineering role focused on cloud infrastructure and application services.",
+        "cgpa": 8.0,
+        "backlogsAllowed": false,
+        "deadline": "2026-10-30",
+        "driveDate": "2026-11-05",
+        "location": "Hyderabad",
+        "venue": "Virtual Interview",
+        "type": "Full Time",
+        "ctc": "22 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-12"
+      },
+
+      {
+        "id": "job-004",
+        "company": "Zoho",
+        "companyShortName": "ZO",
+        "role": "UI/UX Designer",
+        "jobDescription": "UI/UX design role focused on creating user-friendly digital experiences.",
+        "cgpa": 7.0,
+        "backlogsAllowed": false,
+        "deadline": "2026-10-28",
+        "driveDate": "2026-11-02",
+        "location": "Chennai",
+        "venue": "Seminar Hall",
+        "type": "Full Time",
+        "ctc": "10 LPA",
+        "status": "CLOSING_SOON",
+        "postedDate": "2026-09-12"
+      },
+
+      {
+        "id": "job-005",
+        "company": "TCS",
+        "companyShortName": "TC",
+        "role": "Systems Engineer",
+        "jobDescription": "Systems engineering role involving software development and technical support.",
+        "cgpa": 6.5,
+        "backlogsAllowed": true,
+        "deadline": "2026-11-10",
+        "driveDate": "2026-11-18",
+        "location": "Pan India",
+        "venue": "College Auditorium",
+        "type": "Full Time",
+        "ctc": "7 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-13"
+      },
+
+      {
+        "id": "job-006",
+        "company": "Infosys",
+        "companyShortName": "IN",
+        "role": "Associate Developer",
+        "jobDescription": "Entry-level software development role for fresh graduates.",
+        "cgpa": 6.5,
+        "backlogsAllowed": false,
+        "deadline": "2026-11-05",
+        "driveDate": "2026-11-12",
+        "location": "Pan India",
+        "venue": "Placement Cell",
+        "type": "Full Time",
+        "ctc": "6.5 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-14"
+      },
+
+      {
+        "id": "job-007",
+        "company": "Wipro",
+        "companyShortName": "WI",
+        "role": "Project Engineer",
+        "jobDescription": "Project engineering role involving software development and project implementation.",
+        "cgpa": 6.0,
+        "backlogsAllowed": true,
+        "deadline": "2026-11-20",
+        "driveDate": "2026-11-25",
+        "location": "Pan India",
+        "venue": "Virtual Interview",
+        "type": "Full Time",
+        "ctc": "6 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-15"
+      },
+
+      {
+        "id": "job-008",
+        "company": "Freshworks",
+        "companyShortName": "FW",
+        "role": "Frontend Developer",
+        "jobDescription": "Frontend development role involving responsive web application development.",
+        "cgpa": 7.5,
+        "backlogsAllowed": false,
+        "deadline": "2026-11-08",
+        "driveDate": "2026-11-15",
+        "location": "Chennai",
+        "venue": "Computer Lab",
+        "type": "Full Time",
+        "ctc": "12 LPA",
+        "status": "ACTIVE",
+        "postedDate": "2026-09-16"
+      }
+    ]
+  },
+
+  "jobDetailView": {
+    "id": null,
+    "company": null,
+    "companyShortName": null,
+    "role": null,
+    "jobDescription": null,
+
+    "eligibility": {
+      "minimumCgpa": null,
+      "backlogsAllowed": null,
+      "eligibleDepartments": [],
+      "eligibleDegree": [],
+      "graduationYear": null
+    },
+
+    "jobDetails": {
+      "type": null,
+      "location": null,
+      "ctc": null,
+      "driveDate": null,
+      "venue": null,
+      "deadline": null
+    },
+
+    "application": {
+      "totalApplications": null,
+      "shortlistedCount": null,
+      "selectedCount": null
+    },
+
+    "selectionProcess": [
+      {
+        "round": 1,
+        "name": "Aptitude Test",
+        "type": "Online"
+      },
+      {
+        "round": 2,
+        "name": "Technical Interview",
+        "type": "Offline"
+      },
+      {
+        "round": 3,
+        "name": "HR Interview",
+        "type": "Offline"
+      }
+    ],
+
+    "status": null,
+    "postedDate": null
+  },
+
+  "postNewJob": {
+    "company": "",
+    "role": "",
+    "jobDescription": "",
+    "cgpa": "",
+    "backlogsAllowed": false,
+    "deadline": "",
+    "driveDate": "",
+    "location": "",
+    "venue": "",
+    "type": "Full Time",
+    "ctc": "",
+    "eligibleDepartments": [],
+    "eligibleDegree": [],
+    "graduationYear": null
+  }
+}
+
+Notifications:
+
+"module": "admin_notifications",
+"description": "Database specification for the Admin Notification functionality of the Placement Management System",
+"database": {
+"recommended": "PostgreSQL",
+"development": "H2",
+"orm": "Spring Data JPA"
+},
+"tables": {
+"notifications": {
+"description": "Stores notifications created by administrators",
+"fields": {
+"id": {
+"type": "BIGINT",
+"primaryKey": true,
+"autoIncrement": true,
+"nullable": false
+},
+"title": {
+"type": "VARCHAR(200)",
+"nullable": false
+},
+"message": {
+"type": "TEXT",
+"nullable": false
+},
+"notification_type": {
+"type": "VARCHAR(50)",
+"nullable": false,
+"allowedValues": [
+"GENERAL",
+"JOB",
+"PLACEMENT_DRIVE",
+"INTERVIEW",
+"DEADLINE",
+"ANNOUNCEMENT",
+"SYSTEM"
+]
+},
+"priority": {
+"type": "VARCHAR(20)",
+"nullable": false,
+"default": "NORMAL",
+"allowedValues": [
+"LOW",
+"NORMAL",
+"HIGH",
+"URGENT"
+]
+},
+"target_audience": {
+"type": "VARCHAR(30)",
+"nullable": false,
+"allowedValues": [
+"ALL",
+"STUDENTS",
+"PLACEMENT_OFFICERS",
+"RECRUITERS",
+"SPECIFIC_USERS"
+]
+},
+"created_by": {
+"type": "BIGINT",
+"nullable": false,
+"foreignKey": "users.id"
+},
+"related_job_id": {
+"type": "BIGINT",
+"nullable": true,
+"foreignKey": "jobs.id"
+},
+"related_drive_id": {
+"type": "BIGINT",
+"nullable": true,
+"foreignKey": "placement_drives.id"
+},
+"status": {
+"type": "VARCHAR(20)",
+"nullable": false,
+"default": "DRAFT",
+"allowedValues": [
+"DRAFT",
+"SCHEDULED",
+"PUBLISHED",
+"EXPIRED",
+"ARCHIVED"
+]
+},
+"scheduled_at": {
+"type": "TIMESTAMP",
+"nullable": true
+},
+"published_at": {
+"type": "TIMESTAMP",
+"nullable": true
+},
+"expires_at": {
+"type": "TIMESTAMP",
+"nullable": true
+},
+"created_at": {
+"type": "TIMESTAMP",
+"nullable": false,
+"default": "CURRENT_TIMESTAMP"
+},
+"updated_at": {
+"type": "TIMESTAMP",
+"nullable": false,
+"default": "CURRENT_TIMESTAMP"
+},
+"deleted_at": {
+"type": "TIMESTAMP",
+"nullable": true
+},
+"is_deleted": {
+"type": "BOOLEAN",
+"nullable": false,
+"default": false
+}
+},
+"indexes": [
+"idx_notifications_status",
+"idx_notifications_type",
+"idx_notifications_target_audience",
+"idx_notifications_created_at",
+"idx_notifications_published_at"
+]
+},
+
+"notification_recipients": {
+  "description": "Maps notifications to individual users and stores delivery/read state",
+  "fields": {
+    "id": {
+      "type": "BIGINT",
+      "primaryKey": true,
+      "autoIncrement": true,
+      "nullable": false
+    },
+    "notification_id": {
+      "type": "BIGINT",
+      "nullable": false,
+      "foreignKey": "notifications.id"
+    },
+    "user_id": {
+      "type": "BIGINT",
+      "nullable": false,
+      "foreignKey": "users.id"
+    },
+    "is_read": {
+      "type": "BOOLEAN",
+      "nullable": false,
+      "default": false
+    },
+    "read_at": {
+      "type": "TIMESTAMP",
+      "nullable": true
+    },
+    "delivered_at": {
+      "type": "TIMESTAMP",
+      "nullable": true
+    },
+    "created_at": {
+      "type": "TIMESTAMP",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    }
+  },
+  "constraints": [
+    "UNIQUE(notification_id, user_id)"
+  ],
+  "indexes": [
+    "idx_notification_recipients_user",
+    "idx_notification_recipients_read",
+    "idx_notification_recipients_notification"
+  ]
+},
+
+"notification_attachments": {
+  "description": "Optional files or documents attached to notifications",
+  "fields": {
+    "id": {
+      "type": "BIGINT",
+      "primaryKey": true,
+      "autoIncrement": true,
+      "nullable": false
+    },
+    "notification_id": {
+      "type": "BIGINT",
+      "nullable": false,
+      "foreignKey": "notifications.id"
+    },
+    "file_name": {
+      "type": "VARCHAR(255)",
+      "nullable": false
+    },
+    "file_url": {
+      "type": "TEXT",
+      "nullable": false
+    },
+    "file_type": {
+      "type": "VARCHAR(100)",
+      "nullable": true
+    },
+    "file_size": {
+      "type": "BIGINT",
+      "nullable": true
+    },
+    "created_at": {
+      "type": "TIMESTAMP",
+      "nullable": false,
+      "default": "CURRENT_TIMESTAMP"
+    }
+  }
+}
+},
+
+"relationships": [
+{
+"from": "notifications.created_by",
+"to": "users.id",
+"type": "MANY_TO_ONE"
+},
+{
+"from": "notification_recipients.notification_id",
+"to": "notifications.id",
+"type": "MANY_TO_ONE"
+},
+{
+"from": "notification_recipients.user_id",
+"to": "users.id",
+"type": "MANY_TO_ONE"
+},
+{
+"from": "notification_attachments.notification_id",
+"to": "notifications.id",
+"type": "MANY_TO_ONE"
+},
+{
+"from": "notifications.related_job_id",
+"to": "jobs.id",
+"type": "MANY_TO_ONE_OPTIONAL"
+},
+{
+"from": "notifications.related_drive_id",
+"to": "placement_drives.id",
+"type": "MANY_TO_ONE_OPTIONAL"
+}
+],
+
+"admin_form": {
+"requiredFields": [
+"title",
+"message",
+"notification_type",
+"priority",
+"target_audience"
+],
+"optionalFields": [
+"related_job_id",
+"related_drive_id",
+"scheduled_at",
+"expires_at",
+"attachments"
+]
+},
+
+"api": {
+"admin": {
+"create": {
+"method": "POST",
+"endpoint": "/api/admin/notifications"
+},
+"list": {
+"method": "GET",
+"endpoint": "/api/admin/notifications"
+},
+"getById": {
+"method": "GET",
+"endpoint": "/api/admin/notifications/{id}"
+},
+"update": {
+"method": "PUT",
+"endpoint": "/api/admin/notifications/{id}"
+},
+"delete": {
+"method": "DELETE",
+"endpoint": "/api/admin/notifications/{id}"
+},
+"publish": {
+"method": "POST",
+"endpoint": "/api/admin/notifications/{id}/publish"
+},
+"archive": {
+"method": "POST",
+"endpoint": "/api/admin/notifications/{id}/archive"
+}
+},
+"user": {
+"list": {
+"method": "GET",
+"endpoint": "/api/notifications"
+},
+"markAsRead": {
+"method": "PATCH",
+"endpoint": "/api/notifications/{id}/read"
+},
+"markAllAsRead": {
+"method": "PATCH",
+"endpoint": "/api/notifications/read-all"
+},
+"unreadCount": {
+"method": "GET",
+"endpoint": "/api/notifications/unread-count"
+}
+}
+},
+
+"validation": {
+"title": {
+"required": true,
+"minLength": 3,
+"maxLength": 200
+},
+"message": {
+"required": true,
+"minLength": 1
+},
+"scheduled_at": {
+"mustBeBefore": "expires_at"
+},
+"expires_at": {
+"optional": true
+}
+}
+}
+

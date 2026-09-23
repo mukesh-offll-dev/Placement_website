@@ -1,0 +1,824 @@
+// =====================================================================
+//  Placement Management System - Database Schema (DBML)
+//  Source: D:/placement/schema/admin_portal.txt  +  student_portal1.json
+//  Paste into https://dbdiagram.io  or run:  npx @dbml/cli dbml2sql tables.dbml
+// =====================================================================
+
+Project placement_portal {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # Placement Management System
+
+  One unified schema for both portals - `student_portal1.json` and
+  `admin_portal.txt` are two views over the same jobs / applications /
+  notifications data, so they share the same tables.
+
+  ## Task mapping
+  | # | Task | Tables |
+  |---|------|--------|
+  | 1 | Users: login, roles, status, creation | `users`, `admin_profiles` |
+  | 2 | Student profile: personal, academic, contact, resume, placement | `student_profiles`, `student_skills`, `student_documents` |
+  | 3 | Education / internship / projects | `student_education`, `student_experience`, `student_projects`, `project_tech_stack` |
+  | 4 | Job, Application, Timeline, Notification | `companies`, `jobs`, `placement_drives`, `job_*`, `job_applications`, `application_timeline`, `saved_jobs`, `notification*` |
+  | 5 | PK / FK / constraints / indexes | declared inline on every table below |
+
+  ## Deliberately NOT stored
+  `dashboardStats`, `placementMetrics`, `summaryCards`, `pagination`,
+  `filterTabs`, `totalApplications`, `shortlistedCount`, `canApply`,
+  `isSavedByStudent`, `profileCompletionPercentage` inputs - all are
+  derivable with COUNT/aggregate queries. Persisting them would create
+  update anomalies.
+
+  ## Notes for the team
+  - IDs are `bigint` auto-increment. The sample JSON mixes UUIDs
+    (`550e8400-...`) with strings (`job-001`, `STU1001`); we standardise here.
+  - Enums below may be implemented either as native PG enum types or as
+    `varchar(n)` + `CHECK (col IN (...))` - the original spec used varchar.
+  - CHECK constraints are listed in each table Note (DBML has no CHECK syntax).
+  '''
+}
+
+// ---------------------------------------------------------------------
+//  ENUMS  (allowedValues from the source specs)
+// ---------------------------------------------------------------------
+
+Enum user_role {
+  STUDENT
+  PLACEMENT_OFFICER
+  ADMIN
+  RECRUITER
+}
+
+Enum account_status {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+Enum placement_status {
+  PENDING
+  ACTIVE
+  PLACED
+  BLOCKED
+}
+
+Enum document_type {
+  RESUME
+  MARKSHEET
+  CERTIFICATE
+  ID_PROOF
+  OTHER
+}
+
+Enum verification_status {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+Enum experience_type {
+  INTERNSHIP
+  FULL_TIME
+  PART_TIME
+  FREELANCE
+}
+
+Enum job_type {
+  FULL_TIME
+  INTERNSHIP
+  PART_TIME
+  CONTRACT
+}
+
+Enum job_status {
+  DRAFT
+  ACTIVE
+  CLOSING_SOON
+  CLOSED
+}
+
+Enum delivery_mode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+Enum drive_status {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+Enum application_status {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  REJECTED
+  SELECTED
+  WITHDRAWN
+}
+
+Enum timeline_status {
+  DONE
+  UPCOMING
+  PENDING
+  FAILED
+  SKIPPED
+}
+
+Enum notification_type {
+  GENERAL
+  JOB
+  PLACEMENT_DRIVE
+  INTERVIEW
+  DEADLINE
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+Enum notification_priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+Enum notification_audience {
+  ALL
+  STUDENTS
+  PLACEMENT_OFFICERS
+  RECRUITERS
+  SPECIFIC_USERS
+}
+
+Enum notification_status {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+
+// =====================================================================
+//  TASK 1 - IDENTITY & ACCESS
+// =====================================================================
+
+Table users [headercolor: #4C6EF5] {
+  id                bigint                [pk, increment]
+  email             varchar(150)          [not null, unique, note: 'login identifier']
+  password_hash     varchar(255)          [not null, note: 'BCrypt hash, never plain text']
+  role              user_role             [not null]
+  account_status    account_status        [not null, default: 'PENDING']
+  is_active         boolean               [not null, default: true]
+  is_email_verified boolean               [not null, default: false]
+  last_login_at     timestamp             [null]
+  created_at        timestamp             [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at        timestamp             [not null, default: `CURRENT_TIMESTAMP`]
+  is_deleted        boolean               [not null, default: false, note: 'soft delete']
+
+  indexes {
+    email            [unique, name: 'uq_users_email']
+    role             [name: 'idx_users_role']
+    account_status   [name: 'idx_users_account_status']
+    created_at       [name: 'idx_users_created_at']
+    (role, is_active) [name: 'idx_users_role_active']
+  }
+
+  Note: 'Single login table for all actors. Role decides which profile table holds the details.'
+}
+
+Table admin_profiles [headercolor: #4C6EF5] {
+  id            bigint        [pk, increment]
+  user_id       bigint        [not null, unique, ref: - users.id]
+  name          varchar(120)  [not null]
+  designation   varchar(60)   [not null, note: 'e.g. Placement Officer']
+  department    varchar(100)  [null, note: 'e.g. Placement Cell']
+  contact_email varchar(150)  [null]
+  avatar        varchar(255)  [null, note: 'initial letter or image URL']
+  created_at    timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at    timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    user_id [unique, name: 'uq_admin_profiles_user']
+  }
+
+  Note: 'From adminDashboard.admin. 1:1 with users.'
+}
+
+
+// =====================================================================
+//  TASK 2 - STUDENT PROFILE
+// =====================================================================
+
+Table student_profiles [headercolor: #2F9E44] {
+  id                         bigint            [pk, increment]
+  user_id                    bigint            [not null, unique]
+  roll_no                    varchar(20)       [null, unique]
+
+  // -- personal / contact
+  full_name                  varchar(120)      [not null]
+  email                      varchar(150)      [not null]
+  phone                      varchar(20)       [null]
+  address                    varchar(255)      [null]
+  about                      text              [null]
+  avatar_url                 text              [null]
+  resume_url                 text              [null, note: 'current/primary resume']
+
+  // -- academic
+  college                    varchar(150)      [null]
+  degree                     varchar(100)      [null]
+  department                 varchar(100)      [null]
+  department_code            varchar(10)       [null, note: 'CSE, ECE, MECH, EEE, CIVIL, IT']
+  batch                      varchar(20)       [null, note: 'e.g. 2022-2026']
+  semester                   smallint          [null, note: 'CHECK between 1 and 10']
+  cgpa                       "decimal(4,2)"    [null, note: 'CHECK between 0 and 10']
+  total_backlogs             int               [not null, default: 0]
+  active_backlogs            int               [not null, default: 0]
+
+  // -- placement
+  placement_status           placement_status  [not null, default: 'PENDING']
+  is_open_to_opportunities   boolean           [not null, default: true]
+  placed_company_id          bigint            [null]
+  placed_ctc                 "decimal(12,2)"   [null, note: 'annual CTC in rupees']
+  placed_on                  date              [null]
+  profile_completion_percent smallint          [not null, default: 0, note: 'CHECK between 0 and 100']
+
+  created_at                 timestamp         [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at                 timestamp         [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    user_id                            [unique, name: 'uq_student_profiles_user']
+    roll_no                            [unique, name: 'uq_student_profiles_roll_no']
+    department_code                    [name: 'idx_student_department_code']
+    cgpa                               [name: 'idx_student_cgpa']
+    placement_status                   [name: 'idx_student_placement_status']
+    semester                           [name: 'idx_student_semester']
+    placed_company_id                  [name: 'idx_student_placed_company']
+    (department_code, cgpa)            [name: 'idx_student_dept_cgpa', note: 'admin eligibility filter']
+    (placement_status, department_code) [name: 'idx_student_status_dept']
+  }
+
+  Note: '''
+  Merges `student`, `studentProfile`, `studentProfileSummary` and
+  `studentDetailView` (incl. the nested `academic{}` block).
+
+  CHECK constraints:
+  - semester BETWEEN 1 AND 10
+  - cgpa BETWEEN 0 AND 10
+  - profile_completion_percent BETWEEN 0 AND 100
+  - active_backlogs <= total_backlogs
+  - placement_status = 'PLACED' implies placed_company_id IS NOT NULL
+  '''
+}
+
+Table student_skills [headercolor: #2F9E44] {
+  id          bigint       [pk, increment]
+  student_id  bigint       [not null]
+  skill_name  varchar(60)  [not null]
+  proficiency varchar(20)  [null, note: 'BEGINNER | INTERMEDIATE | ADVANCED']
+
+  indexes {
+    (student_id, skill_name) [unique, name: 'uq_student_skill']
+    student_id               [name: 'idx_student_skills_student']
+    skill_name               [name: 'idx_student_skills_name', note: 'search students by skill']
+  }
+
+  Note: 'Normalised from the skills[] array.'
+}
+
+Table student_documents [headercolor: #2F9E44] {
+  id            bigint              [pk, increment]
+  student_id    bigint              [not null]
+  document_name varchar(150)        [not null, note: 'e.g. Resume.pdf']
+  document_type document_type       [not null]
+  file_url      text                [not null]
+  file_size     bigint              [null, note: 'bytes']
+  status        verification_status [not null, default: 'PENDING']
+  verified_by   bigint              [null]
+  verified_at   timestamp           [null]
+  uploaded_at   timestamp           [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    student_id             [name: 'idx_student_documents_student']
+    status                 [name: 'idx_student_documents_status']
+    (student_id, document_type) [name: 'idx_student_documents_type']
+  }
+
+  Note: 'From documents[] - {documentName, uploadedDate, status: Verified}. CHECK: status = VERIFIED implies verified_by IS NOT NULL.'
+}
+
+
+// =====================================================================
+//  TASK 3 - EDUCATION / EXPERIENCE / PROJECTS
+// =====================================================================
+
+Table student_education [headercolor: #2F9E44] {
+  id                  bigint        [pk, increment]
+  student_id          bigint        [not null]
+  institution_name    varchar(150)  [not null]
+  degree              varchar(120)  [not null, note: 'B.E CSE, Class XII, Higher Secondary ...']
+  board_or_university varchar(150)  [null]
+  start_year          smallint      [not null]
+  end_year            smallint      [null, note: 'NULL while ongoing']
+  grade               varchar(30)   [null, note: 'kept as text: "8.9 CGPA" or "92%"']
+  is_current          boolean       [not null, default: false]
+  created_at          timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    student_id              [name: 'idx_student_education_student']
+    (student_id, end_year)  [name: 'idx_student_education_year']
+  }
+
+  Note: 'From education[] / educationHistory[]. CHECK: end_year IS NULL OR end_year >= start_year.'
+}
+
+Table student_experience [headercolor: #2F9E44] {
+  id              bigint          [pk, increment]
+  student_id      bigint          [not null]
+  job_role        varchar(120)    [not null, note: 'e.g. Software Developer Intern']
+  company         varchar(150)    [not null]
+  experience_type experience_type [not null, default: 'INTERNSHIP']
+  location        varchar(120)    [null]
+  start_date      date            [not null]
+  end_date        date            [null, note: 'NULL while ongoing']
+  is_current      boolean         [not null, default: false]
+  description     text            [null]
+  created_at      timestamp       [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    student_id                 [name: 'idx_student_experience_student']
+    (student_id, start_date)   [name: 'idx_student_experience_date']
+  }
+
+  Note: '''
+  From experience[] - internships and work history.
+  CHECK: end_date IS NULL OR end_date >= start_date
+  CHECK: is_current = true implies end_date IS NULL
+  '''
+}
+
+Table student_projects [headercolor: #2F9E44] {
+  id          bigint        [pk, increment]
+  student_id  bigint        [not null]
+  title       varchar(150)  [not null]
+  description text          [null]
+  live_url    text          [null]
+  repo_url    text          [null]
+  media_url   text          [null]
+  created_at  timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at  timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    student_id            [name: 'idx_student_projects_student']
+    (student_id, title)   [unique, name: 'uq_student_project_title']
+  }
+
+  Note: 'From projects[].'
+}
+
+Table project_tech_stack [headercolor: #2F9E44] {
+  id         bigint       [pk, increment]
+  project_id bigint       [not null]
+  technology varchar(60)  [not null]
+
+  indexes {
+    (project_id, technology) [unique, name: 'uq_project_technology']
+    technology               [name: 'idx_project_tech_technology']
+  }
+
+  Note: 'Normalised from projects[].techStack[] (Python, OpenCV, Flask, AWS, Docker ...).'
+}
+
+
+// =====================================================================
+//  TASK 4a - COMPANIES, JOBS & DRIVES
+// =====================================================================
+
+Table companies [headercolor: #E8590C] {
+  id         bigint        [pk, increment]
+  name       varchar(150)  [not null, unique]
+  short_name varchar(10)   [null, note: 'logo initials: GO, AM, TC, MS, ZO, IN, WI, FW']
+  logo_url   text          [null]
+  logo_color varchar(10)   [null, note: 'hex, e.g. #1a73e8']
+  about      text          [null, note: 'aboutCompany']
+  website    text          [null]
+  industry   varchar(100)  [null]
+  created_at timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    name       [unique, name: 'uq_companies_name']
+    short_name [name: 'idx_companies_short_name']
+  }
+
+  Note: 'Extracted from the repeated company / companyShortName / logoColor / aboutCompany fields so they are stored once.'
+}
+
+Table jobs [headercolor: #E8590C] {
+  id                   bigint          [pk, increment]
+  company_id           bigint          [not null]
+  job_role             varchar(150)    [not null, note: 'Software Engineer, Data Analyst ...']
+  job_description      text            [null]
+  job_type             job_type        [not null, default: 'FULL_TIME']
+  location             varchar(120)    [null, note: 'Bangalore, Hyderabad, Pan India ...']
+
+  // -- compensation
+  ctc_text             varchar(30)     [null, note: 'display value: "24 LPA"']
+  ctc_value            "decimal(12,2)" [null, note: 'numeric value for filter/sort: 2400000']
+  vacancies            int             [null]
+  bond                 varchar(100)    [null, note: 'e.g. None, 2 years']
+
+  // -- eligibility
+  min_cgpa             "decimal(4,2)"  [null, note: 'CHECK between 0 and 10']
+  backlogs_allowed     boolean         [not null, default: false]
+  graduation_year      smallint        [null]
+
+  // -- lifecycle
+  application_deadline date            [not null]
+  status               job_status      [not null, default: 'ACTIVE']
+  is_active            boolean         [not null, default: true]
+  posted_by            bigint          [not null, note: 'admin/placement officer user']
+  posted_date          date            [not null, default: `CURRENT_DATE`]
+  created_at           timestamp       [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at           timestamp       [not null, default: `CURRENT_TIMESTAMP`]
+  is_deleted           boolean         [not null, default: false]
+
+  indexes {
+    company_id                       [name: 'idx_jobs_company']
+    status                           [name: 'idx_jobs_status']
+    application_deadline             [name: 'idx_jobs_deadline']
+    min_cgpa                         [name: 'idx_jobs_min_cgpa']
+    posted_date                      [name: 'idx_jobs_posted_date']
+    location                         [name: 'idx_jobs_location']
+    job_type                         [name: 'idx_jobs_type']
+    posted_by                        [name: 'idx_jobs_posted_by']
+    (status, application_deadline)   [name: 'idx_jobs_status_deadline', note: 'open-jobs listing']
+    (status, min_cgpa)               [name: 'idx_jobs_status_cgpa', note: 'eligible-jobs for a student']
+  }
+
+  Note: '''
+  Merges jobsListPage.jobs[], jobDetailView, postNewJob and drivesList[].
+
+  CHECK constraints:
+  - min_cgpa BETWEEN 0 AND 10
+  - vacancies IS NULL OR vacancies > 0
+  - application_deadline >= posted_date
+  '''
+}
+
+Table placement_drives [headercolor: #E8590C] {
+  id         bigint        [pk, increment]
+  job_id     bigint        [not null]
+  drive_date date          [not null]
+  drive_time time          [null]
+  venue      varchar(150)  [null, note: 'College Auditorium, Placement Cell, Virtual Interview ...']
+  mode       delivery_mode [not null, default: 'OFFLINE']
+  status     drive_status  [not null, default: 'SCHEDULED']
+  created_at timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    job_id       [name: 'idx_drives_job']
+    drive_date   [name: 'idx_drives_drive_date']
+    status       [name: 'idx_drives_status']
+  }
+
+  Note: 'driveDate + venue split out of jobs. A job can have more than one drive slot, and this also satisfies the placement_drives.id FK referenced by notifications in admin_portal.txt.'
+}
+
+Table job_eligible_departments [headercolor: #E8590C] {
+  id              bigint       [pk, increment]
+  job_id          bigint       [not null]
+  department_code varchar(10)  [not null]
+
+  indexes {
+    (job_id, department_code) [unique, name: 'uq_job_eligible_department']
+    department_code          [name: 'idx_job_elig_dept_code', note: 'find jobs for a student department']
+  }
+
+  Note: 'From eligibleDepartments[] - ["CSE","IT","ECE"].'
+}
+
+Table job_eligible_degrees [headercolor: #E8590C] {
+  id     bigint       [pk, increment]
+  job_id bigint       [not null]
+  degree varchar(60)  [not null, note: 'B.E, B.Tech, M.E, M.Tech']
+
+  indexes {
+    (job_id, degree) [unique, name: 'uq_job_eligible_degree']
+  }
+
+  Note: 'From eligibleDegree[].'
+}
+
+Table job_responsibilities [headercolor: #E8590C] {
+  id             bigint        [pk, increment]
+  job_id         bigint        [not null]
+  responsibility varchar(300)  [not null]
+  display_order  smallint      [not null, default: 1]
+
+  indexes {
+    (job_id, display_order) [unique, name: 'uq_job_responsibility_order']
+  }
+
+  Note: 'From responsibilities[] - ordered bullet list.'
+}
+
+Table job_requirements [headercolor: #E8590C] {
+  id            bigint        [pk, increment]
+  job_id        bigint        [not null]
+  requirement   varchar(300)  [not null]
+  display_order smallint      [not null, default: 1]
+
+  indexes {
+    (job_id, display_order) [unique, name: 'uq_job_requirement_order']
+  }
+
+  Note: 'From requirements[] / eligibilityAndRequirements[].'
+}
+
+Table job_perks [headercolor: #E8590C] {
+  id     bigint        [pk, increment]
+  job_id bigint        [not null]
+  perk   varchar(150)  [not null]
+
+  indexes {
+    (job_id, perk) [unique, name: 'uq_job_perk']
+  }
+
+  Note: 'From perks[] / perksAndBenefits[].'
+}
+
+Table job_selection_rounds [headercolor: #E8590C] {
+  id           bigint        [pk, increment]
+  job_id       bigint        [not null]
+  round_number smallint      [not null]
+  round_name   varchar(120)  [not null, note: 'Aptitude Test, Technical Interview, HR Interview ...']
+  round_mode   delivery_mode [null]
+  scheduled_on date          [null]
+
+  indexes {
+    (job_id, round_number) [unique, name: 'uq_job_round_number']
+    job_id                 [name: 'idx_job_rounds_job']
+  }
+
+  Note: 'From selectionProcess[] (both the {round,name,type} and {stepNumber,title} shapes). CHECK: round_number > 0.'
+}
+
+
+// =====================================================================
+//  TASK 4b - APPLICATIONS & TIMELINE
+// =====================================================================
+
+Table job_applications [headercolor: #7048E8] {
+  id               bigint             [pk, increment]
+  job_id           bigint             [not null]
+  student_id       bigint             [not null]
+  applied_on       timestamp          [not null, default: `CURRENT_TIMESTAMP`]
+  cover_letter     text               [null]
+  resume_url       text               [null, note: 'snapshot of the resume used for THIS application']
+  consent_given    boolean            [not null, default: false]
+  status           application_status [not null, default: 'APPLIED']
+  current_stage    varchar(80)        [null, note: 'denormalised label of the latest timeline step']
+  current_round_id bigint             [null]
+  reviewed_by      bigint             [null, note: 'admin user who last changed the status']
+  remarks          varchar(255)       [null]
+  created_at       timestamp          [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at       timestamp          [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (job_id, student_id) [unique, name: 'uq_application_job_student', note: 'a student can apply to a job only once']
+    student_id           [name: 'idx_app_student']
+    job_id               [name: 'idx_app_job']
+    status               [name: 'idx_app_status']
+    applied_on           [name: 'idx_app_applied_on']
+    (student_id, status) [name: 'idx_app_student_status', note: 'My Applications tabs']
+    (job_id, status)     [name: 'idx_app_job_status', note: 'admin per-job counters']
+  }
+
+  Note: '''
+  From myApplications[] / applicationsList[].
+  CHECK: consent_given = true (application is only valid with consent)
+  totalApplied / shortlisted / underReview / rejected are COUNT queries here,
+  not columns.
+  '''
+}
+
+Table application_timeline [headercolor: #7048E8] {
+  id             bigint          [pk, increment]
+  application_id bigint          [not null]
+  stage_label    varchar(80)     [not null, note: 'Application Submitted, Resume Screened, Shortlisted, Technical Interview, HR Round, Offer']
+  stage_date     date            [null, note: 'NULL for stages not reached yet']
+  status         timeline_status [not null]
+  display_order  smallint        [not null]
+  remarks        varchar(255)    [null]
+  updated_by     bigint          [null]
+  created_at     timestamp       [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (application_id, display_order) [unique, name: 'uq_timeline_order']
+    application_id                  [name: 'idx_timeline_application']
+    status                          [name: 'idx_timeline_status']
+  }
+
+  Note: '''
+  From myApplications[].timeline[] - {label, date, status}.
+  CHECK: display_order > 0
+  CHECK: status = "DONE" implies stage_date IS NOT NULL
+  '''
+}
+
+Table saved_jobs [headercolor: #7048E8] {
+  id         bigint     [pk, increment]
+  student_id bigint     [not null]
+  job_id     bigint     [not null]
+  saved_at   timestamp  [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (student_id, job_id) [unique, name: 'uq_saved_job']
+    student_id           [name: 'idx_saved_jobs_student']
+  }
+
+  Note: 'From student.savedJobIds[]. Drives the isSavedByStudent flag, which is computed, not stored.'
+}
+
+
+// =====================================================================
+//  TASK 4c - NOTIFICATIONS  (as specified in admin_portal.txt)
+// =====================================================================
+
+Table notifications [headercolor: #C92A2A] {
+  id                bigint                [pk, increment]
+  title             varchar(200)          [not null, note: 'CHECK length between 3 and 200']
+  message           text                  [not null, note: 'CHECK length >= 1']
+  notification_type notification_type     [not null]
+  priority          notification_priority [not null, default: 'NORMAL']
+  target_audience   notification_audience [not null]
+  created_by        bigint                [not null]
+  related_job_id    bigint                [null]
+  related_drive_id  bigint                [null]
+  status            notification_status   [not null, default: 'DRAFT']
+  scheduled_at      timestamp             [null]
+  published_at      timestamp             [null]
+  expires_at        timestamp             [null]
+  created_at        timestamp             [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at        timestamp             [not null, default: `CURRENT_TIMESTAMP`]
+  deleted_at        timestamp             [null]
+  is_deleted        boolean               [not null, default: false]
+
+  indexes {
+    status            [name: 'idx_notifications_status']
+    notification_type [name: 'idx_notifications_type']
+    target_audience   [name: 'idx_notifications_target_audience']
+    created_at        [name: 'idx_notifications_created_at']
+    published_at      [name: 'idx_notifications_published_at']
+    created_by        [name: 'idx_notifications_created_by']
+    related_job_id    [name: 'idx_notifications_related_job']
+  }
+
+  Note: '''
+  Notifications created by administrators.
+
+  Required on the admin form: title, message, notification_type, priority, target_audience
+  Optional: related_job_id, related_drive_id, scheduled_at, expires_at, attachments
+
+  CHECK constraints:
+  - scheduled_at IS NULL OR expires_at IS NULL OR scheduled_at < expires_at
+  - status = "PUBLISHED" implies published_at IS NOT NULL
+  - status = "SCHEDULED" implies scheduled_at IS NOT NULL
+  '''
+}
+
+Table notification_recipients [headercolor: #C92A2A] {
+  id              bigint     [pk, increment]
+  notification_id bigint     [not null]
+  user_id         bigint     [not null]
+  is_read         boolean    [not null, default: false]
+  read_at         timestamp  [null]
+  delivered_at    timestamp  [null]
+  created_at      timestamp  [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (notification_id, user_id) [unique, name: 'uq_notification_recipient']
+    user_id                    [name: 'idx_notification_recipients_user']
+    is_read                    [name: 'idx_notification_recipients_read']
+    notification_id            [name: 'idx_notification_recipients_notification']
+    (user_id, is_read)         [name: 'idx_notification_recipients_user_read', note: 'unread-count endpoint']
+  }
+
+  Note: 'Maps notifications to individual users and stores delivery/read state. CHECK: is_read = true implies read_at IS NOT NULL.'
+}
+
+Table notification_attachments [headercolor: #C92A2A] {
+  id              bigint        [pk, increment]
+  notification_id bigint        [not null]
+  file_name       varchar(255)  [not null]
+  file_url        text          [not null]
+  file_type       varchar(100)  [null, note: 'MIME type']
+  file_size       bigint        [null, note: 'bytes']
+  created_at      timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    notification_id [name: 'idx_notification_attachments_notification']
+  }
+
+  Note: 'Optional files or documents attached to notifications.'
+}
+
+
+// =====================================================================
+//  RELATIONSHIPS
+//  >  many-to-one      -  one-to-one
+// =====================================================================
+
+// -- Task 2: student profile
+Ref: student_profiles.user_id           - users.id                  [delete: restrict, update: cascade]
+Ref: student_profiles.placed_company_id > companies.id              [delete: set null, update: cascade]
+Ref: student_skills.student_id          > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: student_documents.student_id       > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: student_documents.verified_by      > users.id                  [delete: set null, update: cascade]
+
+// -- Task 3: education / experience / projects
+Ref: student_education.student_id       > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: student_experience.student_id      > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: student_projects.student_id        > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: project_tech_stack.project_id      > student_projects.id       [delete: cascade,  update: cascade]
+
+// -- Task 4a: jobs & drives
+Ref: jobs.company_id                    > companies.id              [delete: restrict, update: cascade]
+Ref: jobs.posted_by                     > users.id                  [delete: restrict, update: cascade]
+Ref: placement_drives.job_id            > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_eligible_departments.job_id    > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_eligible_degrees.job_id        > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_responsibilities.job_id        > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_requirements.job_id            > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_perks.job_id                   > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_selection_rounds.job_id        > jobs.id                   [delete: cascade,  update: cascade]
+
+// -- Task 4b: applications
+Ref: job_applications.job_id            > jobs.id                   [delete: restrict, update: cascade]
+Ref: job_applications.student_id        > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: job_applications.current_round_id  > job_selection_rounds.id   [delete: set null, update: cascade]
+Ref: job_applications.reviewed_by       > users.id                  [delete: set null, update: cascade]
+Ref: application_timeline.application_id > job_applications.id       [delete: cascade,  update: cascade]
+Ref: application_timeline.updated_by    > users.id                  [delete: set null, update: cascade]
+Ref: saved_jobs.student_id              > student_profiles.id       [delete: cascade,  update: cascade]
+Ref: saved_jobs.job_id                  > jobs.id                   [delete: cascade,  update: cascade]
+
+// -- Task 4c: notifications
+Ref: notifications.created_by           > users.id                  [delete: restrict, update: cascade]
+Ref: notifications.related_job_id       > jobs.id                   [delete: set null, update: cascade]
+Ref: notifications.related_drive_id     > placement_drives.id       [delete: set null, update: cascade]
+Ref: notification_recipients.notification_id > notifications.id     [delete: cascade,  update: cascade]
+Ref: notification_recipients.user_id    > users.id                  [delete: cascade,  update: cascade]
+Ref: notification_attachments.notification_id > notifications.id    [delete: cascade,  update: cascade]
+
+
+// =====================================================================
+//  TABLE GROUPS
+// =====================================================================
+
+TableGroup identity_and_access {
+  users
+  admin_profiles
+}
+
+TableGroup student_profile {
+  student_profiles
+  student_skills
+  student_documents
+}
+
+TableGroup student_background {
+  student_education
+  student_experience
+  student_projects
+  project_tech_stack
+}
+
+TableGroup jobs_and_drives {
+  companies
+  jobs
+  placement_drives
+  job_eligible_departments
+  job_eligible_degrees
+  job_responsibilities
+  job_requirements
+  job_perks
+  job_selection_rounds
+}
+
+TableGroup applications {
+  job_applications
+  application_timeline
+  saved_jobs
+}
+
+TableGroup notifications_group {
+  notifications
+  notification_recipients
+  notification_attachments
+}
