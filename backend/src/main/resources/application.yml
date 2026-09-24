@@ -2,10 +2,6 @@ spring:
   application:
     name: placement-cell
 
-  # Active profile: switch to 'prod' once PostgreSQL credentials are provided
-  profiles:
-    active: dev
-
   jpa:
     open-in-view: false
 
