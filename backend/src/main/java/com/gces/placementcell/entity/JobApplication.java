@@ -17,16 +17,15 @@ import java.util.List;
 @Table(
     name = "job_applications",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_job_applications_job_student", columnNames = {"job_id", "student_id"})
+        @UniqueConstraint(name = "uq_application_job_student", columnNames = {"job_id", "student_id"})
     },
     indexes = {
-        @Index(name = "uq_job_applications_job_student", columnList = "job_id, student_id", unique = true),
-        @Index(name = "idx_job_applications_student", columnList = "student_id"),
-        @Index(name = "idx_job_applications_job", columnList = "job_id"),
-        @Index(name = "idx_job_applications_status", columnList = "status"),
-        @Index(name = "idx_job_applications_applied_at", columnList = "applied_at"),
-        @Index(name = "idx_job_applications_student_status", columnList = "student_id, status"),
-        @Index(name = "idx_job_applications_job_status", columnList = "job_id, status")
+        @Index(name = "idx_app_student", columnList = "student_id"),
+        @Index(name = "idx_app_job", columnList = "job_id"),
+        @Index(name = "idx_app_status", columnList = "status"),
+        @Index(name = "idx_app_applied_on", columnList = "applied_on"),
+        @Index(name = "idx_app_student_status", columnList = "student_id, status"),
+        @Index(name = "idx_app_job_status", columnList = "job_id, status")
     }
 )
 @Getter
@@ -66,11 +65,17 @@ public class JobApplication {
     @Column(name = "status", nullable = false, length = 50)
     private ApplicationStatus status = ApplicationStatus.APPLIED;
 
-    @Column(name = "cover_letter", columnDefinition = "TEXT")
+    @Size(max = 4000, message = "Cover letter cannot exceed 4000 characters")
+    @Column(name = "cover_letter", length = 4000)
     private String coverLetter;
 
-    @Column(name = "resume_url", columnDefinition = "TEXT")
+    @Size(max = 1000, message = "Resume URL cannot exceed 1000 characters")
+    @Column(name = "resume_url", length = 1000)
     private String resumeUrl;
+
+    @Builder.Default
+    @Column(name = "consent_given", nullable = false)
+    private Boolean consentGiven = false;
 
     @Size(max = 80, message = "Current stage label cannot exceed 80 characters")
     @Column(name = "current_stage", length = 80)
@@ -87,8 +92,8 @@ public class JobApplication {
     @Column(name = "remarks", length = 255)
     private String remarks;
 
-    @Column(name = "applied_at", nullable = false)
-    private LocalDateTime appliedAt;
+    @Column(name = "applied_on", nullable = false)
+    private LocalDateTime appliedOn;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -103,8 +108,8 @@ public class JobApplication {
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
-        if (this.appliedAt == null) {
-            this.appliedAt = now;
+        if (this.appliedOn == null) {
+            this.appliedOn = now;
         }
         if (this.createdAt == null) {
             this.createdAt = now;
@@ -118,40 +123,14 @@ public class JobApplication {
         if (this.currentStage == null) {
             this.currentStage = "Application Submitted";
         }
+        if (this.consentGiven == null) {
+            this.consentGiven = false;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-    // Helper convenience methods
-    public StudentProfile getStudent() {
-        return this.studentProfile;
-    }
-
-    public void setStudent(StudentProfile student) {
-        this.studentProfile = student;
-    }
-
-    public StudentProfile getApplicant() {
-        return this.studentProfile;
-    }
-
-    public void setApplicant(StudentProfile applicant) {
-        this.studentProfile = applicant;
-    }
-
-    public User getApplicantUser() {
-        return this.studentProfile != null ? this.studentProfile.getUser() : null;
-    }
-
-    public LocalDateTime getAppliedOn() {
-        return this.appliedAt;
-    }
-
-    public void setAppliedOn(LocalDateTime appliedOn) {
-        this.appliedAt = appliedOn;
     }
 
     public void addTimeline(ApplicationTimeline entry) {

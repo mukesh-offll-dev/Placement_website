@@ -131,6 +131,7 @@ Enum timeline_status {
 Enum notification_type {
   GENERAL
   JOB
+  APPLICATION
   PLACEMENT_DRIVE
   INTERVIEW
   DEADLINE
@@ -540,6 +541,19 @@ Table job_requirements [headercolor: #E8590C] {
   Note: 'From requirements[] / eligibilityAndRequirements[].'
 }
 
+Table job_skills [headercolor: #E8590C] {
+  id         bigint       [pk, increment]
+  job_id     bigint       [not null]
+  skill_name varchar(60)  [not null]
+
+  indexes {
+    (job_id, skill_name) [unique, name: 'uq_job_skill']
+    skill_name           [name: 'idx_job_skills_name', note: 'match students to jobs by skill']
+  }
+
+  Note: 'Skills a job asks for, normalised out of the CSV `skills` field. Kept separate from job_requirements because the UI lists skills and requirements in different sections.'
+}
+
 Table job_perks [headercolor: #E8590C] {
   id     bigint        [pk, increment]
   job_id bigint        [not null]
@@ -755,6 +769,7 @@ Ref: job_eligible_departments.job_id    > jobs.id                   [delete: cas
 Ref: job_eligible_degrees.job_id        > jobs.id                   [delete: cascade,  update: cascade]
 Ref: job_responsibilities.job_id        > jobs.id                   [delete: cascade,  update: cascade]
 Ref: job_requirements.job_id            > jobs.id                   [delete: cascade,  update: cascade]
+Ref: job_skills.job_id                  > jobs.id                   [delete: cascade,  update: cascade]
 Ref: job_perks.job_id                   > jobs.id                   [delete: cascade,  update: cascade]
 Ref: job_selection_rounds.job_id        > jobs.id                   [delete: cascade,  update: cascade]
 
@@ -807,6 +822,7 @@ TableGroup jobs_and_drives {
   job_eligible_degrees
   job_responsibilities
   job_requirements
+  job_skills
   job_perks
   job_selection_rounds
 }

@@ -19,9 +19,11 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByStatusAndApplicationDeadlineGreaterThanEqual(JobStatus status, LocalDate deadline);
 
-    List<Job> findByCompanyIgnoreCase(String company);
+    List<Job> findByCompanyId(Long companyId);
 
-    List<Job> findByEmploymentType(EmploymentType employmentType);
+    List<Job> findByCompanyNameIgnoreCase(String companyName);
+
+    List<Job> findByJobType(EmploymentType jobType);
 
     List<Job> findByPostedById(Long postedById);
 

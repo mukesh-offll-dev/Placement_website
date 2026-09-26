@@ -1,5 +1,6 @@
 package com.gces.placementcell.entity;
 
+import com.gces.placementcell.entity.enums.ProficiencyLevel;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -43,7 +44,7 @@ public class StudentSkill {
     @Column(name = "skill_name", nullable = false, length = 60)
     private String skillName;
 
-    @Size(max = 20, message = "Proficiency cannot exceed 20 characters")
+    @Enumerated(EnumType.STRING)
     @Column(name = "proficiency", length = 20)
-    private String proficiency;
+    private ProficiencyLevel proficiency;
 }

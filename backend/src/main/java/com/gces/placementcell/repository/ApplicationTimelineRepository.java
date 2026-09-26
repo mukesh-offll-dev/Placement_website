@@ -14,7 +14,7 @@ public interface ApplicationTimelineRepository extends JpaRepository<Application
 
     List<ApplicationTimeline> findByJobApplicationIdOrderByDisplayOrderAsc(Long jobApplicationId);
 
-    List<ApplicationTimeline> findByJobApplicationIdOrderByChangedAtAsc(Long jobApplicationId);
+    List<ApplicationTimeline> findByJobApplicationIdOrderByCreatedAtAsc(Long jobApplicationId);
 
     List<ApplicationTimeline> findByJobApplicationId(Long jobApplicationId);
 
