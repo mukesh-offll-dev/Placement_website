@@ -1,15 +1,656 @@
 {
   "version": "3.0.0",
-  "darkMode": false,
+  "darkMode": true,
   "gridEnabling": false,
   "currentViewName": null,
   "defaultView": {
     "detailLevel": "All",
     "relationshipMode": "All",
-    "tablePositions": [],
+    "tablePositions": [
+      {
+        "name": "users",
+        "schemaName": "public",
+        "x": 1136.7333984375,
+        "y": 73
+      },
+      {
+        "name": "admin_profiles",
+        "schemaName": "public",
+        "x": 1775.5869140625,
+        "y": 411
+      },
+      {
+        "name": "student_profiles",
+        "schemaName": "public",
+        "x": 502.2392578125,
+        "y": 12
+      },
+      {
+        "name": "student_skills",
+        "schemaName": "public",
+        "x": 1136.7333984375,
+        "y": 503
+      },
+      {
+        "name": "student_documents",
+        "schemaName": "public",
+        "x": 1775.5869140625,
+        "y": 12
+      },
+      {
+        "name": "student_education",
+        "schemaName": "public",
+        "x": 1136.7333984375,
+        "y": 709
+      },
+      {
+        "name": "student_experience",
+        "schemaName": "public",
+        "x": 1136.7333984375,
+        "y": 1107
+      },
+      {
+        "name": "student_projects",
+        "schemaName": "public",
+        "x": 1136.7333984375,
+        "y": 1537
+      },
+      {
+        "name": "project_tech_stack",
+        "schemaName": "public",
+        "x": 1775.5869140625,
+        "y": 777
+      },
+      {
+        "name": "companies",
+        "schemaName": "public",
+        "x": 12,
+        "y": 12
+      },
+      {
+        "name": "jobs",
+        "schemaName": "public",
+        "x": 1775.5869140625,
+        "y": 973
+      },
+      {
+        "name": "placement_drives",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 95
+      },
+      {
+        "name": "job_eligible_departments",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 461
+      },
+      {
+        "name": "job_eligible_degrees",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 635
+      },
+      {
+        "name": "job_responsibilities",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 809
+      },
+      {
+        "name": "job_requirements",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 1015
+      },
+      {
+        "name": "job_perks",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 1221
+      },
+      {
+        "name": "job_selection_rounds",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 1395
+      },
+      {
+        "name": "job_applications",
+        "schemaName": "public",
+        "x": 3025.6630859375,
+        "y": 53
+      },
+      {
+        "name": "application_timeline",
+        "schemaName": "public",
+        "x": 3662.25341796875,
+        "y": 12
+      },
+      {
+        "name": "saved_jobs",
+        "schemaName": "public",
+        "x": 2396.01318359375,
+        "y": 1666
+      },
+      {
+        "name": "notifications",
+        "schemaName": "public",
+        "x": 3025.6630859375,
+        "y": 580
+      },
+      {
+        "name": "notification_recipients",
+        "schemaName": "public",
+        "x": 3662.25341796875,
+        "y": 378
+      },
+      {
+        "name": "notification_attachments",
+        "schemaName": "public",
+        "x": 3662.25341796875,
+        "y": 680
+      }
+    ],
     "tableGroupCollapseStates": [],
     "stickyNoteLayouts": [],
-    "referencePaths": []
+    "referencePaths": [
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "users",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "admin_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "student_profiles",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "placed_company_id"
+        ],
+        "firstTableName": "student_profiles",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "companies",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "student_skills",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "student_documents",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "verified_by"
+        ],
+        "firstTableName": "student_documents",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "student_education",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "student_experience",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "student_projects",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "project_id"
+        ],
+        "firstTableName": "project_tech_stack",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_projects",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "company_id"
+        ],
+        "firstTableName": "jobs",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "companies",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "posted_by"
+        ],
+        "firstTableName": "jobs",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "placement_drives",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_eligible_departments",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_eligible_degrees",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_responsibilities",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_requirements",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_perks",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_selection_rounds",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "job_applications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "job_applications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "current_round_id"
+        ],
+        "firstTableName": "job_applications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "job_selection_rounds",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "reviewed_by"
+        ],
+        "firstTableName": "job_applications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "application_id"
+        ],
+        "firstTableName": "application_timeline",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "job_applications",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "updated_by"
+        ],
+        "firstTableName": "application_timeline",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "student_id"
+        ],
+        "firstTableName": "saved_jobs",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "student_profiles",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "job_id"
+        ],
+        "firstTableName": "saved_jobs",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "created_by"
+        ],
+        "firstTableName": "notifications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "related_job_id"
+        ],
+        "firstTableName": "notifications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "jobs",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "related_drive_id"
+        ],
+        "firstTableName": "notifications",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "placement_drives",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "notification_id"
+        ],
+        "firstTableName": "notification_recipients",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "notifications",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "notification_recipients",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "users",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "notification_id"
+        ],
+        "firstTableName": "notification_attachments",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id"
+        ],
+        "secondTableName": "notifications",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      }
+    ]
   },
   "views": {}
 }
