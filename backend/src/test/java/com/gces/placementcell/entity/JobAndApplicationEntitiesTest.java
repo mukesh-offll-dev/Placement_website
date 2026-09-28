@@ -11,11 +11,12 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("Job and Application Module Entities Test")
+@DisplayName("Placement Cell Entity and Relationship Unit Tests")
 class JobAndApplicationEntitiesTest {
 
     private static Validator validator;
@@ -28,17 +29,21 @@ class JobAndApplicationEntitiesTest {
     }
 
     @Test
-    @DisplayName("Should create and validate Job entity with default values and helpers")
+    @DisplayName("Should create and validate Job entity with default values, company relationship, and helpers")
     void testJobEntityCreationAndHelpers() {
+        Company google = Company.builder()
+                .id(1L)
+                .name("Google")
+                .industry("Technology")
+                .build();
+
         Job job = Job.builder()
                 .title("Software Development Engineer")
-                .company("Google")
+                .company(google)
                 .description("Build scalable distributed systems.")
                 .location("Bangalore")
                 .salary("24 LPA")
                 .employmentType(EmploymentType.FULL_TIME)
-                .skills("Java, Spring Boot, Microservices")
-                .requirements("B.E/B.Tech in CSE/IT, CGPA >= 8.0")
                 .numberOfOpenings(10)
                 .applicationDeadline(LocalDate.now().plusMonths(1))
                 .status(JobStatus.ACTIVE)
@@ -49,7 +54,8 @@ class JobAndApplicationEntitiesTest {
         assertEquals("Software Development Engineer", job.getTitle());
         assertEquals("Software Development Engineer", job.getRole());
         assertEquals("Software Development Engineer", job.getJobRole());
-        assertEquals("Google", job.getCompany());
+        assertEquals(google, job.getCompany());
+        assertEquals("Google", job.getCompanyName());
         assertEquals("24 LPA", job.getSalary());
         assertEquals("24 LPA", job.getPackage());
         assertEquals(10, job.getNumberOfOpenings());
@@ -85,10 +91,15 @@ class JobAndApplicationEntitiesTest {
                 .rollNo("220CSE001")
                 .build();
 
+        Company amazon = Company.builder()
+                .id(2L)
+                .name("Amazon")
+                .build();
+
         Job job = Job.builder()
                 .id(100L)
                 .title("Data Analyst")
-                .company("Amazon")
+                .company(amazon)
                 .applicationDeadline(LocalDate.now().plusWeeks(2))
                 .build();
 
@@ -153,7 +164,7 @@ class JobAndApplicationEntitiesTest {
         assertEquals("Scheduled for next Tuesday 10:00 AM", timeline.getRemarks());
         assertEquals("Scheduled for next Tuesday 10:00 AM", timeline.getComment());
         assertEquals(admin, timeline.getChangedBy());
-        assertEquals(3, timeline.getDisplayOrder());
+        assertEquals((short) 3, (short) timeline.getDisplayOrder());
         assertNotNull(timeline.getChangedAt());
         assertEquals(1, application.getTimeline().size());
 
@@ -171,7 +182,8 @@ class JobAndApplicationEntitiesTest {
                 .role(UserRole.STUDENT)
                 .build();
 
-        Job job = Job.builder().id(300L).title("Cloud Engineer").company("Microsoft").build();
+        Company msft = Company.builder().id(3L).name("Microsoft").build();
+        Job job = Job.builder().id(300L).title("Cloud Engineer").company(msft).build();
         JobApplication application = JobApplication.builder().id(400L).build();
 
         Notification notification = Notification.builder()
@@ -202,5 +214,48 @@ class JobAndApplicationEntitiesTest {
 
         Set<ConstraintViolation<Notification>> violations = validator.validate(notification);
         assertTrue(violations.isEmpty(), "Notification entity should have no constraint violations");
+    }
+
+    @Test
+    @DisplayName("Should validate PlacementDrive, AdminProfile, and SavedJob entities")
+    void testAdditionalEntities() {
+        User adminUser = User.builder()
+                .id(5L)
+                .email("po@gces.edu")
+                .passwordHash("hashed")
+                .role(UserRole.PLACEMENT_OFFICER)
+                .build();
+
+        AdminProfile adminProfile = AdminProfile.builder()
+                .user(adminUser)
+                .name("Dr. S. Kumar")
+                .designation("Placement Officer")
+                .department("Training & Placement")
+                .contactEmail("placement@gces.edu")
+                .build();
+
+        Set<ConstraintViolation<AdminProfile>> adminViolations = validator.validate(adminProfile);
+        assertTrue(adminViolations.isEmpty(), "AdminProfile should have no constraint violations");
+
+        Company comp = Company.builder().id(10L).name("TCS").build();
+        Job job = Job.builder().id(50L).jobRole("System Engineer").company(comp).applicationDeadline(LocalDate.now().plusDays(10)).build();
+
+        PlacementDrive drive = PlacementDrive.builder()
+                .job(job)
+                .driveDate(LocalDate.now().plusDays(5))
+                .driveTime(LocalTime.of(10, 0))
+                .venue("Auditorium A")
+                .mode(DriveMode.OFFLINE)
+                .status(DriveStatus.SCHEDULED)
+                .build();
+
+        Set<ConstraintViolation<PlacementDrive>> driveViolations = validator.validate(drive);
+        assertTrue(driveViolations.isEmpty(), "PlacementDrive should have no constraint violations");
+
+        StudentProfile student = StudentProfile.builder().id(20L).fullName("Jane Doe").email("jane@gces.edu").build();
+        SavedJob savedJob = SavedJob.builder().studentProfile(student).job(job).build();
+
+        Set<ConstraintViolation<SavedJob>> savedJobViolations = validator.validate(savedJob);
+        assertTrue(savedJobViolations.isEmpty(), "SavedJob should have no constraint violations");
     }
 }

@@ -1,5 +1,7 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -8,6 +10,8 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Entity representing Student Profile storing personal, academic, contact, resume, and placement details.
@@ -37,6 +41,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"user", "placedCompany", "skills", "documents", "education", "experience", "projects", "applications", "savedJobs"})
 @EqualsAndHashCode(of = "id")
 public class StudentProfile {
 
@@ -47,6 +52,7 @@ public class StudentProfile {
     @NotNull(message = "User reference is required")
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true, foreignKey = @ForeignKey(name = "fk_student_profiles_user"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User user;
 
     @Size(max = 20, message = "Roll number cannot exceed 20 characters")
@@ -134,8 +140,13 @@ public class StudentProfile {
     @Column(name = "is_open_to_opportunities", nullable = false)
     private Boolean isOpenToOpportunities = true;
 
-    @Column(name = "placed_company_id")
-    private Long placedCompanyId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "placed_company_id",
+        foreignKey = @ForeignKey(name = "fk_student_profiles_placed_company")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Company placedCompany;
 
     @DecimalMin(value = "0.00", message = "Placed CTC cannot be negative")
     @Column(name = "placed_ctc", precision = 12, scale = 2)
@@ -155,6 +166,42 @@ public class StudentProfile {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // -- Bidirectional collections
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentSkill> skills = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentDocument> documents = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentEducation> education = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentExperience> experience = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentProject> projects = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobApplication> applications = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<SavedJob> savedJobs = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
@@ -185,5 +232,18 @@ public class StudentProfile {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // Helper convenience methods
+    public Long getPlacedCompanyId() {
+        return this.placedCompany != null ? this.placedCompany.getId() : null;
+    }
+
+    public void setPlacedCompanyId(Long placedCompanyId) {
+        if (placedCompanyId != null) {
+            this.placedCompany = Company.builder().id(placedCompanyId).build();
+        } else {
+            this.placedCompany = null;
+        }
     }
 }
