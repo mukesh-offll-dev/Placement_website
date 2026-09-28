@@ -164,6 +164,15 @@ public class Notification {
         if (this.notificationType == null) {
             this.notificationType = NotificationType.GENERAL;
         }
+        if (this.priority == null) {
+            this.priority = NotificationPriority.NORMAL;
+        }
+        if (this.status == null) {
+            this.status = NotificationStatus.DRAFT;
+        }
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
     }
 
     @PreUpdate

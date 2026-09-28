@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -63,8 +64,7 @@ public class ApplicationTimeline {
     @Column(name = "status", nullable = false, length = 50)
     private TimelineStatus status;
 
-    @NotNull(message = "Display order is required")
-    @Min(value = 1, message = "Display order must be greater than zero")
+    @Positive(message = "Display order must be greater than zero")
     @Builder.Default
     @Column(name = "display_order", nullable = false)
     private Short displayOrder = 1;
@@ -74,11 +74,7 @@ public class ApplicationTimeline {
     private String remarks;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-        name = "updated_by",
-        foreignKey = @ForeignKey(name = "fk_timeline_updater")
-    )
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JoinColumn(name = "updated_by")
     private User updatedBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -91,69 +87,6 @@ public class ApplicationTimeline {
         }
         if (this.displayOrder == null) {
             this.displayOrder = 1;
-        }
-    }
-
-    // Helper convenience methods & backward-compatibility aliases
-    public String getStage() {
-        return stageLabel;
-    }
-
-    public void setStage(String stage) {
-        this.stageLabel = stage;
-    }
-
-    public String getComment() {
-        return remarks;
-    }
-
-    public void setComment(String comment) {
-        this.remarks = comment;
-    }
-
-    public User getChangedBy() {
-        return updatedBy;
-    }
-
-    public void setChangedBy(User changedBy) {
-        this.updatedBy = changedBy;
-    }
-
-    public LocalDateTime getChangedAt() {
-        return createdAt;
-    }
-
-    public void setChangedAt(LocalDateTime changedAt) {
-        this.createdAt = changedAt;
-    }
-
-    // Custom builder helpers
-    public static class ApplicationTimelineBuilder {
-        public ApplicationTimelineBuilder stage(String stage) {
-            this.stageLabel = stage;
-            return this;
-        }
-
-        public ApplicationTimelineBuilder displayOrder(Integer order) {
-            this.displayOrder$value = order != null ? order.shortValue() : 1;
-            this.displayOrder$set = true;
-            return this;
-        }
-
-        public ApplicationTimelineBuilder displayOrder(Short order) {
-            this.displayOrder$value = order;
-            this.displayOrder$set = true;
-            return this;
-        }
-
-        public ApplicationTimelineBuilder changedBy(User user) {
-            this.updatedBy = user;
-            return this;
-        }
-
-        public ApplicationTimelineBuilder changedAt(LocalDateTime time) {
-            this.createdAt = time;
-            return this;
         }
     }
 }

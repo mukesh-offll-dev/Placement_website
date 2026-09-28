@@ -281,7 +281,10 @@ public class Job {
     }
 
     public boolean isOpen() {
-        return JobStatus.ACTIVE.equals(this.status) && !isExpired() && !Boolean.TRUE.equals(this.isDeleted);
+        return JobStatus.ACTIVE.equals(this.status)
+                && Boolean.TRUE.equals(this.isActive)
+                && !isExpired()
+                && !Boolean.TRUE.equals(this.isDeleted);
     }
 
     // Custom builder helpers for backward compatibility

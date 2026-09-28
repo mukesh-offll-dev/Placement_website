@@ -13,6 +13,9 @@ import java.util.List;
 
 /**
  * Spring Data JPA Repository for Notification entity.
+ *
+ * Per-user read state is not here: a notification is a broadcast, so
+ * "my notifications" and unread counts come from NotificationRecipientRepository.
  */
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
