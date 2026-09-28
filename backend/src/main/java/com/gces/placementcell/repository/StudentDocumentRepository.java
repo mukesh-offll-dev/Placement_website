@@ -20,7 +20,7 @@ public interface StudentDocumentRepository extends JpaRepository<StudentDocument
 
     List<StudentDocument> findByStatus(VerificationStatus status);
 
-    long countByStudentProfileIdAndStatus(Long studentProfileId, VerificationStatus status);
+    List<StudentDocument> findByVerifiedById(Long verifierId);
 
     void deleteByStudentProfileId(Long studentProfileId);
 }

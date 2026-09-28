@@ -8,16 +8,16 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 /**
- * Entity representing listed requirements and qualifications for a job.
+ * Entity representing listed key job responsibilities.
  */
 @Entity
 @Table(
-    name = "job_requirements",
+    name = "job_responsibilities",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_job_requirement_order", columnNames = {"job_id", "display_order"})
+        @UniqueConstraint(name = "uq_job_responsibility_order", columnNames = {"job_id", "display_order"})
     },
     indexes = {
-        @Index(name = "uq_job_requirement_order", columnList = "job_id, display_order", unique = true)
+        @Index(name = "uq_job_responsibility_order", columnList = "job_id, display_order", unique = true)
     }
 )
 @Getter
@@ -27,7 +27,7 @@ import lombok.*;
 @Builder
 @ToString(exclude = {"job"})
 @EqualsAndHashCode(of = "id")
-public class JobRequirement {
+public class JobResponsibility {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,15 +38,15 @@ public class JobRequirement {
     @JoinColumn(
         name = "job_id",
         nullable = false,
-        foreignKey = @ForeignKey(name = "fk_job_req_job")
+        foreignKey = @ForeignKey(name = "fk_job_resp_job")
     )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Job job;
 
-    @NotBlank(message = "Requirement text is required")
-    @Size(max = 300, message = "Requirement cannot exceed 300 characters")
-    @Column(name = "requirement", nullable = false, length = 300)
-    private String requirement;
+    @NotBlank(message = "Responsibility text is required")
+    @Size(max = 300, message = "Responsibility cannot exceed 300 characters")
+    @Column(name = "responsibility", nullable = false, length = 300)
+    private String responsibility;
 
     @Builder.Default
     @Column(name = "display_order", nullable = false)

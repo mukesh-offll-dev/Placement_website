@@ -19,7 +19,5 @@ public interface StudentSkillRepository extends JpaRepository<StudentSkill, Long
 
     boolean existsByStudentProfileIdAndSkillName(Long studentProfileId, String skillName);
 
-    List<StudentSkill> findBySkillNameIgnoreCase(String skillName);
-
     void deleteByStudentProfileId(Long studentProfileId);
 }

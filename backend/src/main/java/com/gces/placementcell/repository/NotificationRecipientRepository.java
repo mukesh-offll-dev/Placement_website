@@ -15,11 +15,11 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
 
     List<NotificationRecipient> findByUserIdOrderByCreatedAtDesc(Long userId);
 
-    List<NotificationRecipient> findByUserIdAndIsRead(Long userId, Boolean isRead);
-
-    long countByUserIdAndIsRead(Long userId, Boolean isRead);
+    List<NotificationRecipient> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(Long userId);
 
     Optional<NotificationRecipient> findByNotificationIdAndUserId(Long notificationId, Long userId);
 
-    void deleteByNotificationId(Long notificationId);
+    long countByUserIdAndIsReadFalse(Long userId);
+
+    List<NotificationRecipient> findByNotificationId(Long notificationId);
 }

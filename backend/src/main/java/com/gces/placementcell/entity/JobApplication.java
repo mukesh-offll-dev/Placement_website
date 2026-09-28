@@ -1,5 +1,7 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.ApplicationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -20,6 +22,7 @@ import java.util.List;
         @UniqueConstraint(name = "uq_application_job_student", columnNames = {"job_id", "student_id"})
     },
     indexes = {
+        @Index(name = "uq_application_job_student", columnList = "job_id, student_id", unique = true),
         @Index(name = "idx_app_student", columnList = "student_id"),
         @Index(name = "idx_app_job", columnList = "job_id"),
         @Index(name = "idx_app_status", columnList = "status"),
@@ -33,7 +36,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"timeline"})
+@ToString(exclude = {"job", "studentProfile", "currentRound", "reviewedBy", "timeline"})
 @EqualsAndHashCode(of = "id")
 public class JobApplication {
 
@@ -46,8 +49,9 @@ public class JobApplication {
     @JoinColumn(
         name = "job_id",
         nullable = false,
-        foreignKey = @ForeignKey(name = "fk_job_applications_job")
+        foreignKey = @ForeignKey(name = "fk_job_app_job")
     )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Job job;
 
     @NotNull(message = "Student profile reference is required")
@@ -55,15 +59,13 @@ public class JobApplication {
     @JoinColumn(
         name = "student_id",
         nullable = false,
-        foreignKey = @ForeignKey(name = "fk_job_applications_student")
+        foreignKey = @ForeignKey(name = "fk_job_app_student")
     )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private StudentProfile studentProfile;
 
-    @NotNull(message = "Application status is required")
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    @Column(name = "status", nullable = false, length = 50)
-    private ApplicationStatus status = ApplicationStatus.APPLIED;
+    @Column(name = "applied_on", nullable = false)
+    private LocalDateTime appliedOn;
 
     @Size(max = 4000, message = "Cover letter cannot exceed 4000 characters")
     @Column(name = "cover_letter", length = 4000)
@@ -77,23 +79,35 @@ public class JobApplication {
     @Column(name = "consent_given", nullable = false)
     private Boolean consentGiven = false;
 
+    @NotNull(message = "Application status is required")
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(name = "status", nullable = false, length = 50)
+    private ApplicationStatus status = ApplicationStatus.APPLIED;
+
     @Size(max = 80, message = "Current stage label cannot exceed 80 characters")
     @Column(name = "current_stage", length = 80)
     private String currentStage;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
-        name = "reviewed_by",
-        foreignKey = @ForeignKey(name = "fk_job_applications_reviewed_by")
+        name = "current_round_id",
+        foreignKey = @ForeignKey(name = "fk_job_app_round")
     )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private JobSelectionRound currentRound;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "reviewed_by",
+        foreignKey = @ForeignKey(name = "fk_job_app_reviewer")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User reviewedBy;
 
     @Size(max = 255, message = "Remarks cannot exceed 255 characters")
     @Column(name = "remarks", length = 255)
     private String remarks;
-
-    @Column(name = "applied_on", nullable = false)
-    private LocalDateTime appliedOn;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -103,6 +117,7 @@ public class JobApplication {
 
     @OneToMany(mappedBy = "jobApplication", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<ApplicationTimeline> timeline = new ArrayList<>();
 
     @PrePersist
@@ -131,6 +146,35 @@ public class JobApplication {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // Helper convenience methods
+    public StudentProfile getStudent() {
+        return this.studentProfile;
+    }
+
+    public void setStudent(StudentProfile student) {
+        this.studentProfile = student;
+    }
+
+    public StudentProfile getApplicant() {
+        return this.studentProfile;
+    }
+
+    public void setApplicant(StudentProfile applicant) {
+        this.studentProfile = applicant;
+    }
+
+    public User getApplicantUser() {
+        return this.studentProfile != null ? this.studentProfile.getUser() : null;
+    }
+
+    public LocalDateTime getAppliedAt() {
+        return this.appliedOn;
+    }
+
+    public void setAppliedAt(LocalDateTime appliedAt) {
+        this.appliedOn = appliedAt;
     }
 
     public void addTimeline(ApplicationTimeline entry) {

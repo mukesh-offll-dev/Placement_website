@@ -1,7 +1,9 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.TimelineStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -21,6 +23,7 @@ import java.time.LocalDateTime;
         @UniqueConstraint(name = "uq_timeline_order", columnNames = {"application_id", "display_order"})
     },
     indexes = {
+        @Index(name = "uq_timeline_order", columnList = "application_id, display_order", unique = true),
         @Index(name = "idx_timeline_application", columnList = "application_id"),
         @Index(name = "idx_timeline_status", columnList = "status")
     }
@@ -30,7 +33,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"jobApplication"})
+@ToString(exclude = {"jobApplication", "updatedBy"})
 @EqualsAndHashCode(of = "id")
 public class ApplicationTimeline {
 
@@ -39,8 +42,13 @@ public class ApplicationTimeline {
     private Long id;
 
     @NotNull(message = "Job application reference is required")
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "application_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_timeline_app")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private JobApplication jobApplication;
 
     @NotBlank(message = "Stage label is required")

@@ -1,14 +1,11 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.EmploymentType;
 import com.gces.placementcell.entity.enums.JobStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -19,6 +16,7 @@ import java.util.List;
 
 /**
  * Entity representing a Job posting created by placement cell admins or recruiters.
+ * Maps to table 'jobs' in the database schema.
  */
 @Entity
 @Table(
@@ -33,7 +31,8 @@ import java.util.List;
         @Index(name = "idx_jobs_type", columnList = "job_type"),
         @Index(name = "idx_jobs_posted_by", columnList = "posted_by"),
         @Index(name = "idx_jobs_status_deadline", columnList = "status, application_deadline"),
-        @Index(name = "idx_jobs_status_cgpa", columnList = "status, min_cgpa")
+        @Index(name = "idx_jobs_status_cgpa", columnList = "status, min_cgpa"),
+        @Index(name = "idx_jobs_created_at", columnList = "created_at")
     }
 )
 @Getter
@@ -41,7 +40,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"applications", "skills", "requirements"})
+@ToString(exclude = {"company", "postedBy", "placementDrives", "eligibleDepartments", "eligibleDegrees", "responsibilities", "requirements", "perks", "selectionRounds", "applications"})
 @EqualsAndHashCode(of = "id")
 public class Job {
 
@@ -49,9 +48,14 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "Company is required")
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "company_id", nullable = false)
+    @NotNull(message = "Company reference is required")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "company_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_jobs_company")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Company company;
 
     @NotBlank(message = "Job role is required")
@@ -77,19 +81,20 @@ public class Job {
     @Column(name = "ctc_text", length = 30)
     private String ctcText;
 
+    @DecimalMin(value = "0.00", message = "CTC value cannot be negative")
     @Column(name = "ctc_value", precision = 12, scale = 2)
     private BigDecimal ctcValue;
 
-    @Positive(message = "Vacancies must be greater than zero")
+    @Min(value = 1, message = "Vacancies must be greater than zero")
     @Column(name = "vacancies")
     private Integer vacancies;
 
-    @Size(max = 100, message = "Bond cannot exceed 100 characters")
+    @Size(max = 100, message = "Bond details cannot exceed 100 characters")
     @Column(name = "bond", length = 100)
     private String bond;
 
-    @DecimalMin(value = "0.00", message = "Minimum CGPA cannot be below 0")
-    @DecimalMax(value = "10.00", message = "Minimum CGPA cannot exceed 10")
+    @DecimalMin(value = "0.00", message = "Minimum CGPA cannot be negative")
+    @DecimalMax(value = "10.00", message = "Minimum CGPA cannot exceed 10.00")
     @Column(name = "min_cgpa", precision = 4, scale = 2)
     private BigDecimal minCgpa;
 
@@ -114,9 +119,12 @@ public class Job {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
-    @NotNull(message = "Posting user is required")
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "posted_by", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "posted_by",
+        foreignKey = @ForeignKey(name = "fk_jobs_poster")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User postedBy;
 
     @Column(name = "posted_date", nullable = false)
@@ -132,16 +140,45 @@ public class Job {
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
 
+    // -- Domain Relationships
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
-    private List<JobSkill> skills = new ArrayList<>();
+    @JsonIgnore
+    private List<PlacementDrive> placementDrives = new ArrayList<>();
 
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
+    private List<JobEligibleDepartment> eligibleDepartments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobEligibleDegree> eligibleDegrees = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobResponsibility> responsibilities = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
     private List<JobRequirement> requirements = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobPerk> perks = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobSelectionRound> selectionRounds = new ArrayList<>();
 
     @OneToMany(mappedBy = "job", fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<JobApplication> applications = new ArrayList<>();
 
     @PrePersist
@@ -178,14 +215,65 @@ public class Job {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void addSkill(JobSkill skill) {
-        skills.add(skill);
-        skill.setJob(this);
+    // -- Backward compatibility & alias methods
+    public String getTitle() {
+        return this.jobRole;
     }
 
-    public void addRequirement(JobRequirement requirement) {
-        requirements.add(requirement);
-        requirement.setJob(this);
+    public void setTitle(String title) {
+        this.jobRole = title;
+    }
+
+    public String getRole() {
+        return this.jobRole;
+    }
+
+    public void setRole(String role) {
+        this.jobRole = role;
+    }
+
+    public String getDescription() {
+        return this.jobDescription;
+    }
+
+    public void setDescription(String description) {
+        this.jobDescription = description;
+    }
+
+    public String getSalary() {
+        return this.ctcText;
+    }
+
+    public void setSalary(String salary) {
+        this.ctcText = salary;
+    }
+
+    public String getPackage() {
+        return this.ctcText;
+    }
+
+    public void setPackage(String salaryPackage) {
+        this.ctcText = salaryPackage;
+    }
+
+    public Integer getNumberOfOpenings() {
+        return this.vacancies;
+    }
+
+    public void setNumberOfOpenings(Integer openings) {
+        this.vacancies = openings;
+    }
+
+    public EmploymentType getEmploymentType() {
+        return this.jobType;
+    }
+
+    public void setEmploymentType(EmploymentType employmentType) {
+        this.jobType = employmentType;
+    }
+
+    public String getCompanyName() {
+        return this.company != null ? this.company.getName() : null;
     }
 
     public boolean isExpired() {
@@ -197,5 +285,34 @@ public class Job {
                 && Boolean.TRUE.equals(this.isActive)
                 && !isExpired()
                 && !Boolean.TRUE.equals(this.isDeleted);
+    }
+
+    // Custom builder helpers for backward compatibility
+    public static class JobBuilder {
+        public JobBuilder title(String title) {
+            this.jobRole = title;
+            return this;
+        }
+
+        public JobBuilder description(String description) {
+            this.jobDescription = description;
+            return this;
+        }
+
+        public JobBuilder salary(String salary) {
+            this.ctcText = salary;
+            return this;
+        }
+
+        public JobBuilder numberOfOpenings(Integer openings) {
+            this.vacancies = openings;
+            return this;
+        }
+
+        public JobBuilder employmentType(EmploymentType employmentType) {
+            this.jobType$value = employmentType;
+            this.jobType$set = true;
+            return this;
+        }
     }
 }

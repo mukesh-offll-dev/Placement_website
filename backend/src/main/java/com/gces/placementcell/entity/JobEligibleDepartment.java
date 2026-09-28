@@ -8,16 +8,17 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 /**
- * Entity representing listed requirements and qualifications for a job.
+ * Entity representing eligible academic departments for a job posting.
  */
 @Entity
 @Table(
-    name = "job_requirements",
+    name = "job_eligible_departments",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_job_requirement_order", columnNames = {"job_id", "display_order"})
+        @UniqueConstraint(name = "uq_job_eligible_department", columnNames = {"job_id", "department_code"})
     },
     indexes = {
-        @Index(name = "uq_job_requirement_order", columnList = "job_id, display_order", unique = true)
+        @Index(name = "uq_job_eligible_department", columnList = "job_id, department_code", unique = true),
+        @Index(name = "idx_job_elig_dept_code", columnList = "department_code")
     }
 )
 @Getter
@@ -27,7 +28,7 @@ import lombok.*;
 @Builder
 @ToString(exclude = {"job"})
 @EqualsAndHashCode(of = "id")
-public class JobRequirement {
+public class JobEligibleDepartment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,17 +39,13 @@ public class JobRequirement {
     @JoinColumn(
         name = "job_id",
         nullable = false,
-        foreignKey = @ForeignKey(name = "fk_job_req_job")
+        foreignKey = @ForeignKey(name = "fk_job_dept_job")
     )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Job job;
 
-    @NotBlank(message = "Requirement text is required")
-    @Size(max = 300, message = "Requirement cannot exceed 300 characters")
-    @Column(name = "requirement", nullable = false, length = 300)
-    private String requirement;
-
-    @Builder.Default
-    @Column(name = "display_order", nullable = false)
-    private Short displayOrder = 1;
+    @NotBlank(message = "Department code is required")
+    @Size(max = 10, message = "Department code cannot exceed 10 characters")
+    @Column(name = "department_code", nullable = false, length = 10)
+    private String departmentCode;
 }

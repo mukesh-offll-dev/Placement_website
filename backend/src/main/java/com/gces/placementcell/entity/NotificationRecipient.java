@@ -1,5 +1,6 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -7,17 +8,28 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Per-user delivery and read state for a notification. A notification row is the
- * broadcast; this table is who received it and whether they have read it.
+ * Entity representing recipient delivery and read status for notifications.
  */
 @Entity
-@Table(name = "notification_recipients")
+@Table(
+    name = "notification_recipients",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_notification_recipient", columnNames = {"notification_id", "user_id"})
+    },
+    indexes = {
+        @Index(name = "uq_notification_recipient", columnList = "notification_id, user_id", unique = true),
+        @Index(name = "idx_notification_recipients_user", columnList = "user_id"),
+        @Index(name = "idx_notification_recipients_read", columnList = "is_read"),
+        @Index(name = "idx_notification_recipients_notification", columnList = "notification_id"),
+        @Index(name = "idx_notification_recipients_user_read", columnList = "user_id, is_read")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"notification"})
+@ToString(exclude = {"notification", "user"})
 @EqualsAndHashCode(of = "id")
 public class NotificationRecipient {
 
@@ -27,12 +39,22 @@ public class NotificationRecipient {
 
     @NotNull(message = "Notification reference is required")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "notification_id", nullable = false)
+    @JoinColumn(
+        name = "notification_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_notif_recip_notif")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Notification notification;
 
-    @NotNull(message = "Recipient user reference is required")
+    @NotNull(message = "User reference is required")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(
+        name = "user_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_notif_recip_user")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User user;
 
     @Builder.Default

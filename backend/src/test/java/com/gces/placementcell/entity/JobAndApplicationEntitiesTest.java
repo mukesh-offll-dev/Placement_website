@@ -11,11 +11,13 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("Job and Application Module Entities Test")
+@DisplayName("Placement Cell Entity and Relationship Unit Tests")
 class JobAndApplicationEntitiesTest {
 
     private static Validator validator;
@@ -27,36 +29,23 @@ class JobAndApplicationEntitiesTest {
         }
     }
 
-    private User adminUser() {
-        return User.builder()
-                .id(2L)
-                .email("officer@gces.edu")
-                .passwordHash("hashed-pw")
-                .role(UserRole.PLACEMENT_OFFICER)
-                .accountStatus(AccountStatus.ACTIVE)
-                .build();
-    }
-
-    private Company googleCompany() {
-        return Company.builder()
+    @Test
+    @DisplayName("Should create and validate Job entity with default values, company relationship, and helpers")
+    void testJobEntityCreationAndHelpers() {
+        Company google = Company.builder()
                 .id(1L)
                 .name("Google")
-                .shortName("GO")
-                .logoColor("#1a73e8")
+                .industry("Technology")
                 .build();
-    }
 
-    private Job sampleJob() {
-        return Job.builder()
-                .company(googleCompany())
-                .jobRole("Software Development Engineer")
-                .jobDescription("Build scalable distributed systems.")
+        Job job = Job.builder()
+                .title("Software Development Engineer")
+                .company(google)
+                .description("Build scalable distributed systems.")
                 .location("Bangalore")
-                .ctcText("24 LPA")
-                .ctcValue(new BigDecimal("2400000.00"))
-                .jobType(EmploymentType.FULL_TIME)
-                .minCgpa(new BigDecimal("8.00"))
-                .vacancies(10)
+                .salary("24 LPA")
+                .employmentType(EmploymentType.FULL_TIME)
+                .numberOfOpenings(10)
                 .applicationDeadline(LocalDate.now().plusMonths(1))
                 .postedBy(adminUser())
                 .status(JobStatus.ACTIVE)
@@ -70,9 +59,11 @@ class JobAndApplicationEntitiesTest {
         job.onCreate();
 
         assertEquals("Software Development Engineer", job.getJobRole());
-        assertEquals("Google", job.getCompany().getName());
-        assertEquals("24 LPA", job.getCtcText());
-        assertEquals(new BigDecimal("2400000.00"), job.getCtcValue());
+        assertEquals(google, job.getCompany());
+        assertEquals("Google", job.getCompanyName());
+        assertEquals("24 LPA", job.getSalary());
+        assertEquals("24 LPA", job.getPackage());
+        assertEquals(10, job.getNumberOfOpenings());
         assertEquals(10, job.getVacancies());
         assertEquals(EmploymentType.FULL_TIME, job.getJobType());
         assertEquals(JobStatus.ACTIVE, job.getStatus());
@@ -145,6 +136,18 @@ class JobAndApplicationEntitiesTest {
                 .rollNo("220CSE001")
                 .build();
 
+        Company amazon = Company.builder()
+                .id(2L)
+                .name("Amazon")
+                .build();
+
+        Job job = Job.builder()
+                .id(100L)
+                .title("Data Analyst")
+                .company(amazon)
+                .applicationDeadline(LocalDate.now().plusWeeks(2))
+                .build();
+
         JobApplication application = JobApplication.builder()
                 .job(sampleJob())
                 .studentProfile(profile)
@@ -192,9 +195,11 @@ class JobAndApplicationEntitiesTest {
         assertEquals(application, timeline.getJobApplication());
         assertEquals("Technical Interview", timeline.getStageLabel());
         assertEquals(TimelineStatus.UPCOMING, timeline.getStatus());
-        assertEquals((short) 3, timeline.getDisplayOrder());
-        assertNotNull(timeline.getUpdatedBy());
-        assertNotNull(timeline.getCreatedAt());
+        assertEquals("Scheduled for next Tuesday 10:00 AM", timeline.getRemarks());
+        assertEquals("Scheduled for next Tuesday 10:00 AM", timeline.getComment());
+        assertEquals(admin, timeline.getChangedBy());
+        assertEquals((short) 3, (short) timeline.getDisplayOrder());
+        assertNotNull(timeline.getChangedAt());
         assertEquals(1, application.getTimeline().size());
 
         Set<ConstraintViolation<ApplicationTimeline>> violations = validator.validate(timeline);
@@ -210,6 +215,10 @@ class JobAndApplicationEntitiesTest {
                 .passwordHash("hashed-pw")
                 .role(UserRole.STUDENT)
                 .build();
+
+        Company msft = Company.builder().id(3L).name("Microsoft").build();
+        Job job = Job.builder().id(300L).title("Cloud Engineer").company(msft).build();
+        JobApplication application = JobApplication.builder().id(400L).build();
 
         Notification notification = Notification.builder()
                 .title("Application Shortlisted")
@@ -266,5 +275,48 @@ class JobAndApplicationEntitiesTest {
         Set<ConstraintViolation<Notification>> violations = validator.validate(notification);
         assertEquals(1, violations.size());
         assertEquals("targetAudience", violations.iterator().next().getPropertyPath().toString());
+    }
+
+    @Test
+    @DisplayName("Should validate PlacementDrive, AdminProfile, and SavedJob entities")
+    void testAdditionalEntities() {
+        User adminUser = User.builder()
+                .id(5L)
+                .email("po@gces.edu")
+                .passwordHash("hashed")
+                .role(UserRole.PLACEMENT_OFFICER)
+                .build();
+
+        AdminProfile adminProfile = AdminProfile.builder()
+                .user(adminUser)
+                .name("Dr. S. Kumar")
+                .designation("Placement Officer")
+                .department("Training & Placement")
+                .contactEmail("placement@gces.edu")
+                .build();
+
+        Set<ConstraintViolation<AdminProfile>> adminViolations = validator.validate(adminProfile);
+        assertTrue(adminViolations.isEmpty(), "AdminProfile should have no constraint violations");
+
+        Company comp = Company.builder().id(10L).name("TCS").build();
+        Job job = Job.builder().id(50L).jobRole("System Engineer").company(comp).applicationDeadline(LocalDate.now().plusDays(10)).build();
+
+        PlacementDrive drive = PlacementDrive.builder()
+                .job(job)
+                .driveDate(LocalDate.now().plusDays(5))
+                .driveTime(LocalTime.of(10, 0))
+                .venue("Auditorium A")
+                .mode(DriveMode.OFFLINE)
+                .status(DriveStatus.SCHEDULED)
+                .build();
+
+        Set<ConstraintViolation<PlacementDrive>> driveViolations = validator.validate(drive);
+        assertTrue(driveViolations.isEmpty(), "PlacementDrive should have no constraint violations");
+
+        StudentProfile student = StudentProfile.builder().id(20L).fullName("Jane Doe").email("jane@gces.edu").build();
+        SavedJob savedJob = SavedJob.builder().studentProfile(student).job(job).build();
+
+        Set<ConstraintViolation<SavedJob>> savedJobViolations = validator.validate(savedJob);
+        assertTrue(savedJobViolations.isEmpty(), "SavedJob should have no constraint violations");
     }
 }

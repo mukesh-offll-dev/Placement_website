@@ -1,9 +1,11 @@
 package com.gces.placementcell.entity;
 
-import com.gces.placementcell.entity.enums.NotificationAudience;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.NotificationPriority;
 import com.gces.placementcell.entity.enums.NotificationStatus;
 import com.gces.placementcell.entity.enums.NotificationType;
+import com.gces.placementcell.entity.enums.TargetAudience;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,8 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A notification published by an administrator. This row is the broadcast itself;
- * per-user delivery and read state live in {@link NotificationRecipient}.
+ * Entity representing placement announcements, notices, and system alerts.
+ * Maps to table 'notifications'. Individual recipients are stored in 'notification_recipients'.
  */
 @Entity
 @Table(
@@ -36,7 +38,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"recipients"})
+@ToString(exclude = {"createdBy", "relatedJob", "relatedDrive", "recipients", "attachments"})
 @EqualsAndHashCode(of = "id")
 public class Notification {
 
@@ -68,20 +70,33 @@ public class Notification {
 
     @NotNull(message = "Target audience is required")
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     @Column(name = "target_audience", nullable = false, length = 50)
-    private NotificationAudience targetAudience;
+    private TargetAudience targetAudience = TargetAudience.ALL;
 
-    @NotNull(message = "Creating user is required")
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "created_by", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "created_by",
+        foreignKey = @ForeignKey(name = "fk_notifications_creator")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User createdBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "related_job_id")
+    @JoinColumn(
+        name = "related_job_id",
+        foreignKey = @ForeignKey(name = "fk_notifications_job")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Job relatedJob;
 
-    @Column(name = "related_drive_id")
-    private Long relatedDriveId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "related_drive_id",
+        foreignKey = @ForeignKey(name = "fk_notifications_drive")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private PlacementDrive relatedDrive;
 
     @NotNull(message = "Status is required")
     @Enumerated(EnumType.STRING)
@@ -113,7 +128,17 @@ public class Notification {
 
     @OneToMany(mappedBy = "notification", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private List<NotificationRecipient> recipients = new ArrayList<>();
+
+    @OneToMany(mappedBy = "notification", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<NotificationAttachment> attachments = new ArrayList<>();
+
+    // Backward-compatibility transient reference
+    @Transient
+    private JobApplication jobApplication;
 
     @PrePersist
     protected void onCreate() {
@@ -123,6 +148,18 @@ public class Notification {
         }
         if (this.updatedAt == null) {
             this.updatedAt = now;
+        }
+        if (this.priority == null) {
+            this.priority = NotificationPriority.NORMAL;
+        }
+        if (this.targetAudience == null) {
+            this.targetAudience = TargetAudience.ALL;
+        }
+        if (this.status == null) {
+            this.status = NotificationStatus.DRAFT;
+        }
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
         }
         if (this.notificationType == null) {
             this.notificationType = NotificationType.GENERAL;
@@ -143,8 +180,122 @@ public class Notification {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void addRecipient(NotificationRecipient recipient) {
-        recipients.add(recipient);
-        recipient.setNotification(this);
+    // Helper methods for recipients
+    public void addRecipient(User user) {
+        NotificationRecipient recipient = NotificationRecipient.builder()
+                .notification(this)
+                .user(user)
+                .isRead(false)
+                .build();
+        this.recipients.add(recipient);
+    }
+
+    public void addAttachment(String fileName, String fileUrl, String fileType, Long fileSize) {
+        NotificationAttachment attachment = NotificationAttachment.builder()
+                .notification(this)
+                .fileName(fileName)
+                .fileUrl(fileUrl)
+                .fileType(fileType)
+                .fileSize(fileSize)
+                .build();
+        this.attachments.add(attachment);
+    }
+
+    // Convenience & backward-compatibility aliases
+    public Job getJob() {
+        return relatedJob;
+    }
+
+    public void setJob(Job job) {
+        this.relatedJob = job;
+    }
+
+    public JobApplication getApplication() {
+        return jobApplication;
+    }
+
+    public void setApplication(JobApplication application) {
+        this.jobApplication = application;
+    }
+
+    public User getRecipient() {
+        return !recipients.isEmpty() ? recipients.get(0).getUser() : null;
+    }
+
+    public User getUser() {
+        return getRecipient();
+    }
+
+    public void setUser(User user) {
+        if (!recipients.isEmpty()) {
+            recipients.get(0).setUser(user);
+        } else {
+            addRecipient(user);
+        }
+    }
+
+    public Boolean getIsRead() {
+        return !recipients.isEmpty() ? recipients.get(0).getIsRead() : false;
+    }
+
+    public LocalDateTime getReadAt() {
+        return !recipients.isEmpty() ? recipients.get(0).getReadAt() : null;
+    }
+
+    public void markAsRead() {
+        if (!recipients.isEmpty()) {
+            recipients.get(0).markAsRead();
+        }
+    }
+
+    // Custom builder helpers for backward compatibility
+    public static class NotificationBuilder {
+        private User singleRecipient;
+        private JobApplication singleApplication;
+        private Job singleJob;
+
+        public NotificationBuilder recipient(User user) {
+            this.singleRecipient = user;
+            return this;
+        }
+
+        public NotificationBuilder job(Job job) {
+            this.singleJob = job;
+            return this;
+        }
+
+        public NotificationBuilder jobApplication(JobApplication application) {
+            this.singleApplication = application;
+            return this;
+        }
+
+        public Notification build() {
+            Notification notification = new Notification();
+            notification.id = this.id;
+            notification.title = this.title;
+            notification.message = this.message;
+            notification.notificationType = this.notificationType$set ? this.notificationType$value : NotificationType.GENERAL;
+            notification.priority = this.priority$set ? this.priority$value : NotificationPriority.NORMAL;
+            notification.targetAudience = this.targetAudience$set ? this.targetAudience$value : TargetAudience.ALL;
+            notification.createdBy = this.createdBy;
+            notification.relatedJob = this.relatedJob != null ? this.relatedJob : this.singleJob;
+            notification.relatedDrive = this.relatedDrive;
+            notification.status = this.status$set ? this.status$value : NotificationStatus.DRAFT;
+            notification.scheduledAt = this.scheduledAt;
+            notification.publishedAt = this.publishedAt;
+            notification.expiresAt = this.expiresAt;
+            notification.createdAt = this.createdAt;
+            notification.updatedAt = this.updatedAt;
+            notification.deletedAt = this.deletedAt;
+            notification.isDeleted = this.isDeleted$set ? this.isDeleted$value : false;
+            notification.recipients = this.recipients$set ? this.recipients$value : new ArrayList<>();
+            notification.attachments = this.attachments$set ? this.attachments$value : new ArrayList<>();
+            notification.jobApplication = this.singleApplication;
+
+            if (this.singleRecipient != null) {
+                notification.addRecipient(this.singleRecipient);
+            }
+            return notification;
+        }
     }
 }
