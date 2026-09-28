@@ -1,5 +1,6 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.gces.placementcell.entity.enums.AccountStatus;
 import com.gces.placementcell.entity.enums.UserRole;
 import jakarta.persistence.*;
@@ -34,7 +35,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = "passwordHash")
+@ToString(exclude = {"passwordHash", "studentProfile", "adminProfile"})
 @EqualsAndHashCode(of = "id")
 public class User {
 
@@ -84,6 +85,14 @@ public class User {
     @Builder.Default
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private StudentProfile studentProfile;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private AdminProfile adminProfile;
 
     @PrePersist
     protected void onCreate() {

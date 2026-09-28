@@ -1,5 +1,7 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.gces.placementcell.entity.enums.SkillProficiency;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,6 +28,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"studentProfile"})
 @EqualsAndHashCode(of = "id")
 public class StudentSkill {
 
@@ -36,6 +39,7 @@ public class StudentSkill {
     @NotNull(message = "Student profile reference is required")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false, foreignKey = @ForeignKey(name = "fk_student_skills_student"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private StudentProfile studentProfile;
 
     @NotBlank(message = "Skill name is required")
@@ -43,7 +47,16 @@ public class StudentSkill {
     @Column(name = "skill_name", nullable = false, length = 60)
     private String skillName;
 
-    @Size(max = 20, message = "Proficiency cannot exceed 20 characters")
+    @Enumerated(EnumType.STRING)
     @Column(name = "proficiency", length = 20)
-    private String proficiency;
+    private SkillProficiency proficiency;
+
+    // String convenience methods
+    public String getProficiencyValue() {
+        return proficiency != null ? proficiency.name() : null;
+    }
+
+    public void setProficiencyValue(String value) {
+        this.proficiency = value != null ? SkillProficiency.valueOf(value.toUpperCase()) : null;
+    }
 }
