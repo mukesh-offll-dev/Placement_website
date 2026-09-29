@@ -3,7 +3,6 @@ package com.gces.placementcell.entity;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.TimelineStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
