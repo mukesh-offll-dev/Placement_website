@@ -9,6 +9,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
+import { getUser, logout } from '../services/authService';
 
 const breadcrumbMap = {
   '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
@@ -26,6 +27,7 @@ export default function StudentLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const currentUser = getUser();
 
   // Compute breadcrumbs
   const getBreadcrumbs = () => {
@@ -102,16 +104,16 @@ export default function StudentLayout() {
               className="flex items-center gap-2.5 pl-2.5 py-1 px-2 rounded-xl hover:bg-gray-100/80 transition-colors"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                A
+                {currentUser?.fullName ? currentUser.fullName[0].toUpperCase() : 'S'}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-gray-900 leading-tight">Alex Harrison</p>
-                <p className="text-[10px] text-gray-500">B.E CSE · 7th Sem</p>
+                <p className="text-xs font-bold text-gray-900 leading-tight">{currentUser?.fullName || 'Student'}</p>
+                <p className="text-[10px] text-gray-500">{currentUser?.email || ''}</p>
               </div>
             </Link>
 
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => logout('/student/login')}
               title="Logout"
               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
             >
