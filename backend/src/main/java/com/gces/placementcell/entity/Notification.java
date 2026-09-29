@@ -74,9 +74,11 @@ public class Notification {
     @Column(name = "target_audience", nullable = false, length = 50)
     private TargetAudience targetAudience = TargetAudience.ALL;
 
+    @NotNull(message = "Creating user is required")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
         name = "created_by",
+        nullable = false,
         foreignKey = @ForeignKey(name = "fk_notifications_creator")
     )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -135,10 +137,6 @@ public class Notification {
     @Builder.Default
     @JsonIgnore
     private List<NotificationAttachment> attachments = new ArrayList<>();
-
-    // Backward-compatibility transient reference
-    @Transient
-    private JobApplication jobApplication;
 
     @PrePersist
     protected void onCreate() {
@@ -201,7 +199,7 @@ public class Notification {
         this.attachments.add(attachment);
     }
 
-    // Convenience & backward-compatibility aliases
+    // Convenience alias: the column is related_job_id, but "job" reads better at call sites.
     public Job getJob() {
         return relatedJob;
     }
@@ -210,92 +208,16 @@ public class Notification {
         this.relatedJob = job;
     }
 
-    public JobApplication getApplication() {
-        return jobApplication;
+    /**
+     * Per-recipient read state deliberately lives on {@link NotificationRecipient}, not here.
+     * A notification is a broadcast to many users, so "is it read?" has no single answer at
+     * this level — query notification_recipients for the user you care about instead.
+     */
+    public boolean isPublished() {
+        return NotificationStatus.PUBLISHED.equals(this.status);
     }
 
-    public void setApplication(JobApplication application) {
-        this.jobApplication = application;
-    }
-
-    public User getRecipient() {
-        return !recipients.isEmpty() ? recipients.get(0).getUser() : null;
-    }
-
-    public User getUser() {
-        return getRecipient();
-    }
-
-    public void setUser(User user) {
-        if (!recipients.isEmpty()) {
-            recipients.get(0).setUser(user);
-        } else {
-            addRecipient(user);
-        }
-    }
-
-    public Boolean getIsRead() {
-        return !recipients.isEmpty() ? recipients.get(0).getIsRead() : false;
-    }
-
-    public LocalDateTime getReadAt() {
-        return !recipients.isEmpty() ? recipients.get(0).getReadAt() : null;
-    }
-
-    public void markAsRead() {
-        if (!recipients.isEmpty()) {
-            recipients.get(0).markAsRead();
-        }
-    }
-
-    // Custom builder helpers for backward compatibility
-    public static class NotificationBuilder {
-        private User singleRecipient;
-        private JobApplication singleApplication;
-        private Job singleJob;
-
-        public NotificationBuilder recipient(User user) {
-            this.singleRecipient = user;
-            return this;
-        }
-
-        public NotificationBuilder job(Job job) {
-            this.singleJob = job;
-            return this;
-        }
-
-        public NotificationBuilder jobApplication(JobApplication application) {
-            this.singleApplication = application;
-            return this;
-        }
-
-        public Notification build() {
-            Notification notification = new Notification();
-            notification.id = this.id;
-            notification.title = this.title;
-            notification.message = this.message;
-            notification.notificationType = this.notificationType$set ? this.notificationType$value : NotificationType.GENERAL;
-            notification.priority = this.priority$set ? this.priority$value : NotificationPriority.NORMAL;
-            notification.targetAudience = this.targetAudience$set ? this.targetAudience$value : TargetAudience.ALL;
-            notification.createdBy = this.createdBy;
-            notification.relatedJob = this.relatedJob != null ? this.relatedJob : this.singleJob;
-            notification.relatedDrive = this.relatedDrive;
-            notification.status = this.status$set ? this.status$value : NotificationStatus.DRAFT;
-            notification.scheduledAt = this.scheduledAt;
-            notification.publishedAt = this.publishedAt;
-            notification.expiresAt = this.expiresAt;
-            notification.createdAt = this.createdAt;
-            notification.updatedAt = this.updatedAt;
-            notification.deletedAt = this.deletedAt;
-            notification.isDeleted = this.isDeleted$set ? this.isDeleted$value : false;
-            notification.recipients = this.recipients$set ? this.recipients$value : new ArrayList<>();
-            notification.attachments = this.attachments$set ? this.attachments$value : new ArrayList<>();
-            notification.jobApplication = this.singleApplication;
-
-            if (this.singleRecipient != null) {
-                notification.addRecipient(this.singleRecipient);
-            }
-            return notification;
-        }
+    public boolean isExpired() {
+        return this.expiresAt != null && this.expiresAt.isBefore(LocalDateTime.now());
     }
 }

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Set;
 
@@ -29,41 +28,55 @@ class JobAndApplicationEntitiesTest {
         }
     }
 
-    @Test
-    @DisplayName("Should create and validate Job entity with default values, company relationship, and helpers")
-    void testJobEntityCreationAndHelpers() {
-        Company google = Company.builder()
+    // -- Fixtures
+
+    private User adminUser() {
+        return User.builder()
+                .id(2L)
+                .email("officer@gces.edu")
+                .passwordHash("hashed-pw")
+                .role(UserRole.PLACEMENT_OFFICER)
+                .accountStatus(AccountStatus.ACTIVE)
+                .build();
+    }
+
+    private Company googleCompany() {
+        return Company.builder()
                 .id(1L)
                 .name("Google")
                 .industry("Technology")
                 .build();
+    }
 
-        Job job = Job.builder()
-                .title("Software Development Engineer")
-                .company(google)
-                .description("Build scalable distributed systems.")
+    private Job sampleJob() {
+        return Job.builder()
+                .company(googleCompany())
+                .jobRole("Software Development Engineer")
+                .jobDescription("Build scalable distributed systems.")
                 .location("Bangalore")
-                .salary("24 LPA")
-                .employmentType(EmploymentType.FULL_TIME)
-                .numberOfOpenings(10)
+                .ctcText("24 LPA")
+                .ctcValue(new BigDecimal("2400000.00"))
+                .jobType(EmploymentType.FULL_TIME)
+                .minCgpa(new BigDecimal("8.00"))
+                .vacancies(10)
                 .applicationDeadline(LocalDate.now().plusMonths(1))
                 .postedBy(adminUser())
                 .status(JobStatus.ACTIVE)
                 .build();
     }
 
+    // -- Job
+
     @Test
     @DisplayName("Job maps to the normalised jobs table and applies its defaults")
-    void testJobEntityCreationAndHelpers() {
+    void testJobEntityCreationAndDefaults() {
         Job job = sampleJob();
         job.onCreate();
 
         assertEquals("Software Development Engineer", job.getJobRole());
-        assertEquals(google, job.getCompany());
-        assertEquals("Google", job.getCompanyName());
-        assertEquals("24 LPA", job.getSalary());
-        assertEquals("24 LPA", job.getPackage());
-        assertEquals(10, job.getNumberOfOpenings());
+        assertEquals("Google", job.getCompany().getName());
+        assertEquals("24 LPA", job.getCtcText());
+        assertEquals(new BigDecimal("2400000.00"), job.getCtcValue());
         assertEquals(10, job.getVacancies());
         assertEquals(EmploymentType.FULL_TIME, job.getJobType());
         assertEquals(JobStatus.ACTIVE, job.getStatus());
@@ -84,6 +97,26 @@ class JobAndApplicationEntitiesTest {
 
         Set<ConstraintViolation<Job>> violations = validator.validate(job);
         assertTrue(violations.isEmpty(), "Job entity should have no constraint violations");
+    }
+
+    @Test
+    @DisplayName("Job alias accessors read through to the real columns")
+    void testJobAliasAccessors() {
+        Job job = sampleJob();
+
+        // These aliases exist for call-site convenience; they must not drift from the
+        // real fields, since only the real fields are persisted.
+        assertEquals(job.getJobRole(), job.getTitle());
+        assertEquals(job.getJobRole(), job.getRole());
+        assertEquals(job.getJobDescription(), job.getDescription());
+        assertEquals(job.getCtcText(), job.getSalary());
+        assertEquals(job.getCtcText(), job.getPackage());
+        assertEquals(job.getVacancies(), job.getNumberOfOpenings());
+        assertEquals(job.getJobType(), job.getEmploymentType());
+        assertEquals("Google", job.getCompanyName());
+
+        job.setTitle("Senior SDE");
+        assertEquals("Senior SDE", job.getJobRole());
     }
 
     @Test
@@ -112,10 +145,17 @@ class JobAndApplicationEntitiesTest {
 
         assertEquals(2, job.getSkills().size());
         assertEquals(1, job.getRequirements().size());
+        assertEquals("Java", job.getSkills().get(0).getSkillName());
+
+        // the helpers must set the owning side, or the FK would be null on insert
         assertSame(job, job.getSkills().get(0).getJob());
         assertSame(job, job.getRequirements().get(0).getJob());
-        assertEquals("Java", job.getSkills().get(0).getSkillName());
+
+        job.removeSkill(job.getSkills().get(0));
+        assertEquals(1, job.getSkills().size());
     }
+
+    // -- Applications
 
     @Test
     @DisplayName("JobApplication records consent and applied_on")
@@ -134,18 +174,6 @@ class JobAndApplicationEntitiesTest {
                 .fullName("Alex Harrison")
                 .email("student@gces.edu")
                 .rollNo("220CSE001")
-                .build();
-
-        Company amazon = Company.builder()
-                .id(2L)
-                .name("Amazon")
-                .build();
-
-        Job job = Job.builder()
-                .id(100L)
-                .title("Data Analyst")
-                .company(amazon)
-                .applicationDeadline(LocalDate.now().plusWeeks(2))
                 .build();
 
         JobApplication application = JobApplication.builder()
@@ -196,19 +224,20 @@ class JobAndApplicationEntitiesTest {
         assertEquals("Technical Interview", timeline.getStageLabel());
         assertEquals(TimelineStatus.UPCOMING, timeline.getStatus());
         assertEquals("Scheduled for next Tuesday 10:00 AM", timeline.getRemarks());
-        assertEquals("Scheduled for next Tuesday 10:00 AM", timeline.getComment());
-        assertEquals(admin, timeline.getChangedBy());
         assertEquals((short) 3, (short) timeline.getDisplayOrder());
-        assertNotNull(timeline.getChangedAt());
+        assertNotNull(timeline.getUpdatedBy());
+        assertNotNull(timeline.getCreatedAt());
         assertEquals(1, application.getTimeline().size());
 
         Set<ConstraintViolation<ApplicationTimeline>> violations = validator.validate(timeline);
         assertTrue(violations.isEmpty(), "ApplicationTimeline entity should have no constraint violations");
     }
 
+    // -- Notifications
+
     @Test
     @DisplayName("Notification is a broadcast; read state lives on NotificationRecipient")
-    void testNotificationCreationAndMarkAsRead() {
+    void testNotificationCreationAndRecipientReadState() {
         User student = User.builder()
                 .id(3L)
                 .email("student2@gces.edu")
@@ -216,15 +245,11 @@ class JobAndApplicationEntitiesTest {
                 .role(UserRole.STUDENT)
                 .build();
 
-        Company msft = Company.builder().id(3L).name("Microsoft").build();
-        Job job = Job.builder().id(300L).title("Cloud Engineer").company(msft).build();
-        JobApplication application = JobApplication.builder().id(400L).build();
-
         Notification notification = Notification.builder()
                 .title("Application Shortlisted")
-                .message("Congratulations! You have been shortlisted for Cloud Engineer at Microsoft.")
+                .message("Congratulations! You have been shortlisted for Cloud Engineer.")
                 .notificationType(NotificationType.APPLICATION)
-                .targetAudience(NotificationAudience.SPECIFIC_USERS)
+                .targetAudience(TargetAudience.SPECIFIC_USERS)
                 .createdBy(adminUser())
                 .relatedJob(sampleJob())
                 .build();
@@ -235,22 +260,23 @@ class JobAndApplicationEntitiesTest {
         assertEquals(NotificationType.APPLICATION, notification.getNotificationType());
         assertEquals(NotificationPriority.NORMAL, notification.getPriority());
         assertEquals(NotificationStatus.DRAFT, notification.getStatus());
-        assertEquals(NotificationAudience.SPECIFIC_USERS, notification.getTargetAudience());
+        assertEquals(TargetAudience.SPECIFIC_USERS, notification.getTargetAudience());
         assertNotNull(notification.getCreatedBy());
         assertFalse(notification.getIsDeleted());
         assertNotNull(notification.getCreatedAt());
+        assertSame(notification.getRelatedJob(), notification.getJob());
 
         Set<ConstraintViolation<Notification>> violations = validator.validate(notification);
         assertTrue(violations.isEmpty(), "Notification entity should have no constraint violations");
 
-        NotificationRecipient delivery = NotificationRecipient.builder()
-                .notification(notification)
-                .user(student)
-                .build();
-        delivery.onCreate();
-        notification.addRecipient(delivery);
-
+        // read state is per recipient, not per notification
+        notification.addRecipient(student);
         assertEquals(1, notification.getRecipients().size());
+
+        NotificationRecipient delivery = notification.getRecipients().get(0);
+        delivery.onCreate();
+        assertSame(notification, delivery.getNotification());
+        assertSame(student, delivery.getUser());
         assertFalse(delivery.getIsRead());
         assertNull(delivery.getReadAt());
 
@@ -263,8 +289,8 @@ class JobAndApplicationEntitiesTest {
     }
 
     @Test
-    @DisplayName("Notification requires a target audience, matching the NOT NULL column")
-    void testNotificationRequiresTargetAudience() {
+    @DisplayName("Notification defaults to the ALL audience when none is given")
+    void testNotificationDefaultsTargetAudience() {
         Notification notification = Notification.builder()
                 .title("Campus drive next week")
                 .message("Details to follow.")
@@ -272,10 +298,37 @@ class JobAndApplicationEntitiesTest {
                 .build();
         notification.onCreate();
 
+        assertEquals(TargetAudience.ALL, notification.getTargetAudience());
+        assertEquals(NotificationType.GENERAL, notification.getNotificationType());
+
         Set<ConstraintViolation<Notification>> violations = validator.validate(notification);
-        assertEquals(1, violations.size());
-        assertEquals("targetAudience", violations.iterator().next().getPropertyPath().toString());
+        assertTrue(violations.isEmpty(), "Defaults should satisfy the NOT NULL columns");
     }
+
+    @Test
+    @DisplayName("Marking one recipient read does not affect the other recipients")
+    void testRecipientReadStateIsIndependent() {
+        Notification notification = Notification.builder()
+                .title("Placement drive tomorrow")
+                .message("Reporting time 9:00 AM.")
+                .targetAudience(TargetAudience.STUDENTS)
+                .createdBy(adminUser())
+                .build();
+        notification.onCreate();
+
+        User first = User.builder().id(11L).email("a@gces.edu").passwordHash("h").role(UserRole.STUDENT).build();
+        User second = User.builder().id(12L).email("b@gces.edu").passwordHash("h").role(UserRole.STUDENT).build();
+        notification.addRecipient(first);
+        notification.addRecipient(second);
+
+        notification.getRecipients().get(0).markAsRead();
+
+        assertTrue(notification.getRecipients().get(0).getIsRead());
+        assertFalse(notification.getRecipients().get(1).getIsRead(),
+                "One student reading a broadcast must not mark it read for everyone else");
+    }
+
+    // -- Remaining entities
 
     @Test
     @DisplayName("Should validate PlacementDrive, AdminProfile, and SavedJob entities")
@@ -299,7 +352,13 @@ class JobAndApplicationEntitiesTest {
         assertTrue(adminViolations.isEmpty(), "AdminProfile should have no constraint violations");
 
         Company comp = Company.builder().id(10L).name("TCS").build();
-        Job job = Job.builder().id(50L).jobRole("System Engineer").company(comp).applicationDeadline(LocalDate.now().plusDays(10)).build();
+        Job job = Job.builder()
+                .id(50L)
+                .jobRole("System Engineer")
+                .company(comp)
+                .applicationDeadline(LocalDate.now().plusDays(10))
+                .postedBy(adminUser)
+                .build();
 
         PlacementDrive drive = PlacementDrive.builder()
                 .job(job)
@@ -318,5 +377,31 @@ class JobAndApplicationEntitiesTest {
 
         Set<ConstraintViolation<SavedJob>> savedJobViolations = validator.validate(savedJob);
         assertTrue(savedJobViolations.isEmpty(), "SavedJob should have no constraint violations");
+    }
+
+    @Test
+    @DisplayName("StudentSkill proficiency is an enum matching chk_skill_proficiency")
+    void testStudentSkillProficiency() {
+        StudentProfile profile = StudentProfile.builder()
+                .id(30L).fullName("Ravi Kumar").email("ravi@gces.edu").build();
+
+        StudentSkill skill = StudentSkill.builder()
+                .studentProfile(profile)
+                .skillName("PostgreSQL")
+                .proficiency(SkillProficiency.ADVANCED)
+                .build();
+
+        assertEquals(SkillProficiency.ADVANCED, skill.getProficiency());
+        assertEquals("ADVANCED", skill.getProficiencyValue());
+
+        skill.setProficiencyValue("beginner");
+        assertEquals(SkillProficiency.BEGINNER, skill.getProficiency());
+
+        // proficiency is nullable in the schema
+        skill.setProficiency(null);
+        assertNull(skill.getProficiencyValue());
+
+        Set<ConstraintViolation<StudentSkill>> violations = validator.validate(skill);
+        assertTrue(violations.isEmpty(), "StudentSkill should have no constraint violations");
     }
 }
