@@ -1,6 +1,17 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
 spring:
   application:
     name: placement-cell
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 15MB
+      max-request-size: 20MB
 
   jpa:
     open-in-view: false
@@ -13,10 +24,12 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 
-server:
-  port: 8080
-  servlet:
-    context-path: /api
+file:
+  upload-dir: ./uploads
+  resume-subdir: resumes
+  project-media-subdir: projects
+  max-resume-size: 10485760
+  max-media-size: 10485760
 
 management:
   endpoints:
@@ -32,3 +45,4 @@ logging:
     com.gces.placementcell: DEBUG
     org.springframework.web: INFO
     org.springframework.security: INFO
+
