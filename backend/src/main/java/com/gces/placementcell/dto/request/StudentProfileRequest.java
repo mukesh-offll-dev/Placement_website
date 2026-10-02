@@ -25,6 +25,9 @@ public record StudentProfileRequest(
         @Size(max = 120, message = "Full name cannot exceed 120 characters")
         String fullName,
 
+        @Size(max = 20, message = "Roll number cannot exceed 20 characters")
+        String rollNo,
+
         @NotBlank(message = "Email is required")
         @Email(message = "Email must be a valid address")
         @Size(max = 150, message = "Email cannot exceed 150 characters")
@@ -62,7 +65,7 @@ public record StudentProfileRequest(
         String batch,
 
         @Min(value = 1, message = "Semester must be at least 1")
-        @Max(value = 12, message = "Semester cannot exceed 12")
+        @Max(value = 10, message = "Semester cannot exceed 10")
         Short semester,
 
         @DecimalMin(value = "0.00", message = "CGPA cannot be negative")
@@ -78,4 +81,25 @@ public record StudentProfileRequest(
 
         Boolean isOpenToOpportunities
 ) {
+    public StudentProfileRequest(
+            String fullName,
+            String email,
+            String phone,
+            String address,
+            String about,
+            String avatarUrl,
+            String resumeUrl,
+            String college,
+            String degree,
+            String department,
+            String departmentCode,
+            String batch,
+            Short semester,
+            BigDecimal cgpa,
+            Integer totalBacklogs,
+            Integer activeBacklogs,
+            Boolean isOpenToOpportunities
+    ) {
+        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities);
+    }
 }

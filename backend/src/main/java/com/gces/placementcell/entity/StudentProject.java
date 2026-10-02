@@ -94,10 +94,13 @@ public class StudentProject {
     }
 
     public void addTechnology(String tech) {
+        if (this.techStack == null) {
+            this.techStack = new ArrayList<>();
+        }
         ProjectTechStack stack = ProjectTechStack.builder()
                 .project(this)
                 .technology(tech)
                 .build();
-        techStack.add(stack);
+        this.techStack.add(stack);
     }
 }
