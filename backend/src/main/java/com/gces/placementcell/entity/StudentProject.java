@@ -9,7 +9,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing student projects.
+ * Entity representing student project showcase submissions.
  */
 @Entity
 @Table(
@@ -35,26 +35,30 @@ public class StudentProject {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "Student is required")
+    @NotNull(message = "Student profile reference is required")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
+    @JoinColumn(
+        name = "student_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_student_projects_student")
+    )
     private StudentProfile student;
 
-    @NotBlank(message = "Title is required")
-    @Size(max = 150)
+    @NotBlank(message = "Project title is required")
+    @Size(max = 150, message = "Project title cannot exceed 150 characters")
     @Column(name = "title", nullable = false, length = 150)
     private String title;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "live_url", length = 1000)
+    @Column(name = "live_url", columnDefinition = "TEXT")
     private String liveUrl;
 
-    @Column(name = "repo_url", length = 1000)
+    @Column(name = "repo_url", columnDefinition = "TEXT")
     private String repoUrl;
 
-    @Column(name = "media_url", length = 1000)
+    @Column(name = "media_url", columnDefinition = "TEXT")
     private String mediaUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -66,9 +70,11 @@ public class StudentProject {
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
+
         if (this.createdAt == null) {
             this.createdAt = now;
         }
+
         if (this.updatedAt == null) {
             this.updatedAt = now;
         }

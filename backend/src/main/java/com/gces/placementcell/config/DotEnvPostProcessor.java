@@ -13,33 +13,25 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Loads .env file from the project root before Spring context starts.
- * This runs early enough to activate profiles (e.g. SPRING_PROFILES_ACTIVE=prod)
- * and inject DB credentials (DB_URL, DB_USERNAME, DB_PASSWORD).
+ * Loads .env / .env.local file before Spring context starts.
+ * Injects DB credentials and other environment variables.
  *
  * Priority: System env vars always win over .env values (safe for CI/prod).
  */
 public class DotEnvPostProcessor implements EnvironmentPostProcessor, Ordered {
 
-    private static final String PROPERTY_SOURCE_NAME = "dotenvFile";
+    private static final String PROPERTY_SOURCE_NAME = "dotenvProperties";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment,
                                        SpringApplication application) {
 
-        // If a system-level SPRING_PROFILES_ACTIVE already exists, respect it and stop
-        if (System.getenv("SPRING_PROFILES_ACTIVE") != null) return;
-
-        File envFile = locateDotEnv();
-
+        File envFile = locateEnvFile();
         if (envFile == null) {
-            // No .env file → fall back to dev profile
-            environment.addActiveProfile("dev");
             return;
         }
 
         Map<String, Object> props = new LinkedHashMap<>();
-        boolean profileSet = false;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(envFile))) {
             String line;
@@ -63,26 +55,13 @@ public class DotEnvPostProcessor implements EnvironmentPostProcessor, Ordered {
                 // System env always takes precedence
                 if (System.getenv(key) != null) continue;
 
-                if ("SPRING_PROFILES_ACTIVE".equals(key)) {
-                    for (String profile : value.split(",")) {
-                        environment.addActiveProfile(profile.trim());
-                    }
-                    profileSet = true;
-                } else {
-                    props.put(key, value);
-                }
+                props.put(key, value);
             }
         } catch (Exception ignored) {
             // .env is optional — silently skip if unreadable
         }
 
-        // No SPRING_PROFILES_ACTIVE in .env → default to dev
-        if (!profileSet) {
-            environment.addActiveProfile("dev");
-        }
-
         if (!props.isEmpty()) {
-            // Add right after systemEnvironment so these behave like real env vars
             environment.getPropertySources().addAfter(
                 "systemEnvironment",
                 new MapPropertySource(PROPERTY_SOURCE_NAME, props)
@@ -90,13 +69,15 @@ public class DotEnvPostProcessor implements EnvironmentPostProcessor, Ordered {
         }
     }
 
-    /** Walk up from CWD to find the .env file (handles running from any subdir). */
-    private File locateDotEnv() {
+    /** Walk up from CWD to find .env or .env.local */
+    private File locateEnvFile() {
         File dir = new File(System.getProperty("user.dir"));
         for (int i = 0; i < 4; i++) {
             if (dir == null) break;
             File f = new File(dir, ".env");
             if (f.exists() && f.isFile()) return f;
+            File fLocal = new File(dir, ".env.local");
+            if (fLocal.exists() && fLocal.isFile()) return fLocal;
             dir = dir.getParentFile();
         }
         return null;
@@ -104,7 +85,6 @@ public class DotEnvPostProcessor implements EnvironmentPostProcessor, Ordered {
 
     @Override
     public int getOrder() {
-        // Run before ConfigDataApplicationListener (order = 0) so profiles are set early
         return Ordered.HIGHEST_PRECEDENCE + 5;
     }
 }

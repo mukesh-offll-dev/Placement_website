@@ -37,11 +37,15 @@ public class StudentDocument {
 
     @NotNull(message = "Student is required")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
+    @JoinColumn(
+        name = "student_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_student_documents_student")
+    )
     private StudentProfile student;
 
     @NotBlank(message = "Document name is required")
-    @Size(max = 150)
+    @Size(max = 150, message = "Document name cannot exceed 150 characters")
     @Column(name = "document_name", nullable = false, length = 150)
     private String documentName;
 
@@ -66,7 +70,11 @@ public class StudentDocument {
     private Long verifiedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "verified_by", insertable = false, updatable = false)
+    @JoinColumn(
+        name = "verified_by",
+        insertable = false,
+        updatable = false
+    )
     private User verifiedByUser;
 
     @Column(name = "verified_at")
