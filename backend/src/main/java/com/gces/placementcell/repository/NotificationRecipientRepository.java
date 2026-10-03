@@ -26,6 +26,8 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
 
     Optional<NotificationRecipient> findByNotificationIdAndUserId(Long notificationId, Long userId);
 
+    Optional<NotificationRecipient> findByIdAndUserId(Long id, Long userId);
+
     long countByUserIdAndIsReadFalse(Long userId);
 
     List<NotificationRecipient> findByNotificationId(Long notificationId);
@@ -36,7 +38,7 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
     @EntityGraph(attributePaths = {"notification", "notification.relatedJob"})
     Page<NotificationRecipient> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"notification"})
+    @EntityGraph(attributePaths = {"notification", "notification.relatedJob"})
     Page<NotificationRecipient> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     /**

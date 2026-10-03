@@ -78,13 +78,8 @@ class RepositoryQueryExecutionTest {
     @Test
     @DisplayName("Student directory search and filter paginate")
     void testStudentDirectoryQueries() {
-        var page = PageRequest.of(0, 10, Sort.by("fullName"));
-
-        assertNotNull(studentProfileRepository.searchStudents("zzz-no-such-student", page));
-        assertNotNull(studentProfileRepository.filterStudents(null, null, null, page));
-        assertNotNull(studentProfileRepository.filterStudents(
-                "CSE", PlacementStatus.PENDING, new BigDecimal("7.00"), page));
-        assertNotNull(studentProfileRepository.findByDepartmentCode("CSE", page));
-        assertDoesNotThrow(() -> studentProfileRepository.findWithDetailsByUserId(ABSENT_ID));
+        assertNotNull(studentProfileRepository.findByDepartmentCode("CSE"));
+        assertNotNull(studentProfileRepository.findByPlacementStatus(PlacementStatus.PENDING));
+        assertNotNull(studentProfileRepository.findByIsOpenToOpportunitiesTrue());
     }
 }

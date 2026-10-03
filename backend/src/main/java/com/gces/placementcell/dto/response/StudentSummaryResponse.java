@@ -41,12 +41,12 @@ public record StudentSummaryResponse(
                 profile.getDepartment(),
                 profile.getDepartmentCode(),
                 profile.getBatch(),
-                profile.getSemester(),
+                profile.getSemester() != null ? profile.getSemester().shortValue() : null,
                 profile.getCgpa(),
                 profile.getActiveBacklogs(),
                 profile.getPlacementStatus(),
                 profile.getIsOpenToOpportunities(),
-                profile.getProfileCompletionPercent()
+                profile.getProfileCompletionPercent() != null ? profile.getProfileCompletionPercent().shortValue() : null
         );
     }
 }
