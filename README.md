@@ -30,6 +30,7 @@ A modern, full-stack web platform built for colleges to streamline the student p
 22. [Quick Start (For Experienced Developers)](#22-quick-start-for-experienced-developers)
 23. [First-Time User Setup Checklist](#23-first-time-user-setup-checklist)
 24. [Git Workflow & Contributing](#24-git-workflow--contributing)
+25. [Applications & Interview API](#25-applications--interview-api)
 
 ---
 
@@ -745,3 +746,64 @@ git push origin main
 3. Commit your changes: `git commit -m 'feat: Add NewFeature'`.
 4. Push to branch: `git push origin feature/NewFeature`.
 5. Open a Pull Request on GitHub.
+
+---
+
+## 25. Applications & Interview API
+
+Every route below uses the `/api` base path and requires a JWT bearer token. Student routes require the `STUDENT` role; application-review routes require the `ADMIN` role. Successful responses use the standard `ApiResponse` envelope.
+
+### Student application routes
+
+| Method | Route | Purpose |
+| :--- | :--- | :--- |
+| `POST` | `/student/applications` | Apply to an open job |
+| `GET` | `/student/applications?page=0&size=20` | List the authenticated student's applications |
+| `GET` | `/student/applications/{id}` | Get an application and its ordered status/interview timeline |
+| `PATCH` | `/student/applications/{id}/withdraw` | Withdraw an application that is not already closed |
+
+Submit an application with a required affirmative consent:
+
+```json
+{
+  "jobId": 42,
+  "coverLetter": "I am interested in this role because...",
+  "resumeUrl": "https://example.com/resume.pdf",
+  "consentGiven": true
+}
+```
+
+The student identity comes from the authenticated token. A resume URL may be omitted to use the resume on the student's profile. Applying to a closed/expired job or applying twice returns an error.
+
+### Admin application and interview routes
+
+| Method | Route | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/admin/applications?jobId=42&status=APPLIED&page=0&size=20` | List/filter applications |
+| `GET` | `/admin/applications/{id}` | Get application details and timeline |
+| `PATCH` | `/admin/applications/{id}/status` | Change status and optionally record a stage/round |
+| `POST` | `/admin/applications/{id}/timeline` | Add an interview or selection stage |
+
+Change a status using one of `APPLIED`, `UNDER_REVIEW`, `SHORTLISTED`, `REJECTED`, or `SELECTED`:
+
+```json
+{
+  "status": "SHORTLISTED",
+  "currentStage": "Technical Interview",
+  "currentRoundId": 7,
+  "remarks": "Proceed to technical interview"
+}
+```
+
+Add a stage with a `TimelineStatus` of `DONE`, `UPCOMING`, `PENDING`, `FAILED`, or `SKIPPED`:
+
+```json
+{
+  "stageLabel": "Technical Interview",
+  "stageDate": "2026-10-20",
+  "status": "UPCOMING",
+  "remarks": "Online interview"
+}
+```
+
+Stages are appended in display order, and the current application stage is updated. A selection round supplied during a status change must belong to the same job. Only the student can withdraw their own application.
