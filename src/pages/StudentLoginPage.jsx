@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { GraduationCap, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validate = () => {
     const e = {};
@@ -17,10 +21,21 @@ export default function StudentLoginPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setApiError('');
     if (validate()) {
-      navigate('/student/dashboard');
+      setIsSubmitting(true);
+      try {
+        const result = await login({ email: form.email, password: form.password }, 'STUDENT');
+        if (result.success) {
+          navigate('/student/dashboard');
+        } else {
+          setApiError(result.error);
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -52,6 +67,13 @@ export default function StudentLoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
+            {apiError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                <span>{apiError}</span>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
               <input
@@ -96,18 +118,18 @@ export default function StudentLoginPage() {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm disabled:opacity-50"
             >
-              Login to Student Portal
+              {isSubmitting ? 'Signing in...' : 'Sign In as Student'}
             </button>
-          </form>
 
-          <p className="text-center text-sm text-gray-500 mt-5">
-            Not a student?{' '}
-            <Link to="/login" className="text-blue-600 hover:underline">
-              Go back
-            </Link>
-          </p>
+            <div className="text-center pt-2">
+              <Link to="/login" className="text-xs text-blue-600 hover:underline">
+                Back to Role Selection
+              </Link>
+            </div>
+          </form>
         </div>
       </main>
     </div>

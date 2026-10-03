@@ -9,6 +9,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/students', icon: Users, label: 'Students' },
@@ -18,9 +20,11 @@ const navItems = [
 
 export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    navigate('/login');
+    logout();
+    navigate('/admin/login');
   };
 
   const sidebarContent = (
