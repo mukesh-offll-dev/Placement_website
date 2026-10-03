@@ -3,12 +3,14 @@ package com.gces.placementcell.service.impl;
 import com.gces.placementcell.dto.request.LoginRequest;
 import com.gces.placementcell.dto.request.RegisterRequest;
 import com.gces.placementcell.dto.response.AuthResponse;
+import com.gces.placementcell.dto.response.UserResponse;
 import com.gces.placementcell.entity.AdminProfile;
 import com.gces.placementcell.entity.StudentProfile;
 import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.AccountStatus;
 import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.exception.BadRequestException;
+import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.AdminProfileRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
@@ -172,6 +174,18 @@ public class AuthServiceImpl implements AuthService {
         String token = jwtService.generateTokenWithRole(toSpringUser(user), user.getRole().name());
         log.info("User logged in: {} (role={})", user.getEmail(), user.getRole());
         return buildAuthResponse(token, user, displayName);
+    }
+
+    // ─────────────────────────────────────────────
+    // Current User
+    // ─────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse getCurrentUser(String email) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+        return UserResponse.from(user);
     }
 
     // ─────────────────────────────────────────────
