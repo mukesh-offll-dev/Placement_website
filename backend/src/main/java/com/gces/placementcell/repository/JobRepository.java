@@ -83,5 +83,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     @EntityGraph(attributePaths = {"company", "postedBy", "skills"})
     Optional<Job> findWithDetailsById(Long id);
 
+    @EntityGraph(attributePaths = {"company", "postedBy", "skills"})
+    Optional<Job> findWithDetailsByIdAndIsDeletedFalse(Long id);
+
     long countByStatusAndIsDeletedFalse(JobStatus status);
 }
