@@ -1,5 +1,7 @@
 package com.gces.placementcell.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -140,8 +142,13 @@ public class StudentProfile {
     @Column(name = "is_open_to_opportunities", nullable = false)
     private Boolean isOpenToOpportunities = true;
 
-    @Column(name = "placed_company_id")
-    private Long placedCompanyId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "placed_company_id",
+        foreignKey = @ForeignKey(name = "fk_student_profiles_placed_company")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Company placedCompany;
 
     @DecimalMin(value = "0.00", message = "Placed CTC cannot be negative")
     @Column(name = "placed_ctc", precision = 12, scale = 2)
@@ -161,6 +168,42 @@ public class StudentProfile {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // -- Bidirectional collections
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentSkill> skills = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentDocument> documents = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentEducation> education = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentExperience> experience = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<StudentProject> projects = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobApplication> applications = new ArrayList<>();
+
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<SavedJob> savedJobs = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
