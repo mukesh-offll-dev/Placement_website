@@ -2,10 +2,7 @@ package com.gces.placementcell.controller;
 
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.StudentProfileResponse;
-import com.gces.placementcell.entity.StudentProfile;
-import com.gces.placementcell.exception.ResourceNotFoundException;
-import com.gces.placementcell.repository.StudentProfileRepository;
-import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.service.StudentProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,13 +16,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/student")
 public class StudentController {
 
-    private final UserRepository userRepository;
-    private final StudentProfileRepository studentProfileRepository;
+    private final StudentProfileService studentProfileService;
 
-    public StudentController(UserRepository userRepository,
-                             StudentProfileRepository studentProfileRepository) {
-        this.userRepository = userRepository;
-        this.studentProfileRepository = studentProfileRepository;
+    public StudentController(StudentProfileService studentProfileService) {
+        this.studentProfileService = studentProfileService;
     }
 
     /**
@@ -35,13 +29,8 @@ public class StudentController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<StudentProfileResponse>> getMyProfile(
             @AuthenticationPrincipal UserDetails userDetails) {
-
-        var user = userRepository.findByEmailAndIsDeletedFalse(userDetails.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        StudentProfile profile = studentProfileRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Student profile not found"));
-
-        return ResponseEntity.ok(ApiResponse.success(StudentProfileResponse.from(profile)));
+        StudentProfileResponse profile = studentProfileService.getProfile(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(profile));
     }
 }
+

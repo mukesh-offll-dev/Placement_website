@@ -3,6 +3,8 @@ package com.gces.placementcell.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 /** A portfolio project entry on a student's profile. */
 public record StudentProjectRequest(
 
@@ -20,6 +22,11 @@ public record StudentProjectRequest(
         String repoUrl,
 
         @Size(max = 1000, message = "Media URL cannot exceed 1000 characters")
-        String mediaUrl
+        String mediaUrl,
+
+        List<String> techStack
 ) {
+    public StudentProjectRequest(String title, String description, String liveUrl, String repoUrl, String mediaUrl) {
+        this(title, description, liveUrl, repoUrl, mediaUrl, List.of());
+    }
 }
