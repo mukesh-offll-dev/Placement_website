@@ -31,7 +31,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = "student")
+@ToString(exclude = {"studentProfile", "techStack"})
 @EqualsAndHashCode(of = "id")
 public class StudentProject {
 
@@ -46,7 +46,7 @@ public class StudentProject {
         nullable = false,
         foreignKey = @ForeignKey(name = "fk_student_projects_student")
     )
-    private StudentProfile student;
+    private StudentProfile studentProfile;
 
     @NotBlank(message = "Project title is required")
     @Size(max = 150, message = "Project title cannot exceed 150 characters")
@@ -75,6 +75,22 @@ public class StudentProject {
     @Builder.Default
     @JsonIgnore
     private List<ProjectTechStack> techStack = new ArrayList<>();
+
+    public StudentProfile getStudent() {
+        return this.studentProfile;
+    }
+
+    public void setStudent(StudentProfile student) {
+        this.studentProfile = student;
+    }
+
+    public void addTechnology(String tech) {
+        ProjectTechStack stack = ProjectTechStack.builder()
+                .project(this)
+                .technology(tech)
+                .build();
+        techStack.add(stack);
+    }
 
     @PrePersist
     protected void onCreate() {

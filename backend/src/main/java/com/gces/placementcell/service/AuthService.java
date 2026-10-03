@@ -30,4 +30,3 @@ public interface AuthService {
      */
     UserResponse getCurrentUser(String email);
 }
-

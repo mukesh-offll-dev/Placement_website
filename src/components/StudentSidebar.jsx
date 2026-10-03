@@ -22,8 +22,7 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
   const currentUser = getUser();
 
   const handleLogout = () => {
-    logout();
-    navigate('/student/login');
+    logout('/student/login');
   };
 
   const sidebarContent = (

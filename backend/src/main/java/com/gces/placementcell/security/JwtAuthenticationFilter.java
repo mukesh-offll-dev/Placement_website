@@ -25,7 +25,6 @@ import java.io.IOException;
  *
  * Runs once per request ({@link OncePerRequestFilter}).
  */
-@Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);

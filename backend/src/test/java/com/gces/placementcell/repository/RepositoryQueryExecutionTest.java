@@ -61,6 +61,8 @@ class RepositoryQueryExecutionTest {
         assertNotNull(applicationRepository.findByJobId(ABSENT_ID, page));
         assertNotNull(applicationRepository.findByStudentProfileId(ABSENT_ID, page));
         assertNotNull(applicationRepository.findByStatus(ApplicationStatus.APPLIED, page));
+        assertNotNull(applicationRepository.findForAdmin(ABSENT_ID, ApplicationStatus.APPLIED, page));
+        assertNotNull(applicationRepository.findForAdmin(null, null, page));
         assertDoesNotThrow(() -> applicationRepository.findWithTimelineById(ABSENT_ID));
         assertNotNull(applicationRepository.countGroupedByStatusForJob(ABSENT_ID));
     }

@@ -18,10 +18,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Authentication endpoints.
  *
- * All routes under /auth/** are PUBLIC (no JWT required).
- * Admin registration is additionally protected to only be callable
- * by an existing ADMIN (via @PreAuthorize) — so the very first admin
- * must be created via the seed SQL script.
+ * All routes under /auth/** are PUBLIC (except admin registration which requires ADMIN authority).
  */
 @RestController
 @RequestMapping("/auth")
@@ -50,10 +47,6 @@ public class AuthController {
     /**
      * POST /api/auth/register/admin
      * Protected: only an existing ADMIN can create another admin.
-     *
-     * For the very first admin, insert directly via SQL:
-     *   INSERT INTO users (email, password_hash, role, account_status, is_active, ...)
-     *   VALUES ('admin@gce.edu.in', '$2a$10$...bcrypt_hash...', 'ADMIN', 'ACTIVE', true, ...)
      */
     @PostMapping("/register/admin")
     @PreAuthorize("hasRole('ADMIN')")
@@ -68,8 +61,7 @@ public class AuthController {
 
     /**
      * POST /api/auth/login
-     * Works for both STUDENT and ADMIN.
-     * The frontend uses the returned {@code role} field to redirect appropriately.
+     * Authenticates student or admin.
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
@@ -80,16 +72,23 @@ public class AuthController {
     }
 
     /**
+     * POST /api/auth/logout
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
+    }
+
+    /**
      * GET /api/auth/me
      * Returns the currently authenticated user's details.
-     * Requires a valid Bearer JWT.
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(
             @AuthenticationPrincipal UserDetails userDetails) {
 
         if (userDetails == null) {
-            throw new InsufficientAuthenticationException("Full authentication is required to access this resource");
+            throw new InsufficientAuthenticationException("Authentication failed: Full authentication is required to access this resource");
         }
 
         UserResponse userResponse = authService.getCurrentUser(userDetails.getUsername());

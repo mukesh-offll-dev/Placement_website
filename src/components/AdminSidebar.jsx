@@ -22,8 +22,7 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
   const currentUser = getUser();
 
   const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
+    logout('/admin/login');
   };
 
   const sidebarContent = (

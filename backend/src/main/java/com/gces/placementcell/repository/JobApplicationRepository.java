@@ -42,17 +42,29 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     // -- Paged listings with the associations the screens actually render, so that
     // an applicant list or "my applications" page is one query rather than N+1.
 
-    @EntityGraph(attributePaths = {"studentProfile", "job", "job.company"})
+    @EntityGraph(attributePaths = {"studentProfile", "job", "job.company", "reviewedBy", "currentRound"})
     Page<JobApplication> findByJobId(Long jobId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"job", "job.company"})
+    @EntityGraph(attributePaths = {"job", "job.company", "reviewedBy", "currentRound"})
     Page<JobApplication> findByStudentProfileId(Long studentProfileId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"studentProfile", "job", "job.company"})
+    @EntityGraph(attributePaths = {"studentProfile", "job", "job.company", "reviewedBy", "currentRound"})
     Page<JobApplication> findByStatus(ApplicationStatus status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"studentProfile", "job", "job.company", "reviewedBy", "currentRound"})
+    @Query("""
+            SELECT a FROM JobApplication a
+            WHERE (:jobId IS NULL OR a.job.id = :jobId)
+              AND (:status IS NULL OR a.status = :status)
+            """)
+    Page<JobApplication> findForAdmin(@Param("jobId") Long jobId,
+                                      @Param("status") ApplicationStatus status,
+                                      Pageable pageable);
+
     /** Application with its full timeline, for the student-facing status view. */
-    @EntityGraph(attributePaths = {"job", "job.company", "studentProfile", "timeline"})
+    @EntityGraph(attributePaths = {
+            "job", "job.company", "studentProfile", "timeline", "reviewedBy", "currentRound"
+    })
     Optional<JobApplication> findWithTimelineById(Long id);
 
     /** Status breakdown for a job, as one grouped query instead of one count per status. */

@@ -1,34 +1,38 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { isAuthenticated, getRole } from '../services/authService';
 
 /**
  * ProtectedRoute
  *
- * Wraps a route element and checks authentication + optional role.
+ * Route guard enforcing role-based access control on frontend routes.
+ * Ensures Students can only access student features and Admins can only access admin features.
  *
- * Usage:
- *   <ProtectedRoute allowedRole="STUDENT">
- *     <StudentDashboard />
- *   </ProtectedRoute>
- *
- * Props:
- *   children      – the component to render if authorised
- *   allowedRole   – "STUDENT" | "ADMIN" | undefined (any authenticated user)
- *   redirectTo    – where to send unauthenticated users (default "/login")
+ * Supports both wrapper style (<ProtectedRoute allowedRole="STUDENT"><Layout/></ProtectedRoute>)
+ * and layout route style (<Route element={<ProtectedRoute allowedRole="STUDENT" />} />).
  */
-export default function ProtectedRoute({ children, allowedRole, redirectTo = '/login' }) {
+export default function ProtectedRoute({
+  children,
+  allowedRole,
+  requiredRole,
+  redirectTo,
+}) {
+  const targetRole = allowedRole || requiredRole;
+
   if (!isAuthenticated()) {
-    return <Navigate to={redirectTo} replace />;
+    const defaultRedirect = targetRole === 'ADMIN'
+      ? '/admin/login'
+      : (targetRole === 'STUDENT' ? '/student/login' : '/login');
+    return <Navigate to={redirectTo || defaultRedirect} replace />;
   }
 
-  if (allowedRole) {
+  if (targetRole) {
     const role = getRole();
-    if (role !== allowedRole) {
-      // Authenticated but wrong role → redirect to their own dashboard
+    if (role !== targetRole) {
+      // Authenticated but wrong role → redirect to their own authorized dashboard
       const dashboardPath = role === 'ADMIN' ? '/admin/dashboard' : '/student/dashboard';
       return <Navigate to={dashboardPath} replace />;
     }
   }
 
-  return children;
+  return children ? children : <Outlet />;
 }

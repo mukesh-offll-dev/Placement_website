@@ -1,6 +1,7 @@
 package com.gces.placementcell.dto.response;
 
 import com.gces.placementcell.entity.JobApplication;
+import com.gces.placementcell.entity.ApplicationTimeline;
 import com.gces.placementcell.entity.enums.ApplicationStatus;
 
 import java.time.LocalDateTime;
@@ -45,7 +46,10 @@ public record JobApplicationResponse(
             return null;
         }
         List<ApplicationTimelineResponse> stages = application.getTimeline() == null ? List.of()
-                : application.getTimeline().stream().map(ApplicationTimelineResponse::from).toList();
+                : application.getTimeline().stream()
+                        .sorted(java.util.Comparator.comparing(ApplicationTimeline::getDisplayOrder))
+                        .map(ApplicationTimelineResponse::from)
+                        .toList();
         return build(application, stages);
     }
 

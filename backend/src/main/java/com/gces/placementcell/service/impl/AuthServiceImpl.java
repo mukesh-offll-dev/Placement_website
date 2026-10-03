@@ -18,6 +18,7 @@ import com.gces.placementcell.security.JwtService;
 import com.gces.placementcell.service.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,16 +32,9 @@ import java.time.LocalDateTime;
 /**
  * Authentication service implementation.
  *
- * <p>Design decisions:</p>
- * <ul>
- *   <li>Reuses existing User / StudentProfile / AdminProfile entities — no new tables.</li>
- *   <li>BCrypt password hashing via the injected {@link PasswordEncoder}.</li>
- *   <li>Students get ACTIVE status immediately after registration.</li>
- *   <li>Admin registration is guarded: the endpoint itself is secured at the
- *       controller level (ADMIN role required) so only an existing admin can
- *       create another admin, except for the initial bootstrap admin which is
- *       explained in the README / seed SQL.</li>
- * </ul>
+ * Reuses existing User / StudentProfile / AdminProfile entities.
+ * BCrypt password hashing via PasswordEncoder and JWT generation via JwtService.
+ * Enforces role verification and account status checks.
  */
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -77,7 +71,6 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse registerStudent(RegisterRequest request) {
         validateUniqueEmail(request.email());
 
-        // Roll-number uniqueness check (optional field for students)
         if (request.rollNo() != null && !request.rollNo().isBlank()
                 && studentProfileRepository.existsByRollNo(request.rollNo())) {
             throw new BadRequestException("Roll number already registered: " + request.rollNo());
@@ -142,7 +135,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // ─────────────────────────────────────────────
-    // Login (STUDENT + ADMIN share same endpoint)
+    // Login (STUDENT + ADMIN)
     // ─────────────────────────────────────────────
 
     @Override
@@ -152,27 +145,31 @@ public class AuthServiceImpl implements AuthService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         } catch (BadCredentialsException ex) {
-            throw new BadRequestException("Invalid email or password");
+            throw new BadCredentialsException("Invalid email or password");
+        } catch (org.springframework.security.authentication.LockedException | org.springframework.security.authentication.DisabledException ex) {
+            throw new AccessDeniedException("Account is not active or has been suspended");
         }
 
         User user = userRepository.findByEmailAndIsDeletedFalse(request.email())
                 .orElseThrow(() -> new BadRequestException("User not found"));
 
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException("Account is inactive. Please contact support.");
-        }
-        if (AccountStatus.SUSPENDED.equals(user.getAccountStatus())) {
-            throw new BadRequestException("Account has been suspended. Please contact support.");
+        if (!user.isAccountActive()) {
+            throw new AccessDeniedException("Account is not active or has been suspended");
         }
 
-        // Update last login timestamp
+        if (request.expectedRole() != null && !request.expectedRole().isBlank()) {
+            String expected = request.expectedRole().trim().toUpperCase();
+            if (!user.getRole().name().equals(expected)) {
+                throw new AccessDeniedException("Unauthorized role for this login portal");
+            }
+        }
+
         userRepository.updateLastLoginAt(user.getId(), LocalDateTime.now());
 
-        // Resolve display name from profile
         String displayName = resolveDisplayName(user);
-
         String token = jwtService.generateTokenWithRole(toSpringUser(user), user.getRole().name());
         log.info("User logged in: {} (role={})", user.getEmail(), user.getRole());
+
         return buildAuthResponse(token, user, displayName);
     }
 
@@ -212,7 +209,6 @@ public class AuthServiceImpl implements AuthService {
         return null;
     }
 
-    /** Converts our User entity to a Spring Security UserDetails object for JWT generation. */
     private UserDetails toSpringUser(User user) {
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())

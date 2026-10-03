@@ -48,6 +48,11 @@ public record StudentProfileResponse(
         LocalDateTime updatedAt
 ) {
 
+    @com.fasterxml.jackson.annotation.JsonProperty("role")
+    public String role() {
+        return user != null && user.role() != null ? user.role().name() : "STUDENT";
+    }
+
     /** Header and academic fields only; every child collection comes back empty. */
     public static StudentProfileResponse from(StudentProfile profile) {
         return build(profile, List.of(), List.of(), List.of(), List.of());

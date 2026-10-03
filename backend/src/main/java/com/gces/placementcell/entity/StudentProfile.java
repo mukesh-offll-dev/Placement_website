@@ -115,7 +115,7 @@ public class StudentProfile {
     @Min(value = 1, message = "Semester must be between 1 and 10")
     @Max(value = 10, message = "Semester must be between 1 and 10")
     @Column(name = "semester")
-    private Integer semester;
+    private Short semester;
 
     @DecimalMin(value = "0.00", message = "CGPA must be at least 0.00")
     @DecimalMax(value = "10.00", message = "CGPA cannot exceed 10.00")
@@ -163,7 +163,7 @@ public class StudentProfile {
     @Max(value = 100, message = "Profile completion percent must be between 0 and 100")
     @Builder.Default
     @Column(name = "profile_completion_percent", nullable = false)
-    private Integer profileCompletionPercent = 0;
+    private Short profileCompletionPercent = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -177,7 +177,7 @@ public class StudentProfile {
     @JsonIgnore
     private List<StudentSkill> skills = new ArrayList<>();
 
-    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @JsonIgnore
     private List<StudentDocument> documents = new ArrayList<>();
@@ -243,5 +243,29 @@ public class StudentProfile {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public static class StudentProfileBuilder {
+        public StudentProfileBuilder semester(Integer semester) {
+            this.semester = semester != null ? semester.shortValue() : null;
+            return this;
+        }
+
+        public StudentProfileBuilder semester(Short semester) {
+            this.semester = semester;
+            return this;
+        }
+
+        public StudentProfileBuilder profileCompletionPercent(Integer profileCompletionPercent) {
+            this.profileCompletionPercent$value = profileCompletionPercent != null ? profileCompletionPercent.shortValue() : null;
+            this.profileCompletionPercent$set = true;
+            return this;
+        }
+
+        public StudentProfileBuilder profileCompletionPercent(Short profileCompletionPercent) {
+            this.profileCompletionPercent$value = profileCompletionPercent;
+            this.profileCompletionPercent$set = true;
+            return this;
+        }
     }
 }

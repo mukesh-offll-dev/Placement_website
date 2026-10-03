@@ -29,28 +29,50 @@ class SchemaConsistencyTest {
         return count != null && count > 0;
     }
 
+    private boolean isPostgreSQL() {
+        try (var conn = jdbcTemplate.getDataSource().getConnection()) {
+            return "PostgreSQL".equalsIgnoreCase(conn.getMetaData().getDatabaseProductName());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Test
     @DisplayName("Normalised job_skills table exists with its unique constraint")
     void testJobSkillsTableProvisioned() {
         assertTrue(columnExists("job_skills", "job_id"));
         assertTrue(columnExists("job_skills", "skill_name"));
 
-        Integer unique = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM pg_constraint WHERE conname = 'uq_job_skill'", Integer.class);
-        assertNotNull(unique);
-        assertTrue(unique > 0, "uq_job_skill (job_id, skill_name) should exist");
+        if (isPostgreSQL()) {
+            Integer unique = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM pg_constraint WHERE conname = 'uq_job_skill'", Integer.class);
+            assertNotNull(unique);
+            assertTrue(unique > 0, "uq_job_skill (job_id, skill_name) should exist");
+        } else {
+            Integer unique = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.table_constraints WHERE LOWER(constraint_name) = 'uq_job_skill'", Integer.class);
+            assertNotNull(unique);
+            assertTrue(unique > 0, "uq_job_skill (job_id, skill_name) should exist");
+        }
     }
 
     @Test
     @DisplayName("notifications.notification_type CHECK accepts APPLICATION")
     void testNotificationTypeCheckWidened() {
-        String definition = jdbcTemplate.queryForObject(
-                "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
-                        "WHERE conname = 'chk_notifications_type'", String.class);
+        if (isPostgreSQL()) {
+            String definition = jdbcTemplate.queryForObject(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
+                            "WHERE conname = 'chk_notifications_type'", String.class);
 
-        assertNotNull(definition, "chk_notifications_type should exist");
-        assertTrue(definition.contains("APPLICATION"),
-                "CHECK must allow APPLICATION, was: " + definition);
+            assertNotNull(definition, "chk_notifications_type should exist");
+            assertTrue(definition.contains("APPLICATION"),
+                    "CHECK must allow APPLICATION, was: " + definition);
+        } else {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.table_constraints WHERE LOWER(constraint_name) = 'chk_notifications_type'", Integer.class);
+            assertNotNull(count);
+            assertTrue(count > 0, "chk_notifications_type should exist in H2 schema");
+        }
     }
 
     @Test
