@@ -1,61 +1,27 @@
-const API_BASE_URL = '/api';
+import {
+  validateFile,
+  formatFileSize,
+  uploadResume as apiUploadResume,
+  getResume as apiGetResume,
+  deleteResume as apiDeleteResume,
+  getResumeViewUrl,
+  getResumeDownloadUrl,
+} from './api/fileService.js';
 
-/**
- * File validation helper
- */
-export const validateFile = (file, allowedExtensions, maxSizeBytes) => {
-  if (!file) {
-    return { valid: false, error: 'No file selected.' };
-  }
+import {
+  uploadProjectMediaStandalone as apiUploadProjectMediaStandalone,
+  uploadProjectMedia as apiUploadProjectMedia,
+} from './api/projectService.js';
 
-  const ext = file.name.split('.').pop()?.toLowerCase();
-  if (!ext || !allowedExtensions.map((e) => e.toLowerCase()).includes(ext)) {
-    return {
-      valid: false,
-      error: `Invalid file format (.${ext}). Allowed formats: ${allowedExtensions.map((e) => `.${e}`).join(', ')}`,
-    };
-  }
-
-  if (file.size > maxSizeBytes) {
-    const maxMb = Math.round(maxSizeBytes / (1024 * 1024));
-    return {
-      valid: false,
-      error: `File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds maximum allowed size of ${maxMb}MB.`,
-    };
-  }
-
-  return { valid: true, error: null };
-};
-
-/**
- * Format bytes to readable string
- */
-export const formatFileSize = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
+export { validateFile, formatFileSize, getResumeViewUrl, getResumeDownloadUrl };
 
 /**
  * Upload student resume to backend
  */
 export const uploadStudentResume = async (studentId, file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    const response = await fetch(`${API_BASE_URL}/students/${studentId}/resume`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || 'Failed to upload resume');
-    }
-    return { success: true, data: result.data, message: result.message };
+    const data = await apiUploadResume(studentId, file);
+    return { success: true, data, message: 'Resume uploaded successfully' };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -66,12 +32,8 @@ export const uploadStudentResume = async (studentId, file) => {
  */
 export const getStudentResume = async (studentId) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/students/${studentId}/resume`);
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || 'Resume not found');
-    }
-    return { success: true, data: result.data };
+    const data = await apiGetResume(studentId);
+    return { success: true, data };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -82,14 +44,8 @@ export const getStudentResume = async (studentId) => {
  */
 export const deleteStudentResume = async (studentId) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/students/${studentId}/resume`, {
-      method: 'DELETE',
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || 'Failed to delete resume');
-    }
-    return { success: true, message: result.message };
+    const data = await apiDeleteResume(studentId);
+    return { success: true, message: 'Resume deleted successfully', data };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -99,20 +55,9 @@ export const deleteStudentResume = async (studentId) => {
  * Upload project media (standalone or when creating new project)
  */
 export const uploadProjectMediaStandalone = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    const response = await fetch(`${API_BASE_URL}/projects/media/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || 'Failed to upload project media');
-    }
-    return { success: true, data: result.data, message: result.message };
+    const data = await apiUploadProjectMediaStandalone(file);
+    return { success: true, data, message: 'Project media uploaded successfully' };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -122,35 +67,24 @@ export const uploadProjectMediaStandalone = async (file) => {
  * Upload and attach media to existing project
  */
 export const uploadProjectMedia = async (projectId, file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/media`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || 'Failed to upload project media');
-    }
-    return { success: true, data: result.data, message: result.message };
+    const data = await apiUploadProjectMedia(projectId, file);
+    return { success: true, data, message: 'Project media attached successfully' };
   } catch (error) {
     return { success: false, error: error.message };
   }
 };
 
-/**
- * Get resume inline view URL
- */
-export const getResumeViewUrl = (studentId) =>
-  `${API_BASE_URL}/students/${studentId}/resume/download?download=false`;
+const fileUploadService = {
+  validateFile,
+  formatFileSize,
+  uploadStudentResume,
+  getStudentResume,
+  deleteStudentResume,
+  uploadProjectMediaStandalone,
+  uploadProjectMedia,
+  getResumeViewUrl,
+  getResumeDownloadUrl,
+};
 
-/**
- * Get resume attachment download URL
- */
-export const getResumeDownloadUrl = (studentId) =>
-  `${API_BASE_URL}/students/${studentId}/resume/download?download=true`;
-
-
+export default fileUploadService;
