@@ -109,4 +109,19 @@ public class StudentProject {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void addTechnology(String techName) {
+        ProjectTechStack stack = ProjectTechStack.builder()
+                .project(this)
+                .technology(techName)
+                .build();
+        this.techStack.add(stack);
+    }
+
+    public static class StudentProjectBuilder {
+        public StudentProjectBuilder studentProfile(StudentProfile studentProfile) {
+            this.student = studentProfile;
+            return this;
+        }
+    }
 }

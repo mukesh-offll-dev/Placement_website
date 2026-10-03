@@ -41,7 +41,7 @@ public class StudentProjectServiceImpl implements StudentProjectService {
     public StudentProjectResponse createProject(String email, StudentProjectRequest request) {
         StudentProfile profile = getStudentProfileByEmail(email);
 
-        if (studentProjectRepository.existsByStudentProfileIdAndTitle(profile.getId(), request.title().trim())) {
+        if (studentProjectRepository.existsByStudentIdAndTitle(profile.getId(), request.title().trim())) {
             throw new DuplicateResourceException("Project with title '" + request.title().trim() + "' already exists");
         }
 
@@ -72,7 +72,7 @@ public class StudentProjectServiceImpl implements StudentProjectService {
     @Transactional(readOnly = true)
     public List<StudentProjectResponse> getAllProjects(String email) {
         StudentProfile profile = getStudentProfileByEmail(email);
-        List<StudentProject> projects = studentProjectRepository.findByStudentProfileIdOrderByCreatedAtDesc(profile.getId());
+        List<StudentProject> projects = studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(profile.getId());
         return projects.stream().map(StudentProjectResponse::from).toList();
     }
 
@@ -80,7 +80,7 @@ public class StudentProjectServiceImpl implements StudentProjectService {
     @Transactional(readOnly = true)
     public StudentProjectResponse getProjectById(String email, Long projectId) {
         StudentProfile profile = getStudentProfileByEmail(email);
-        StudentProject project = studentProjectRepository.findByIdAndStudentProfileId(projectId, profile.getId())
+        StudentProject project = studentProjectRepository.findByIdAndStudentId(projectId, profile.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
 
         return StudentProjectResponse.from(project);
@@ -90,12 +90,12 @@ public class StudentProjectServiceImpl implements StudentProjectService {
     @Transactional
     public StudentProjectResponse updateProject(String email, Long projectId, StudentProjectRequest request) {
         StudentProfile profile = getStudentProfileByEmail(email);
-        StudentProject project = studentProjectRepository.findByIdAndStudentProfileId(projectId, profile.getId())
+        StudentProject project = studentProjectRepository.findByIdAndStudentId(projectId, profile.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
 
         String newTitle = request.title().trim();
         if (!project.getTitle().equalsIgnoreCase(newTitle)) {
-            Optional<StudentProject> conflict = studentProjectRepository.findByStudentProfileIdAndTitle(profile.getId(), newTitle);
+            Optional<StudentProject> conflict = studentProjectRepository.findByStudentIdAndTitle(profile.getId(), newTitle);
             if (conflict.isPresent() && !conflict.get().getId().equals(projectId)) {
                 throw new DuplicateResourceException("Project with title '" + newTitle + "' already exists");
             }
@@ -130,7 +130,7 @@ public class StudentProjectServiceImpl implements StudentProjectService {
     @Transactional
     public void deleteProject(String email, Long projectId) {
         StudentProfile profile = getStudentProfileByEmail(email);
-        StudentProject project = studentProjectRepository.findByIdAndStudentProfileId(projectId, profile.getId())
+        StudentProject project = studentProjectRepository.findByIdAndStudentId(projectId, profile.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
 
         studentProjectRepository.delete(project);

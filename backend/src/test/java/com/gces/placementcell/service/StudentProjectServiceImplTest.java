@@ -76,7 +76,7 @@ class StudentProjectServiceImplTest {
     void testCreateProjectSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentA@gces.edu")).thenReturn(Optional.of(studentAUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentAProfile));
-        when(studentProjectRepository.existsByStudentProfileIdAndTitle(101L, "Placement System")).thenReturn(false);
+        when(studentProjectRepository.existsByStudentIdAndTitle(101L, "Placement System")).thenReturn(false);
         when(studentProjectRepository.save(any(StudentProject.class))).thenAnswer(i -> {
             StudentProject p = i.getArgument(0);
             p.setId(502L);
@@ -107,7 +107,7 @@ class StudentProjectServiceImplTest {
     void testCreateProjectDuplicateTitleThrows() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentA@gces.edu")).thenReturn(Optional.of(studentAUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentAProfile));
-        when(studentProjectRepository.existsByStudentProfileIdAndTitle(101L, "AI Placement Portal")).thenReturn(true);
+        when(studentProjectRepository.existsByStudentIdAndTitle(101L, "AI Placement Portal")).thenReturn(true);
 
         StudentProjectRequest request = new StudentProjectRequest(
                 "AI Placement Portal", "desc", null, null, null, null
@@ -121,7 +121,7 @@ class StudentProjectServiceImplTest {
     void testGetAllProjectsReturnsOnlyOwnedProjects() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentA@gces.edu")).thenReturn(Optional.of(studentAUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentAProfile));
-        when(studentProjectRepository.findByStudentProfileIdOrderByCreatedAtDesc(101L)).thenReturn(List.of(projectA));
+        when(studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(101L)).thenReturn(List.of(projectA));
 
         List<StudentProjectResponse> projects = studentProjectService.getAllProjects("studentA@gces.edu");
 
@@ -134,7 +134,7 @@ class StudentProjectServiceImplTest {
     void testGetProjectByIdSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentA@gces.edu")).thenReturn(Optional.of(studentAUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentAProfile));
-        when(studentProjectRepository.findByIdAndStudentProfileId(501L, 101L)).thenReturn(Optional.of(projectA));
+        when(studentProjectRepository.findByIdAndStudentId(501L, 101L)).thenReturn(Optional.of(projectA));
 
         StudentProjectResponse response = studentProjectService.getProjectById("studentA@gces.edu", 501L);
 
@@ -149,7 +149,7 @@ class StudentProjectServiceImplTest {
         when(userRepository.findByEmailAndIsDeletedFalse("studentB@gces.edu")).thenReturn(Optional.of(studentBUser));
         when(studentProfileRepository.findByUserId(2L)).thenReturn(Optional.of(studentBProfile));
         // Student B's profile ID is 202L, while projectA belongs to 101L
-        when(studentProjectRepository.findByIdAndStudentProfileId(501L, 202L)).thenReturn(Optional.empty());
+        when(studentProjectRepository.findByIdAndStudentId(501L, 202L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
                 studentProjectService.getProjectById("studentB@gces.edu", 501L));
@@ -160,7 +160,7 @@ class StudentProjectServiceImplTest {
     void testStudentBCannotUpdateStudentAProject() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentB@gces.edu")).thenReturn(Optional.of(studentBUser));
         when(studentProfileRepository.findByUserId(2L)).thenReturn(Optional.of(studentBProfile));
-        when(studentProjectRepository.findByIdAndStudentProfileId(501L, 202L)).thenReturn(Optional.empty());
+        when(studentProjectRepository.findByIdAndStudentId(501L, 202L)).thenReturn(Optional.empty());
 
         StudentProjectRequest updateRequest = new StudentProjectRequest(
                 "Hacked Title", "Hacked desc", null, null, null, null
@@ -175,7 +175,7 @@ class StudentProjectServiceImplTest {
     void testStudentBCannotDeleteStudentAProject() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentB@gces.edu")).thenReturn(Optional.of(studentBUser));
         when(studentProfileRepository.findByUserId(2L)).thenReturn(Optional.of(studentBProfile));
-        when(studentProjectRepository.findByIdAndStudentProfileId(501L, 202L)).thenReturn(Optional.empty());
+        when(studentProjectRepository.findByIdAndStudentId(501L, 202L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () ->
                 studentProjectService.deleteProject("studentB@gces.edu", 501L));
@@ -188,7 +188,7 @@ class StudentProjectServiceImplTest {
     void testUpdateProjectSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentA@gces.edu")).thenReturn(Optional.of(studentAUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentAProfile));
-        when(studentProjectRepository.findByIdAndStudentProfileId(501L, 101L)).thenReturn(Optional.of(projectA));
+        when(studentProjectRepository.findByIdAndStudentId(501L, 101L)).thenReturn(Optional.of(projectA));
         when(studentProjectRepository.save(any(StudentProject.class))).thenReturn(projectA);
 
         StudentProjectRequest updateRequest = new StudentProjectRequest(
@@ -213,7 +213,7 @@ class StudentProjectServiceImplTest {
     void testDeleteProjectSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("studentA@gces.edu")).thenReturn(Optional.of(studentAUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentAProfile));
-        when(studentProjectRepository.findByIdAndStudentProfileId(501L, 101L)).thenReturn(Optional.of(projectA));
+        when(studentProjectRepository.findByIdAndStudentId(501L, 101L)).thenReturn(Optional.of(projectA));
 
         studentProjectService.deleteProject("studentA@gces.edu", 501L);
 

@@ -73,7 +73,7 @@ class StudentProfileServiceImplTest {
                 .department("Computer Science and Engineering")
                 .departmentCode("CSE")
                 .cgpa(new BigDecimal("8.50"))
-                .semester((short) 7)
+                .semester(7)
                 .placementStatus(PlacementStatus.PENDING)
                 .isOpenToOpportunities(true)
                 .build();
@@ -87,7 +87,7 @@ class StudentProfileServiceImplTest {
         when(studentSkillRepository.findByStudentProfileIdOrderBySkillNameAsc(10L)).thenReturn(List.of());
         when(studentEducationRepository.findByStudentProfileId(10L)).thenReturn(List.of());
         when(studentExperienceRepository.findByStudentProfileId(10L)).thenReturn(List.of());
-        when(studentProjectRepository.findByStudentProfileIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
+        when(studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
 
         StudentProfileResponse response = studentProfileService.getProfile("student@gces.edu");
 
@@ -169,7 +169,7 @@ class StudentProfileServiceImplTest {
         when(studentSkillRepository.findByStudentProfileIdOrderBySkillNameAsc(10L)).thenReturn(List.of());
         when(studentEducationRepository.findByStudentProfileId(10L)).thenReturn(List.of());
         when(studentExperienceRepository.findByStudentProfileId(10L)).thenReturn(List.of());
-        when(studentProjectRepository.findByStudentProfileIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
+        when(studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
 
         StudentProfileRequest request = new StudentProfileRequest(
                 "Adithya K Updated",
