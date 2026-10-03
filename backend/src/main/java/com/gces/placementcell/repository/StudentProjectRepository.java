@@ -15,24 +15,15 @@ import java.util.Optional;
 @Repository
 public interface StudentProjectRepository extends JpaRepository<StudentProject, Long> {
 
-    List<StudentProject> findByStudentProfileId(Long studentProfileId);
+    List<StudentProject> findByStudentId(Long studentId);
 
-    List<StudentProject> findByStudentProfileIdOrderByCreatedAtDesc(Long studentProfileId);
+    List<StudentProject> findByStudentIdOrderByCreatedAtDesc(Long studentId);
 
-    Optional<StudentProject> findByStudentProfileIdAndTitle(Long studentProfileId, String title);
+    Optional<StudentProject> findByStudentIdAndTitle(Long studentId, String title);
 
-    boolean existsByStudentProfileIdAndTitle(Long studentProfileId, String title);
+    Optional<StudentProject> findByIdAndStudentId(Long id, Long studentId);
 
-    List<StudentProject> findByStudentProfileIdAndTitleContainingIgnoreCase(Long studentProfileId, String keyword);
+    boolean existsByStudentIdAndTitle(Long studentId, String title);
 
-    long countByStudentProfileId(Long studentProfileId);
-
-    Optional<StudentProject> findByIdAndStudentProfileId(Long id, Long studentProfileId);
-
-    boolean existsByIdAndStudentProfileId(Long id, Long studentProfileId);
-
-    void deleteByIdAndStudentProfileId(Long id, Long studentProfileId);
-
-    @Query("SELECT p FROM StudentProject p JOIN ProjectTechStack pts ON pts.project = p WHERE LOWER(pts.technology) = LOWER(:technology)")
-    List<StudentProject> findByTechnology(@Param("technology") String technology);
+    void deleteByStudentId(Long studentId);
 }

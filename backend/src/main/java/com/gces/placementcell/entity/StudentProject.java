@@ -31,7 +31,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"studentProfile", "techStack"})
+@ToString(exclude = "student")
 @EqualsAndHashCode(of = "id")
 public class StudentProject {
 
@@ -46,8 +46,7 @@ public class StudentProject {
         nullable = false,
         foreignKey = @ForeignKey(name = "fk_student_projects_student")
     )
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private StudentProfile studentProfile;
+    private StudentProfile student;
 
     @NotBlank(message = "Project title is required")
     @Size(max = 150, message = "Project title cannot exceed 150 characters")
@@ -80,9 +79,11 @@ public class StudentProject {
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
+
         if (this.createdAt == null) {
             this.createdAt = now;
         }
+
         if (this.updatedAt == null) {
             this.updatedAt = now;
         }
@@ -91,16 +92,5 @@ public class StudentProject {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-    public void addTechnology(String tech) {
-        if (this.techStack == null) {
-            this.techStack = new ArrayList<>();
-        }
-        ProjectTechStack stack = ProjectTechStack.builder()
-                .project(this)
-                .technology(tech)
-                .build();
-        this.techStack.add(stack);
     }
 }
