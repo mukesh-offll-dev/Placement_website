@@ -65,6 +65,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public: auth endpoints
                 .requestMatchers("/auth/**").permitAll()
+                // Public job discovery; write operations are only exposed under /admin/**
+                .requestMatchers("/jobs/**").permitAll()
                 // Public: health & actuator
                 .requestMatchers("/health/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
