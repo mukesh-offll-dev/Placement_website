@@ -1,7 +1,7 @@
 package com.gces.placementcell.entity;
 
+import com.gces.placementcell.entity.enums.DocumentStatus;
 import com.gces.placementcell.entity.enums.DocumentType;
-import com.gces.placementcell.entity.enums.VerificationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,7 +11,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing documents uploaded by a student for verification and placement purposes.
+ * Entity representing documents uploaded by students (e.g., Resume, Marksheet, Certificate).
  */
 @Entity
 @Table(
@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"student", "verifiedByUser"})
 @EqualsAndHashCode(of = "id")
 public class StudentDocument {
 
@@ -34,10 +35,14 @@ public class StudentDocument {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "Student profile reference is required")
+    @NotNull(message = "Student is required")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false, foreignKey = @ForeignKey(name = "fk_student_documents_student"))
-    private StudentProfile studentProfile;
+    @JoinColumn(
+        name = "student_id",
+        nullable = false,
+        foreignKey = @ForeignKey(name = "fk_student_documents_student")
+    )
+    private StudentProfile student;
 
     @NotBlank(message = "Document name is required")
     @Size(max = 150, message = "Document name cannot exceed 150 characters")
@@ -50,21 +55,27 @@ public class StudentDocument {
     private DocumentType documentType;
 
     @NotBlank(message = "File URL is required")
-    @Column(name = "file_url", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "file_url", nullable = false, length = 1000)
     private String fileUrl;
 
     @Column(name = "file_size")
     private Long fileSize;
 
-    @NotNull(message = "Status is required")
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(name = "status", nullable = false, length = 50)
-    private VerificationStatus status = VerificationStatus.PENDING;
+    private DocumentStatus status = DocumentStatus.PENDING;
+
+    @Column(name = "verified_by")
+    private Long verifiedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "verified_by", foreignKey = @ForeignKey(name = "fk_student_documents_verified_by"))
-    private User verifiedBy;
+    @JoinColumn(
+        name = "verified_by",
+        insertable = false,
+        updatable = false
+    )
+    private User verifiedByUser;
 
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
@@ -78,7 +89,7 @@ public class StudentDocument {
             this.uploadedAt = LocalDateTime.now();
         }
         if (this.status == null) {
-            this.status = VerificationStatus.PENDING;
+            this.status = DocumentStatus.PENDING;
         }
     }
 }

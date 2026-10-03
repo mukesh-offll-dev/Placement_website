@@ -40,7 +40,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"company", "postedBy", "placementDrives", "eligibleDepartments", "eligibleDegrees", "responsibilities", "requirements", "perks", "selectionRounds", "applications"})
+@ToString(exclude = {"company", "postedBy", "placementDrives", "eligibleDepartments", "eligibleDegrees", "responsibilities", "skills", "requirements", "perks", "selectionRounds", "applications"})
 @EqualsAndHashCode(of = "id")
 public class Job {
 
@@ -119,9 +119,11 @@ public class Job {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @NotNull(message = "Posting user is required")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
         name = "posted_by",
+        nullable = false,
         foreignKey = @ForeignKey(name = "fk_jobs_poster")
     )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -160,6 +162,11 @@ public class Job {
     @Builder.Default
     @JsonIgnore
     private List<JobResponsibility> responsibilities = new ArrayList<>();
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @JsonIgnore
+    private List<JobSkill> skills = new ArrayList<>();
 
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
@@ -274,6 +281,27 @@ public class Job {
 
     public String getCompanyName() {
         return this.company != null ? this.company.getName() : null;
+    }
+
+    // -- Relationship helpers: keep both sides in sync so the FK is always populated
+    public void addSkill(JobSkill skill) {
+        skill.setJob(this);
+        this.skills.add(skill);
+    }
+
+    public void removeSkill(JobSkill skill) {
+        this.skills.remove(skill);
+        skill.setJob(null);
+    }
+
+    public void addRequirement(JobRequirement requirement) {
+        requirement.setJob(this);
+        this.requirements.add(requirement);
+    }
+
+    public void removeRequirement(JobRequirement requirement) {
+        this.requirements.remove(requirement);
+        requirement.setJob(null);
     }
 
     public boolean isExpired() {

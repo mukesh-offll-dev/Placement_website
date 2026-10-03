@@ -17,8 +17,8 @@ import java.util.List;
 
 /**
  * Filter that intercepts incoming HTTP requests to validate Bearer tokens and establish the authenticated security context.
+ * Note: Retained for reference; active filter is JwtAuthenticationFilter.
  */
-@Component
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenProvider tokenProvider;

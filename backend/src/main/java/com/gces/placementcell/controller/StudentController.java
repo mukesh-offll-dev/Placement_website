@@ -1,6 +1,7 @@
 package com.gces.placementcell.controller;
 
 import com.gces.placementcell.dto.response.ApiResponse;
+import com.gces.placementcell.dto.response.StudentProfileResponse;
 import com.gces.placementcell.entity.StudentProfile;
 import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.JobStatus;
@@ -8,10 +9,12 @@ import com.gces.placementcell.repository.JobApplicationRepository;
 import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import com.gces.placementcell.service.StudentProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,10 +25,10 @@ import java.util.Optional;
 
 /**
  * Controller exposing features accessible exclusively to Students.
+ * All routes under /student/** require ROLE_STUDENT (enforced by SecurityConfig and @PreAuthorize).
  */
 @RestController
 @RequestMapping("/student")
-@RequiredArgsConstructor
 @PreAuthorize("hasRole('STUDENT')")
 public class StudentController {
 
@@ -33,7 +36,24 @@ public class StudentController {
     private final StudentProfileRepository studentProfileRepository;
     private final JobRepository jobRepository;
     private final JobApplicationRepository jobApplicationRepository;
+    private final StudentProfileService studentProfileService;
 
+    public StudentController(UserRepository userRepository,
+                             StudentProfileRepository studentProfileRepository,
+                             JobRepository jobRepository,
+                             JobApplicationRepository jobApplicationRepository,
+                             StudentProfileService studentProfileService) {
+        this.userRepository = userRepository;
+        this.studentProfileRepository = studentProfileRepository;
+        this.jobRepository = jobRepository;
+        this.jobApplicationRepository = jobApplicationRepository;
+        this.studentProfileService = studentProfileService;
+    }
+
+    /**
+     * GET /api/student/dashboard
+     * Returns personal statistics and placement status for the student dashboard.
+     */
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getStudentDashboard(Authentication authentication) {
         String email = authentication.getName();
@@ -66,31 +86,14 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success("Student dashboard loaded successfully", stats));
     }
 
-    @GetMapping("/profile")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getStudentProfile(Authentication authentication) {
-        Optional<User> userOpt = userRepository.findByEmailAndIsDeletedFalse(authentication.getName());
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(404).body(ApiResponse.error("Student user not found"));
-        }
-
-        User user = userOpt.get();
-        Optional<StudentProfile> profileOpt = studentProfileRepository.findByUserId(user.getId());
-
-        Map<String, Object> profileData = new HashMap<>();
-        profileData.put("id", user.getId());
-        profileData.put("email", user.getEmail());
-        profileData.put("role", user.getRole().name());
-
-        profileOpt.ifPresent(profile -> {
-            profileData.put("fullName", profile.getFullName());
-            profileData.put("rollNo", profile.getRollNo());
-            profileData.put("departmentCode", profile.getDepartmentCode());
-            profileData.put("batch", profile.getBatch());
-            profileData.put("cgpa", profile.getCgpa());
-            profileData.put("placementStatus", profile.getPlacementStatus() != null ? profile.getPlacementStatus().name() : null);
-            profileData.put("isOpenToOpportunities", profile.getIsOpenToOpportunities());
-        });
-
-        return ResponseEntity.ok(ApiResponse.success("Student profile loaded successfully", profileData));
+    /**
+     * GET /api/student/me
+     * Returns the authenticated student's full profile.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<StudentProfileResponse>> getMyProfile(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        StudentProfileResponse profile = studentProfileService.getProfile(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(profile));
     }
 }

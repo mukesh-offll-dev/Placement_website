@@ -1,11 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
 
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import StudentLoginPage from './pages/StudentLoginPage';
+import StudentRegisterPage from './pages/StudentRegisterPage';
 
 import AdminLayout from './layouts/AdminLayout';
 import StudentLayout from './layouts/StudentLayout';
@@ -21,48 +20,57 @@ import StudentProfile from './pages/StudentProfile';
 import AddProjectPage from './pages/AddProjectPage';
 import StudentApplicationsPage from './pages/StudentApplicationsPage';
 
+import ProtectedRoute from './components/ProtectedRoute';
+
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
+    <BrowserRouter>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
-          {/* Admin Auth */}
-          <Route path="/admin/login" element={<AdminLoginPage />} />
+        {/* Admin Auth */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
 
-          {/* Admin Protected Routes */}
-          <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
-            <Route element={<AdminLayout />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/students" element={<AdminStudents />} />
-              <Route path="/admin/students/:id" element={<AdminStudentDetail />} />
-              <Route path="/admin/jobs" element={<JobsPage isAdmin />} />
-              <Route path="/admin/notifications" element={<NotificationsPage />} />
-            </Route>
-          </Route>
+        {/* Admin Routes — protected, require ADMIN role */}
+        <Route
+          element={
+            <ProtectedRoute allowedRole="ADMIN" redirectTo="/admin/login">
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/students" element={<AdminStudents />} />
+          <Route path="/admin/students/:id" element={<AdminStudentDetail />} />
+          <Route path="/admin/jobs" element={<JobsPage isAdmin />} />
+          <Route path="/admin/notifications" element={<NotificationsPage />} />
+        </Route>
 
-          {/* Student Auth */}
-          <Route path="/student/login" element={<StudentLoginPage />} />
+        {/* Student Auth */}
+        <Route path="/student/login" element={<StudentLoginPage />} />
+        <Route path="/student/register" element={<StudentRegisterPage />} />
 
-          {/* Student Protected Routes */}
-          <Route element={<ProtectedRoute requiredRole="STUDENT" />}>
-            <Route element={<StudentLayout />}>
-              <Route path="/student/dashboard" element={<StudentDashboard />} />
-              <Route path="/student/profile" element={<StudentProfile />} />
-              <Route path="/student/jobs" element={<JobsPage />} />
-              <Route path="/student/add-project" element={<AddProjectPage />} />
-              <Route path="/student/jobs/:id" element={<JobDetailPage />} />
-              <Route path="/student/applications" element={<StudentApplicationsPage />} />
-            </Route>
-          </Route>
+        {/* Student Routes — protected, require STUDENT role */}
+        <Route
+          element={
+            <ProtectedRoute allowedRole="STUDENT" redirectTo="/student/login">
+              <StudentLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/student/dashboard" element={<StudentDashboard />} />
+          <Route path="/student/profile" element={<StudentProfile />} />
+          <Route path="/student/jobs" element={<JobsPage />} />
+          <Route path="/student/add-project" element={<AddProjectPage />} />
+          <Route path="/student/jobs/:id" element={<JobDetailPage />} />
+          <Route path="/student/applications" element={<StudentApplicationsPage />} />
+        </Route>
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

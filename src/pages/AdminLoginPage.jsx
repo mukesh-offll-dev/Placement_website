@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Landmark, Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { login } from '../services/authService';
 
 function generateCaptcha() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -10,17 +10,18 @@ function generateCaptcha() {
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [captcha, setCaptcha] = useState(generateCaptcha());
+  // Note: 'username' field accepts the admin's email address
   const [form, setForm] = useState({ username: '', password: '', captchaInput: '' });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const e = {};
-    if (!form.username.trim()) e.username = 'Username is required';
+    if (!form.username.trim()) e.username = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(form.username)) e.username = 'Enter a valid email address';
     if (!form.password) e.password = 'Password is required';
     if (form.captchaInput.toUpperCase() !== captcha) {
       e.captcha = 'CAPTCHA does not match';
@@ -34,22 +35,32 @@ export default function AdminLoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
-    if (validate()) {
-      setIsSubmitting(true);
-      try {
-        const result = await login({ email: form.username, password: form.password }, 'ADMIN');
-        if (result.success) {
-          navigate('/admin/dashboard');
-        } else {
-          setApiError(result.error);
-        }
-      } finally {
-        setIsSubmitting(false);
+    if (!validate()) return;
+
+    setLoading(true);
+    try {
+      const user = await login(form.username, form.password);
+
+      if (user.role !== 'ADMIN') {
+        setApiError('This portal is for administrators only. Please use the Student Login.');
+        setCaptcha(generateCaptcha());
+        setForm((f) => ({ ...f, captchaInput: '' }));
+        return;
       }
+      navigate('/admin/dashboard', { replace: true });
+    } catch (err) {
+      setApiError(err.message || 'Login failed. Please check your credentials.');
+      setCaptcha(generateCaptcha());
+      setForm((f) => ({ ...f, captchaInput: '' }));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChange = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  const handleChange = (field) => (e) => {
+    setForm((f) => ({ ...f, [field]: e.target.value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -80,25 +91,30 @@ export default function AdminLoginPage() {
             Secure access for placement administrators
           </p>
 
-          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
-            {apiError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
-                <span>{apiError}</span>
-              </div>
-            )}
+          {/* API-level error banner */}
+          {apiError && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
 
-            {/* Username */}
+          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
+            {/* Email (labelled as Username for admin familiarity) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username / Email</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email / Username
+              </label>
               <input
+                id="admin-email"
                 type="text"
-                placeholder="Enter admin email"
+                placeholder="admin@gce.edu.in"
                 value={form.username}
                 onChange={handleChange('username')}
+                disabled={loading}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
                   errors.username ? 'border-red-400' : 'border-gray-300'
-                }`}
+                } disabled:opacity-60`}
               />
               {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username}</p>}
             </div>
@@ -113,13 +129,15 @@ export default function AdminLoginPage() {
               </div>
               <div className="relative">
                 <input
+                  id="admin-password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter password"
                   value={form.password}
                   onChange={handleChange('password')}
+                  disabled={loading}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-10 ${
                     errors.password ? 'border-red-400' : 'border-gray-300'
-                  }`}
+                  } disabled:opacity-60`}
                 />
                 <button
                   type="button"
@@ -132,41 +150,54 @@ export default function AdminLoginPage() {
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
             </div>
 
-            {/* Captcha display */}
+            {/* CAPTCHA */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Security Check</label>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-gray-100 border border-gray-300 px-4 py-2 rounded-lg font-mono font-bold tracking-widest text-lg select-none text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Verification</label>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 bg-gray-200 py-2 text-center rounded font-mono font-bold tracking-[0.3em] text-gray-700 select-none">
                   {captcha}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setCaptcha(generateCaptcha())}
-                  className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
+                  onClick={() => { setCaptcha(generateCaptcha()); setForm((f) => ({ ...f, captchaInput: '' })); }}
+                  className="bg-gray-200 p-2 rounded hover:bg-gray-300 transition-colors"
                   title="Refresh CAPTCHA"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
               </div>
               <input
+                id="admin-captcha"
                 type="text"
                 placeholder="Enter CAPTCHA"
                 value={form.captchaInput}
                 onChange={handleChange('captchaInput')}
                 maxLength={5}
+                disabled={loading}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
                   errors.captcha ? 'border-red-400' : 'border-gray-300'
-                }`}
+                } disabled:opacity-60`}
               />
               {errors.captcha && <p className="text-red-500 text-xs mt-1">{errors.captcha}</p>}
             </div>
 
             <button
+              id="admin-login-btn"
               type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Authenticating...' : 'LOGIN TO ADMIN PANEL →'}
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Signing in…
+                </>
+              ) : (
+                'LOGIN TO ADMIN PANEL →'
+              )}
             </button>
           </form>
         </div>

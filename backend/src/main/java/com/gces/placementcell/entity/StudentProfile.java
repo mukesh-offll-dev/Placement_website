@@ -5,17 +5,16 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.*;
 
 /**
- * Entity representing Student Profile storing personal, academic, contact, resume, and placement details.
- * 1:1 relationship with User table (where role = 'STUDENT').
+ * Entity representing student academic and placement profile.
+ * Stores personal, academic, contact, resume, and placement details.
  */
 @Entity
 @Table(
@@ -41,7 +40,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = {"user", "placedCompany", "skills", "documents", "education", "experience", "projects", "applications", "savedJobs"})
+@ToString(exclude = "user")
 @EqualsAndHashCode(of = "id")
 public class StudentProfile {
 
@@ -51,15 +50,18 @@ public class StudentProfile {
 
     @NotNull(message = "User reference is required")
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true, foreignKey = @ForeignKey(name = "fk_student_profiles_user"))
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JoinColumn(
+        name = "user_id",
+        nullable = false,
+        unique = true,
+        foreignKey = @ForeignKey(name = "fk_student_profiles_user")
+    )
     private User user;
 
     @Size(max = 20, message = "Roll number cannot exceed 20 characters")
-    @Column(name = "roll_no", length = 20, unique = true)
+    @Column(name = "roll_no", unique = true, length = 20)
     private String rollNo;
 
-    // -- Personal / Contact
     @NotBlank(message = "Full name is required")
     @Size(max = 120, message = "Full name cannot exceed 120 characters")
     @Column(name = "full_name", nullable = false, length = 120)
@@ -82,13 +84,14 @@ public class StudentProfile {
     @Column(name = "about", columnDefinition = "TEXT")
     private String about;
 
-    @Column(name = "avatar_url", columnDefinition = "TEXT")
+    @Column(name = "avatar_url", length = 1000)
     private String avatarUrl;
 
-    @Column(name = "resume_url", columnDefinition = "TEXT")
+    @Column(name = "resume_url", length = 1000)
     private String resumeUrl;
 
-    // -- Academic
+    // Academic
+
     @Size(max = 150, message = "College name cannot exceed 150 characters")
     @Column(name = "college", length = 150)
     private String college;
@@ -129,7 +132,8 @@ public class StudentProfile {
     @Column(name = "active_backlogs", nullable = false)
     private Integer activeBacklogs = 0;
 
-    // -- Placement
+    // Placement
+
     @NotNull(message = "Placement status is required")
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -173,7 +177,7 @@ public class StudentProfile {
     @JsonIgnore
     private List<StudentSkill> skills = new ArrayList<>();
 
-    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @JsonIgnore
     private List<StudentDocument> documents = new ArrayList<>();
@@ -206,24 +210,31 @@ public class StudentProfile {
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
+
         if (this.createdAt == null) {
             this.createdAt = now;
         }
+
         if (this.updatedAt == null) {
             this.updatedAt = now;
         }
+
         if (this.totalBacklogs == null) {
             this.totalBacklogs = 0;
         }
+
         if (this.activeBacklogs == null) {
             this.activeBacklogs = 0;
         }
+
         if (this.placementStatus == null) {
             this.placementStatus = PlacementStatus.PENDING;
         }
+
         if (this.isOpenToOpportunities == null) {
             this.isOpenToOpportunities = true;
         }
+
         if (this.profileCompletionPercent == null) {
             this.profileCompletionPercent = 0;
         }
@@ -234,16 +245,27 @@ public class StudentProfile {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Helper convenience methods
-    public Long getPlacedCompanyId() {
-        return this.placedCompany != null ? this.placedCompany.getId() : null;
-    }
+    public static class StudentProfileBuilder {
+        public StudentProfileBuilder semester(Integer semester) {
+            this.semester = semester != null ? semester.shortValue() : null;
+            return this;
+        }
 
-    public void setPlacedCompanyId(Long placedCompanyId) {
-        if (placedCompanyId != null) {
-            this.placedCompany = Company.builder().id(placedCompanyId).build();
-        } else {
-            this.placedCompany = null;
+        public StudentProfileBuilder semester(Short semester) {
+            this.semester = semester;
+            return this;
+        }
+
+        public StudentProfileBuilder profileCompletionPercent(Integer profileCompletionPercent) {
+            this.profileCompletionPercent$value = profileCompletionPercent != null ? profileCompletionPercent.shortValue() : null;
+            this.profileCompletionPercent$set = true;
+            return this;
+        }
+
+        public StudentProfileBuilder profileCompletionPercent(Short profileCompletionPercent) {
+            this.profileCompletionPercent$value = profileCompletionPercent;
+            this.profileCompletionPercent$set = true;
+            return this;
         }
     }
 }

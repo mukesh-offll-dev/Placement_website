@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
+import { getUser } from '../services/authService';
 
 const breadcrumbMap = {
   '/admin/dashboard': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Dashboard' }],
@@ -185,11 +186,15 @@ export default function AdminLayout() {
             {/* Admin Profile Pill */}
             <div className="flex items-center gap-2.5 pl-2.5 border-l border-gray-200">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                A
+                {(getUser()?.fullName || 'A').charAt(0).toUpperCase()}
               </div>
               <div className="hidden lg:block text-left">
-                <p className="text-xs font-bold text-gray-900 leading-tight">Admin</p>
-                <p className="text-[10px] text-gray-500">Placement Cell</p>
+                <p className="text-xs font-bold text-gray-900 leading-tight">
+                  {getUser()?.fullName || 'Admin'}
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  {getUser()?.email || 'Placement Cell'}
+                </p>
               </div>
             </div>
           </div>

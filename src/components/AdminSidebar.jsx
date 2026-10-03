@@ -8,8 +8,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-
-import { useAuth } from '../context/AuthContext';
+import { logout, getUser } from '../services/authService';
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -20,11 +19,10 @@ const navItems = [
 
 export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const currentUser = getUser();
 
   const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
+    logout('/admin/login');
   };
 
   const sidebarContent = (
@@ -100,8 +98,12 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">Placement Officer</p>
-              <p className="text-[10px] text-gray-500 truncate">admin@gces.edu</p>
+              <p className="text-xs font-bold text-gray-900 truncate">
+                {currentUser?.fullName || 'Placement Officer'}
+              </p>
+              <p className="text-[10px] text-gray-500 truncate">
+                {currentUser?.email || 'admin@gces.edu'}
+              </p>
             </div>
           </div>
           <button

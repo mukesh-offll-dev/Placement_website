@@ -46,7 +46,6 @@ public class StudentProject {
         nullable = false,
         foreignKey = @ForeignKey(name = "fk_student_projects_student")
     )
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private StudentProfile studentProfile;
 
     @NotBlank(message = "Project title is required")
@@ -77,20 +76,12 @@ public class StudentProject {
     @JsonIgnore
     private List<ProjectTechStack> techStack = new ArrayList<>();
 
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        if (this.createdAt == null) {
-            this.createdAt = now;
-        }
-        if (this.updatedAt == null) {
-            this.updatedAt = now;
-        }
+    public StudentProfile getStudent() {
+        return this.studentProfile;
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+    public void setStudent(StudentProfile student) {
+        this.studentProfile = student;
     }
 
     public void addTechnology(String tech) {
@@ -99,5 +90,23 @@ public class StudentProject {
                 .technology(tech)
                 .build();
         techStack.add(stack);
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+
+        if (this.createdAt == null) {
+            this.createdAt = now;
+        }
+
+        if (this.updatedAt == null) {
+            this.updatedAt = now;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }
