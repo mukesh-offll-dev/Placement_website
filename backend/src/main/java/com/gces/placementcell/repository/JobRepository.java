@@ -28,4 +28,11 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByIsDeletedFalse();
 
     List<Job> findByStatusAndIsDeletedFalse(JobStatus status);
+
+    long countByStatusAndIsDeletedFalse(JobStatus status);
+
+    long countByIsDeletedFalse();
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT j.company) FROM Job j WHERE j.isDeleted = false")
+    long countDistinctCompanies();
 }

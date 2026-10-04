@@ -1,5 +1,9 @@
 package com.gces.placementcell.config;
 
+import com.gces.placementcell.security.AdminAuthFilter;
+import com.gces.placementcell.security.CustomAccessDeniedHandler;
+import com.gces.placementcell.security.CustomAuthenticationEntryPoint;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -9,21 +13,21 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Development security config — all requests permitted.
- * JWT filter chain and role-based access control will be added in a later step
- * once entities, auth endpoints, and the JWT utility are implemented.
+ * Security configuration for Placement Cell.
+ * Secures /admin/** endpoints requiring ADMIN or PLACEMENT_OFFICER authority.
  */
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final CorsConfig corsConfig;
-
-    public SecurityConfig(CorsConfig corsConfig) {
-        this.corsConfig = corsConfig;
-    }
+    private final AdminAuthFilter adminAuthFilter;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -32,14 +36,22 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
+            )
             .authorizeHttpRequests(auth -> auth
-                // H2 console (dev only)
+                // Public dev & infrastructure endpoints
                 .requestMatchers("/h2-console/**").permitAll()
-                // Actuator health
                 .requestMatchers("/actuator/**").permitAll()
-                // All other requests open for now — will be secured per-role later
+                .requestMatchers("/health").permitAll()
+                .requestMatchers("/auth/**").permitAll()
+                // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
+                // All other endpoints
                 .anyRequest().permitAll()
             )
+            .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
             // Allow H2 console frames in dev
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 

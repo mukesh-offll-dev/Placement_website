@@ -33,4 +33,10 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     long countByJobIdAndStatus(Long jobId, ApplicationStatus status);
 
     long countByStudentProfileId(Long studentProfileId);
+
+    long countByStatus(ApplicationStatus status);
+
+    long countByAppliedAtGreaterThanEqual(java.time.LocalDateTime since);
+
+    List<JobApplication> findTop10ByOrderByAppliedAtDesc();
 }
