@@ -2,25 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Briefcase, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
 
-const ALL_JOBS = [
-  { id: 1, company: 'Google', role: 'Software Engineer', cgpa: '8.5+', deadline: 'Nov 15, 2026', location: 'Bangalore', type: 'Full Time', ctc: '24 LPA', status: 'Open' },
-  { id: 2, company: 'Amazon', role: 'Data Analyst', cgpa: '7.5+', deadline: 'Nov 01, 2026', location: 'Hyderabad', type: 'Full Time', ctc: '18 LPA', status: 'Open' },
-  { id: 3, company: 'Microsoft', role: 'Cloud Engineer', cgpa: '8.0+', deadline: 'Oct 30, 2026', location: 'Hyderabad', type: 'Full Time', ctc: '22 LPA', status: 'Open' },
-  { id: 4, company: 'Zoho', role: 'UI/UX Designer', cgpa: '7.0+', deadline: 'Oct 28, 2026', location: 'Chennai', type: 'Full Time', ctc: '10 LPA', status: 'Closing Soon' },
-  { id: 5, company: 'TCS', role: 'Systems Engineer', cgpa: '6.5+', deadline: 'Nov 10, 2026', location: 'Pan India', type: 'Full Time', ctc: '7 LPA', status: 'Open' },
-  { id: 6, company: 'Infosys', role: 'Associate Developer', cgpa: '6.5+', deadline: 'Nov 05, 2026', location: 'Pan India', type: 'Full Time', ctc: '6.5 LPA', status: 'Open' },
-  { id: 7, company: 'Wipro', role: 'Project Engineer', cgpa: '6.0+', deadline: 'Nov 20, 2026', location: 'Pan India', type: 'Full Time', ctc: '6 LPA', status: 'Open' },
-  { id: 8, company: 'Freshworks', role: 'Frontend Developer', cgpa: '7.5+', deadline: 'Nov 08, 2026', location: 'Chennai', type: 'Full Time', ctc: '12 LPA', status: 'Open' },
-];
-
 const PAGE_SIZE = 5;
 
 export default function JobsPage({ isAdmin = false }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [jobs, setJobs] = useState(ALL_JOBS);
+  const [jobs] = useState([]);
   const [newJob, setNewJob] = useState({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
+  const [addError, setAddError] = useState('');
 
   const filtered = jobs.filter((j) => {
     const q = search.toLowerCase();
@@ -32,9 +22,7 @@ export default function JobsPage({ isAdmin = false }) {
 
   const handleAdd = (e) => {
     e.preventDefault();
-    setJobs((prev) => [...prev, { ...newJob, id: Date.now(), status: 'Open', type: 'Full Time' }]);
-    setNewJob({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
-    setShowAddModal(false);
+    setAddError('Job posting is unavailable because the backend does not provide a jobs API.');
   };
 
   const content = (
@@ -75,7 +63,7 @@ export default function JobsPage({ isAdmin = false }) {
         {paginated.length === 0 ? (
           <div className="bg-white rounded-xl p-10 text-center text-gray-400 shadow-sm">
             <Briefcase className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-            No jobs found.
+            Job listings are unavailable because the backend does not provide a jobs API.
           </div>
         ) : (
           paginated.map((job) => (
@@ -157,6 +145,7 @@ export default function JobsPage({ isAdmin = false }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
             <h3 className="font-bold text-lg mb-4">Post New Job Drive</h3>
+            {addError && <p role="alert" className="mb-3 text-sm text-red-600">{addError}</p>}
             <form onSubmit={handleAdd} className="space-y-3">
               {[
                 { field: 'company', label: 'Company Name' },

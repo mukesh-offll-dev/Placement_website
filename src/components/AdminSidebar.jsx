@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -20,7 +21,8 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    navigate('/login');
+    localStorage.removeItem('accessToken');
+    navigate('/login', { replace: true });
   };
 
   const sidebarContent = (
@@ -69,7 +71,7 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
             {({ isActive }) => (
               <>
                 <div className="flex items-center gap-3">
-                  <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                  {createElement(NavIcon, { className: `w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}` })}
                   <span>{label}</span>
                 </div>
                 {badge && (

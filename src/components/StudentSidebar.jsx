@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -16,11 +17,12 @@ const navItems = [
   { to: '/student/profile', icon: User, label: 'My Profile' },
 ];
 
-export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
+export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {}, studentInfo = {} }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    navigate('/login');
+    localStorage.removeItem('accessToken');
+    navigate('/login', { replace: true });
   };
 
   const sidebarContent = (
@@ -68,7 +70,7 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
           >
             {({ isActive }) => (
               <div className="flex items-center gap-3">
-                <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                {createElement(NavIcon, { className: `w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}` })}
                 <span>{label}</span>
               </div>
             )}
@@ -81,12 +83,12 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
         <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-gray-200 shadow-xs mb-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-              A
+              {(studentInfo.name || studentInfo.email || 'S').charAt(0).toUpperCase()}
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">Alex Harrison</p>
-              <p className="text-[10px] text-gray-500 truncate">B.E CSE · 7th Sem</p>
+              <p className="text-xs font-bold text-gray-900 truncate">{studentInfo.name || studentInfo.email || 'Student'}</p>
+              <p className="text-[10px] text-gray-500 truncate">{studentInfo.degree || 'Student account'}</p>
             </div>
           </div>
           <button

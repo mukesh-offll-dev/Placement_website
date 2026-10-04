@@ -5,7 +5,8 @@
 #   DB_URL      — e.g. jdbc:postgresql://localhost:5432/placement_cell
 #   DB_USERNAME — your postgres username
 #   DB_PASSWORD — your postgres password
-#   JWT_SECRET  — a random 256-bit base64 string (for JWT, added later)
+#   JWT_SECRET  — a random 256-bit base64 string
+#   APP_CORS_ALLOWED_ORIGINS — comma-separated explicit frontend origins
 #
 # Switch active profile: set SPRING_PROFILES_ACTIVE=prod
 # ============================================================
@@ -33,6 +34,10 @@ spring:
         jdbc:
           lob:
             non-contextual-creation: true
+
+  app:
+    cors:
+      allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
 
 logging:
   level:

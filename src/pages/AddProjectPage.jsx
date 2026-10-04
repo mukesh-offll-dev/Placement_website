@@ -1,15 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   FolderKanban,
-  Link as LinkIcon,
-  Image as ImageIcon,
   Plus,
   X,
-  Upload,
   ExternalLink,
 } from 'lucide-react';
+import { apiRequest } from '../services/api';
 
 const Github = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -34,8 +32,6 @@ const TECH_SUGGESTIONS = [
 
 export default function AddProjectPage() {
   const navigate = useNavigate();
-  const mediaRef = useRef();
-
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -43,74 +39,89 @@ export default function AddProjectPage() {
     tech: [],
     liveUrl: '',
     repoUrl: '',
-    mediaPreview: null,
   });
   const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  /* ── helpers ── */
-  const handleChange = (field) => (e) =>
-    setForm((f) => ({ ...f, [field]: e.target.value }));
+  const handleChange = (field) => (event) =>
+    setForm((current) => ({ ...current, [field]: event.target.value }));
 
-  const addTech = (tag) => {
-    const trimmed = tag.trim();
-    if (trimmed && !form.tech.includes(trimmed)) {
-      setForm((f) => ({ ...f, tech: [...f.tech, trimmed], techInput: '' }));
+  const addTech = (value) => {
+    const tech = value.trim();
+    if (tech && !form.tech.includes(tech)) {
+      setForm((current) => ({ ...current, tech: [...current.tech, tech], techInput: '' }));
     }
   };
 
-  const handleTechKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
+  const handleTechKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
       addTech(form.techInput);
     }
   };
 
-  const removeTech = (tag) =>
-    setForm((f) => ({ ...f, tech: f.tech.filter((t) => t !== tag) }));
-
-  const handleMediaUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setForm((f) => ({ ...f, mediaPreview: URL.createObjectURL(file) }));
-    }
-  };
+  const removeTech = (techToRemove) =>
+    setForm((current) => ({ ...current, tech: current.tech.filter((tech) => tech !== techToRemove) }));
 
   const validate = () => {
-    const e = {};
-    if (!form.title.trim()) e.title = 'Project title is required.';
-    if (!form.description.trim()) e.description = 'A short description is required.';
-    if (form.tech.length === 0) e.tech = 'Add at least one technology.';
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    const nextErrors = {};
+    if (!form.title.trim()) nextErrors.title = 'Project title is required.';
+    if (!form.description.trim()) nextErrors.description = 'A short description is required.';
+    if (form.description.length > 2000) nextErrors.description = 'Description must be 2000 characters or fewer.';
+    if (!form.tech.length) nextErrors.tech = 'Add at least one technology.';
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!validate()) return;
 
+    setIsSaving(true);
+    setErrors({});
     const newProject = {
       title: form.title.trim(),
       desc: form.description.trim(),
       tech: form.tech,
       live: form.liveUrl.trim(),
       repo: form.repoUrl.trim(),
-      media: form.mediaPreview,
     };
 
-    navigate('/student/profile', { state: { newProject } });
+    try {
+      const profileResponse = await apiRequest('/students/me/profile');
+      const profile = profileResponse.data;
+      await apiRequest('/students/me/profile', {
+        method: 'PUT',
+        body: {
+          name: profile.name,
+          degree: profile.degree,
+          college: profile.college,
+          rollNo: profile.rollNo,
+          phone: profile.contact?.phone || '',
+          address: profile.contact?.address || '',
+          about: profile.about,
+          skills: profile.skills || [],
+          education: profile.education || [],
+          experience: profile.experience || [],
+          projects: [...(profile.projects || []), newProject],
+        },
+      });
+      navigate('/student/profile');
+    } catch (error) {
+      setErrors({ submit: error.message || 'Unable to save this project.' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  /* ── progress indicator ── */
   const filledFields = [
     form.title.trim(),
     form.description.trim(),
     form.tech.length > 0,
     form.liveUrl.trim(),
     form.repoUrl.trim(),
-    form.mediaPreview,
   ].filter(Boolean).length;
-  const completionPct = Math.round((filledFields / 6) * 100);
+  const completionPct = Math.round((filledFields / 5) * 100);
 
   return (
     <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 overflow-x-hidden">
@@ -136,6 +147,7 @@ export default function AddProjectPage() {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
+          {errors.submit && <p role="alert" className="mb-4 text-sm text-red-600">{errors.submit}</p>}
           <div className="grid lg:grid-cols-3 gap-6">
 
             {/* ── LEFT: form ── */}
@@ -287,59 +299,16 @@ export default function AddProjectPage() {
                 </div>
               </div>
 
-              {/* Media */}
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="font-semibold text-gray-900 mb-1">Project Screenshot / Banner</h2>
-                <p className="text-gray-400 text-xs mb-4">
-                  Optional — upload a screenshot or banner image for your project.
-                </p>
-
-                {form.mediaPreview ? (
-                  <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                    <img
-                      src={form.mediaPreview}
-                      alt="Project preview"
-                      className="w-full h-48 object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, mediaPreview: null }))}
-                      className="absolute top-2 right-2 bg-white rounded-full p-1 shadow hover:bg-red-50 transition-colors"
-                    >
-                      <X className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => mediaRef.current.click()}
-                    className="w-full border-2 border-dashed border-gray-300 rounded-xl h-40 flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50 transition-colors group"
-                  >
-                    <div className="bg-gray-100 group-hover:bg-blue-100 p-3 rounded-full transition-colors">
-                      <Upload className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                    </div>
-                    <p className="text-sm text-gray-500 group-hover:text-blue-600 transition-colors font-medium">
-                      Click to upload image
-                    </p>
-                    <p className="text-xs text-gray-400">PNG, JPG, WebP up to 5 MB</p>
-                  </button>
-                )}
-                <input
-                  type="file"
-                  ref={mediaRef}
-                  onChange={handleMediaUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
-              </div>
+              <p className="text-xs text-gray-500">Project image uploads are unavailable until backend media storage is implemented.</p>
 
               {/* Action Buttons */}
               <div className="flex gap-3 pb-6">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm"
+                  disabled={isSaving}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm disabled:opacity-50"
                 >
-                  Add Project to Profile
+                  {isSaving ? 'Saving...' : 'Add Project to Profile'}
                 </button>
                 <button
                   type="button"
@@ -373,7 +342,6 @@ export default function AddProjectPage() {
                     { label: 'Technologies', done: form.tech.length > 0 },
                     { label: 'Live URL', done: !!form.liveUrl.trim() },
                     { label: 'Repo URL', done: !!form.repoUrl.trim() },
-                    { label: 'Screenshot', done: !!form.mediaPreview },
                   ].map(({ label, done }) => (
                     <li key={label} className="flex items-center gap-2 text-xs">
                       <span
@@ -395,13 +363,6 @@ export default function AddProjectPage() {
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
                     Preview
                   </p>
-                  {form.mediaPreview && (
-                    <img
-                      src={form.mediaPreview}
-                      alt="Preview"
-                      className="w-full h-28 object-cover rounded-xl mb-3"
-                    />
-                  )}
                   <p className="font-bold text-sm text-gray-900">{form.title}</p>
                   {form.description && (
                     <p className="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-3">

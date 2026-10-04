@@ -10,8 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Entity representing Student Profile storing personal, academic, contact, resume, and placement details.
- * 1:1 relationship with User table (where role = 'STUDENT').
+ * Entity representing student profile, academic, contact and placement details.
  */
 @Entity
 @Table(
@@ -46,14 +45,14 @@ public class StudentProfile {
 
     @NotNull(message = "User reference is required")
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true, foreignKey = @ForeignKey(name = "fk_student_profiles_user"))
+    @JoinColumn(name = "user_id", nullable = false, unique = true,
+            foreignKey = @ForeignKey(name = "fk_student_profiles_user"))
     private User user;
 
     @Size(max = 20, message = "Roll number cannot exceed 20 characters")
     @Column(name = "roll_no", length = 20, unique = true)
     private String rollNo;
 
-    // -- Personal / Contact
     @NotBlank(message = "Full name is required")
     @Size(max = 120, message = "Full name cannot exceed 120 characters")
     @Column(name = "full_name", nullable = false, length = 120)
@@ -82,7 +81,6 @@ public class StudentProfile {
     @Column(name = "resume_url", columnDefinition = "TEXT")
     private String resumeUrl;
 
-    // -- Academic
     @Size(max = 150, message = "College name cannot exceed 150 characters")
     @Column(name = "college", length = 150)
     private String college;
@@ -123,7 +121,6 @@ public class StudentProfile {
     @Column(name = "active_backlogs", nullable = false)
     private Integer activeBacklogs = 0;
 
-    // -- Placement
     @NotNull(message = "Placement status is required")
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -159,31 +156,17 @@ public class StudentProfile {
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
-        if (this.createdAt == null) {
-            this.createdAt = now;
-        }
-        if (this.updatedAt == null) {
-            this.updatedAt = now;
-        }
-        if (this.totalBacklogs == null) {
-            this.totalBacklogs = 0;
-        }
-        if (this.activeBacklogs == null) {
-            this.activeBacklogs = 0;
-        }
-        if (this.placementStatus == null) {
-            this.placementStatus = PlacementStatus.PENDING;
-        }
-        if (this.isOpenToOpportunities == null) {
-            this.isOpenToOpportunities = true;
-        }
-        if (this.profileCompletionPercent == null) {
-            this.profileCompletionPercent = 0;
-        }
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+        if (totalBacklogs == null) totalBacklogs = 0;
+        if (activeBacklogs == null) activeBacklogs = 0;
+        if (placementStatus == null) placementStatus = PlacementStatus.PENDING;
+        if (isOpenToOpportunities == null) isOpenToOpportunities = true;
+        if (profileCompletionPercent == null) profileCompletionPercent = 0;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 }

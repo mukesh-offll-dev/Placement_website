@@ -18,6 +18,10 @@ server:
   servlet:
     context-path: /api
 
+app:
+  jwt:
+    expiration: PT15M
+
 management:
   endpoints:
     web:

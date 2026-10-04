@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
 import {
   Menu,
   ChevronRight,
@@ -9,6 +9,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
+import { apiRequest } from '../services/api';
 
 const breadcrumbMap = {
   '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
@@ -24,8 +25,47 @@ const breadcrumbMap = {
 
 export default function StudentLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authStatus, setAuthStatus] = useState(() =>
+    localStorage.getItem('accessToken') ? 'checking' : 'unauthenticated'
+  );
+  const [studentInfo, setStudentInfo] = useState({ email: '', name: '', degree: '' });
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleUnauthorized = () => setAuthStatus('unauthenticated');
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  useEffect(() => {
+    if (!localStorage.getItem('accessToken')) return undefined;
+
+    let isActive = true;
+    apiRequest('/auth/me')
+      .then((response) => {
+        if (isActive) {
+          if (response?.data?.role !== 'STUDENT') {
+            setAuthStatus('unauthenticated');
+            return;
+          }
+          setStudentInfo((current) => ({ ...current, email: response.data.email || '' }));
+          setAuthStatus('authenticated');
+          apiRequest('/students/me/profile')
+            .then((profileResponse) => {
+              if (isActive) setStudentInfo(profileResponse.data);
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {
+        if (isActive) setAuthStatus('unauthenticated');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // Compute breadcrumbs
   const getBreadcrumbs = () => {
@@ -43,11 +83,26 @@ export default function StudentLayout() {
   };
 
   const breadcrumbs = getBreadcrumbs();
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    navigate('/login', { replace: true });
+  };
+
+  if (authStatus === 'checking') {
+    return <div className="min-h-screen bg-gray-50" role="status" aria-label="Checking session" />;
+  }
+  if (authStatus !== 'authenticated') {
+    return <Navigate to="/student/login" replace state={{ from: location.pathname }} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row antialiased text-gray-900">
       {/* Unified Left Sidebar */}
-      <StudentSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+      <StudentSidebar
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
+        studentInfo={studentInfo}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -102,16 +157,16 @@ export default function StudentLayout() {
               className="flex items-center gap-2.5 pl-2.5 py-1 px-2 rounded-xl hover:bg-gray-100/80 transition-colors"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                A
+                {(studentInfo.name || studentInfo.email || 'S').charAt(0).toUpperCase()}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-gray-900 leading-tight">Alex Harrison</p>
-                <p className="text-[10px] text-gray-500">B.E CSE · 7th Sem</p>
+                <p className="text-xs font-bold text-gray-900 leading-tight">{studentInfo.name || studentInfo.email || 'Student'}</p>
+                <p className="text-[10px] text-gray-500">{studentInfo.degree || 'Student account'}</p>
               </div>
             </Link>
 
             <button
-              onClick={() => navigate('/login')}
+              onClick={handleLogout}
               title="Logout"
               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
             >

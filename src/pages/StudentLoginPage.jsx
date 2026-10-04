@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff } from 'lucide-react';
+import { apiRequest } from '../services/api';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validate = () => {
     const e = {};
@@ -17,10 +19,26 @@ export default function StudentLoginPage() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validate()) {
+    if (!validate()) return;
+
+    setIsSubmitting(true);
+    setErrors({});
+    localStorage.removeItem('accessToken');
+    try {
+      const response = await apiRequest('/auth/login', {
+        method: 'POST',
+        body: { email: form.email.trim(), password: form.password },
+      });
+      const token = response?.data?.accessToken;
+      if (!token) throw new Error('Login response did not include an access token');
+      localStorage.setItem('accessToken', token);
       navigate('/student/dashboard');
+    } catch (error) {
+      setErrors({ login: error.message || 'Unable to sign in. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -52,6 +70,7 @@ export default function StudentLoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
+            {errors.login && <p role="alert" className="text-red-600 text-sm">{errors.login}</p>}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
               <input
@@ -96,9 +115,10 @@ export default function StudentLoginPage() {
 
             <button
               type="submit"
+              disabled={isSubmitting}
               className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
             >
-              Login to Student Portal
+              {isSubmitting ? 'Signing in...' : 'Login to Student Portal'}
             </button>
           </form>
 

@@ -8,9 +8,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Spring Data JPA Repository for StudentProfile entity.
- */
 @Repository
 public interface StudentProfileRepository extends JpaRepository<StudentProfile, Long> {
 
