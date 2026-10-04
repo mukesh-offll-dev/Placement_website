@@ -62,11 +62,11 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 Database (local development in-memory fallback) -->
+        <!-- H2 In-Memory Database for unit and integration tests only -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <!-- Lombok -->

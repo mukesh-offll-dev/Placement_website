@@ -1,10 +1,9 @@
 package com.gces.placementcell.config;
 
+import com.gces.placementcell.security.AdminAuthFilter;
 import com.gces.placementcell.security.CustomAccessDeniedHandler;
-import com.gces.placementcell.security.CustomUserDetailsService;
-import com.gces.placementcell.security.JwtAuthenticationEntryPoint;
-import com.gces.placementcell.security.JwtAuthenticationFilter;
-import com.gces.placementcell.security.JwtService;
+import com.gces.placementcell.security.CustomAuthenticationEntryPoint;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,33 +22,18 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Security configuration for role-based access control.
- *
- * Public endpoints: /auth/**, /jobs/**, /health/**, /actuator/**, /h2-console/**
- * Student endpoints: /student/** → requires ROLE_STUDENT
- * Admin endpoints:   /admin/**   → requires ROLE_ADMIN
- *
- * Context path is /api, so actual routes are /api/auth/**, /api/student/**, /api/admin/**
+ * Security configuration for Placement Cell.
+ * Secures /admin/** endpoints requiring ADMIN or PLACEMENT_OFFICER authority.
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final CorsConfig corsConfig;
-    private final CustomUserDetailsService customUserDetailsService;
-    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final CustomAccessDeniedHandler customAccessDeniedHandler;
-
-    public SecurityConfig(CorsConfig corsConfig,
-                          CustomUserDetailsService customUserDetailsService,
-                          JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-                          CustomAccessDeniedHandler customAccessDeniedHandler) {
-        this.corsConfig = corsConfig;
-        this.customUserDetailsService = customUserDetailsService;
-        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
-        this.customAccessDeniedHandler = customAccessDeniedHandler;
-    }
+    private final AdminAuthFilter adminAuthFilter;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
@@ -63,26 +47,22 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
-                .accessDeniedHandler(customAccessDeniedHandler))
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
+            )
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
+                // Public dev & infrastructure endpoints
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/health", "/health/**").permitAll()
+                .requestMatchers("/health").permitAll()
                 .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/jobs/**").permitAll()
-                // Admin endpoints – restricted to ADMIN role
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                // Authenticated user endpoints
-                .requestMatchers("/notifications/**").authenticated()
-                // Everything else requires authentication
-                .anyRequest().authenticated()
+                // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
+                // All other endpoints
+                .anyRequest().permitAll()
             )
-            .httpBasic(Customizer.withDefaults())
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
             // Allow H2 console frames in dev
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 

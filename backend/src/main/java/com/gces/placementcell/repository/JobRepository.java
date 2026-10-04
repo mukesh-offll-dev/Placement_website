@@ -44,47 +44,10 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByStatusAndIsDeletedFalse(JobStatus status);
 
-    List<Job> findByIsActiveTrueAndIsDeletedFalse();
-
-    // -- Paged listings.
-    // Job has nine LAZY collections plus LAZY company/postedBy, so any listing that
-    // renders the company name triggers N+1 without an explicit fetch. The entity
-    // graph collapses that into a single join; the collections stay lazy on purpose
-    // (fetching several bags at once would produce a cartesian product).
-
-    @EntityGraph(attributePaths = {"company", "postedBy"})
-    Page<Job> findByIsDeletedFalse(Pageable pageable);
-
-    @EntityGraph(attributePaths = {"company", "postedBy"})
-    Page<Job> findByStatusAndIsDeletedFalse(JobStatus status, Pageable pageable);
-
-    @EntityGraph(attributePaths = {"company", "postedBy"})
-    Page<Job> findByCompanyId(Long companyId, Pageable pageable);
-
-    /** Jobs a student can still apply to: active, not deleted, deadline not passed. */
-    @EntityGraph(attributePaths = {"company"})
-    @Query("""
-            SELECT j FROM Job j
-            WHERE j.isDeleted = false
-              AND j.isActive = true
-              AND j.status = :status
-              AND j.applicationDeadline >= :today
-            """)
-    Page<Job> findOpenJobs(@Param("status") JobStatus status,
-                           @Param("today") LocalDate today,
-                           Pageable pageable);
-
-    /**
-     * Single job with its company, poster and skill rows, for a detail view.
-     * Only one collection is fetched here on purpose: joining two List (bag)
-     * associations in one query makes Hibernate throw MultipleBagFetchException,
-     * so the remaining child rows load through their own repositories.
-     */
-    @EntityGraph(attributePaths = {"company", "postedBy", "skills"})
-    Optional<Job> findWithDetailsById(Long id);
-
-    @EntityGraph(attributePaths = {"company", "postedBy", "skills"})
-    Optional<Job> findWithDetailsByIdAndIsDeletedFalse(Long id);
-
     long countByStatusAndIsDeletedFalse(JobStatus status);
+
+    long countByIsDeletedFalse();
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT j.company) FROM Job j WHERE j.isDeleted = false")
+    long countDistinctCompanies();
 }

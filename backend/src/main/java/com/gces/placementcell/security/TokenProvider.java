@@ -1,118 +1,105 @@
 package com.gces.placementcell.security;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gces.placementcell.entity.User;
+import com.gces.placementcell.entity.enums.UserRole;
+import com.gces.placementcell.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Instant;
+import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Map;
+import java.util.Optional;
 
 /**
- * Token provider for generating and validating cryptographically signed HMAC-SHA256 authentication tokens.
+ * Generates and validates stateless HMAC-SHA256 signed authentication tokens.
+ * Works seamlessly with zero external JWT libraries required.
  */
 @Component
 public class TokenProvider {
 
-    private final byte[] secretKeyBytes;
-    private final long validityInSeconds;
-    private final ObjectMapper objectMapper;
+    private final byte[] secretKey;
+    private final long tokenValidityMillis;
+    private final UserRepository userRepository;
 
     public TokenProvider(
-            @Value("${app.security.token.secret:gces-placement-cell-super-secret-key-2026-secure-hmac-sha256}") String secret,
-            @Value("${app.security.token.validity-seconds:86400}") long validityInSeconds,
-            ObjectMapper objectMapper) {
-        this.secretKeyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        this.validityInSeconds = validityInSeconds;
-        this.objectMapper = objectMapper;
-    }
+            @Value("${app.jwt.secret:${JWT_SECRET:}}") String secret,
+            @Value("${app.jwt.expiration-ms:86400000}") long validityMillis,
+            UserRepository userRepository) {
+        this.tokenValidityMillis = validityMillis > 0 ? validityMillis : 86400000L;
+        this.userRepository = userRepository;
 
-    public String generateToken(Long userId, String email, String role) {
-        try {
-            long now = Instant.now().getEpochSecond();
-            long exp = now + validityInSeconds;
-
-            Map<String, Object> header = Map.of(
-                    "alg", "HS256",
-                    "typ", "JWT"
-            );
-
-            Map<String, Object> payload = Map.of(
-                    "sub", email,
-                    "userId", userId,
-                    "role", role,
-                    "iat", now,
-                    "exp", exp
-            );
-
-            String encodedHeader = Base64.getUrlEncoder().withoutPadding().encodeToString(objectMapper.writeValueAsBytes(header));
-            String encodedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(objectMapper.writeValueAsBytes(payload));
-            String dataToSign = encodedHeader + "." + encodedPayload;
-
-            String signature = sign(dataToSign);
-            return dataToSign + "." + signature;
-        } catch (Exception e) {
-            throw new RuntimeException("Error generating authentication token", e);
+        if (secret != null && !secret.isBlank()) {
+            this.secretKey = secret.getBytes(StandardCharsets.UTF_8);
+        } else {
+            // Secure 256-bit fallback secret
+            byte[] randomKey = new byte[32];
+            new SecureRandom().nextBytes(randomKey);
+            this.secretKey = randomKey;
         }
     }
 
-    public boolean validateToken(String token) {
-        try {
-            String[] parts = token.split("\\.");
-            if (parts.length != 3) {
-                return false;
-            }
+    /**
+     * Generate an HMAC signed token for a user.
+     * Format: Base64Url(payload) + "." + Base64Url(HMAC(payload))
+     */
+    public String generateToken(User user) {
+        long expiry = System.currentTimeMillis() + tokenValidityMillis;
+        String payload = user.getId() + ":" + user.getEmail() + ":" + user.getRole().name() + ":" + expiry;
+        String encodedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        String signature = sign(encodedPayload);
+        return encodedPayload + "." + signature;
+    }
 
-            String dataToSign = parts[0] + "." + parts[1];
-            String expectedSignature = sign(dataToSign);
-
-            if (!MessageDigest.isEqual(expectedSignature.getBytes(StandardCharsets.UTF_8), parts[2].getBytes(StandardCharsets.UTF_8))) {
-                return false;
-            }
-
-            Map<String, Object> claims = getClaims(parts[1]);
-            long exp = ((Number) claims.get("exp")).longValue();
-            return Instant.now().getEpochSecond() < exp;
-        } catch (Exception e) {
-            return false;
+    /**
+     * Validate token and load user from database.
+     */
+    public Optional<User> validateTokenAndGetUser(String token) {
+        if (token == null || !token.contains(".")) {
+            return Optional.empty();
         }
-    }
 
-    public String getEmailFromToken(String token) {
-        String[] parts = token.split("\\.");
-        Map<String, Object> claims = getClaims(parts[1]);
-        return (String) claims.get("sub");
-    }
-
-    public String getRoleFromToken(String token) {
-        String[] parts = token.split("\\.");
-        Map<String, Object> claims = getClaims(parts[1]);
-        return (String) claims.get("role");
-    }
-
-    private Map<String, Object> getClaims(String encodedPayload) {
         try {
-            byte[] bytes = Base64.getUrlDecoder().decode(encodedPayload);
-            return objectMapper.readValue(bytes, new TypeReference<Map<String, Object>>() {});
+            int dot = token.indexOf('.');
+            String encodedPayload = token.substring(0, dot);
+            String providedSignature = token.substring(dot + 1);
+
+            String expectedSignature = sign(encodedPayload);
+            if (!expectedSignature.equals(providedSignature)) {
+                return Optional.empty();
+            }
+
+            String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
+            String[] parts = payload.split(":");
+            if (parts.length < 4) {
+                return Optional.empty();
+            }
+
+            Long userId = Long.parseLong(parts[0]);
+            String email = parts[1];
+            long expiry = Long.parseLong(parts[3]);
+
+            if (System.currentTimeMillis() > expiry) {
+                return Optional.empty();
+            }
+
+            return userRepository.findByIdAndIsDeletedFalse(userId)
+                    .filter(u -> u.getEmail().equalsIgnoreCase(email) && Boolean.TRUE.equals(u.getIsActive()));
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid token payload", e);
+            return Optional.empty();
         }
     }
 
     private String sign(String data) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKeySpec = new SecretKeySpec(secretKeyBytes, "HmacSHA256");
-            mac.init(secretKeySpec);
-            byte[] rawHmac = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(rawHmac);
+            mac.init(new SecretKeySpec(secretKey, "HmacSHA256"));
+            byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hmacBytes);
         } catch (Exception e) {
-            throw new RuntimeException("Error calculating token signature", e);
+            throw new IllegalStateException("Failed to calculate HMAC signature", e);
         }
     }
 }
