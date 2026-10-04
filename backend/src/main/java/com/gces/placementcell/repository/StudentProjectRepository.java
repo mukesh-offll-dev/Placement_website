@@ -31,6 +31,18 @@ public interface StudentProjectRepository extends JpaRepository<StudentProject, 
 
     void deleteByStudentProfileId(Long studentProfileId);
 
+    @Query("SELECT p FROM StudentProject p WHERE p.studentProfile.id = :studentId ORDER BY p.createdAt DESC")
+    List<StudentProject> findByStudentIdOrderByCreatedAtDesc(@Param("studentId") Long studentId);
+
+    @Query("SELECT p FROM StudentProject p WHERE p.id = :id AND p.studentProfile.id = :studentId")
+    Optional<StudentProject> findByIdAndStudentId(@Param("id") Long id, @Param("studentId") Long studentId);
+
+    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM StudentProject p WHERE p.studentProfile.id = :studentId AND p.title = :title")
+    boolean existsByStudentIdAndTitle(@Param("studentId") Long studentId, @Param("title") String title);
+
+    @Query("SELECT p FROM StudentProject p WHERE p.studentProfile.id = :studentId AND p.title = :title")
+    Optional<StudentProject> findByStudentIdAndTitle(@Param("studentId") Long studentId, @Param("title") String title);
+
     @Query("SELECT p FROM StudentProject p JOIN p.techStack pts WHERE LOWER(pts.technology) = LOWER(:technology)")
     List<StudentProject> findByTechnology(@Param("technology") String technology);
 }

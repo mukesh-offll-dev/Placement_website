@@ -75,6 +75,8 @@ public class SecurityConfig {
                 .requestMatchers("/jobs/**").permitAll()
                 // Admin endpoints – restricted to ADMIN role
                 .requestMatchers("/admin/**").hasRole("ADMIN")
+                // Student endpoints – restricted to STUDENT role
+                .requestMatchers("/student/**").hasRole("STUDENT")
                 // Authenticated user endpoints
                 .requestMatchers("/notifications/**").authenticated()
                 // Everything else requires authentication
