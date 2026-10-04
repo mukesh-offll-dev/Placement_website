@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import StudentLoginPage from './pages/StudentLoginPage';
+import StudentRegisterPage from './pages/StudentRegisterPage';
 
 import AdminLayout from './layouts/AdminLayout';
 import StudentLayout from './layouts/StudentLayout';
@@ -19,6 +20,8 @@ import StudentProfile from './pages/StudentProfile';
 import AddProjectPage from './pages/AddProjectPage';
 import StudentApplicationsPage from './pages/StudentApplicationsPage';
 
+import ProtectedRoute from './components/ProtectedRoute';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -30,8 +33,14 @@ export default function App() {
         {/* Admin Auth */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
 
-        {/* Admin Routes with Unified Layout */}
-        <Route element={<AdminLayout />}>
+        {/* Admin Routes — protected, require ADMIN role */}
+        <Route
+          element={
+            <ProtectedRoute allowedRole="ADMIN" redirectTo="/admin/login">
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/students" element={<AdminStudents />} />
           <Route path="/admin/students/:id" element={<AdminStudentDetail />} />
@@ -41,9 +50,16 @@ export default function App() {
 
         {/* Student Auth */}
         <Route path="/student/login" element={<StudentLoginPage />} />
+        <Route path="/student/register" element={<StudentRegisterPage />} />
 
-        {/* Student Routes with Unified Layout */}
-        <Route element={<StudentLayout />}>
+        {/* Student Routes — protected, require STUDENT role */}
+        <Route
+          element={
+            <ProtectedRoute allowedRole="STUDENT" redirectTo="/student/login">
+              <StudentLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/student/profile" element={<StudentProfile />} />
           <Route path="/student/jobs" element={<JobsPage />} />

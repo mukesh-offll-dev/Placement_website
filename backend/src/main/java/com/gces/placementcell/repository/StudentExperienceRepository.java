@@ -19,5 +19,7 @@ public interface StudentExperienceRepository extends JpaRepository<StudentExperi
 
     List<StudentExperience> findByStudentProfileIdAndExperienceType(Long studentProfileId, ExperienceType experienceType);
 
+    List<StudentExperience> findByStudentProfileIdAndIsCurrentTrue(Long studentProfileId);
+
     void deleteByStudentProfileId(Long studentProfileId);
 }

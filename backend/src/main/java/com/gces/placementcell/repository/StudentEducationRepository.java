@@ -16,5 +16,9 @@ public interface StudentEducationRepository extends JpaRepository<StudentEducati
 
     List<StudentEducation> findByStudentProfileIdOrderByStartYearDesc(Long studentProfileId);
 
+    List<StudentEducation> findByStudentProfileIdOrderByEndYearDesc(Long studentProfileId);
+
+    List<StudentEducation> findByStudentProfileIdAndIsCurrentTrue(Long studentProfileId);
+
     void deleteByStudentProfileId(Long studentProfileId);
 }

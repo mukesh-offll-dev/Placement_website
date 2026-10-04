@@ -41,6 +41,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByIsDeletedFalse();
 
+    long countByRoleAndIsDeletedFalse(UserRole role);
+
+    long countByAccountStatusAndIsDeletedFalse(AccountStatus accountStatus);
+
     @Modifying
     @Query("UPDATE User u SET u.lastLoginAt = :loginTime WHERE u.id = :userId")
     void updateLastLoginAt(@Param("userId") Long userId, @Param("loginTime") LocalDateTime loginTime);
