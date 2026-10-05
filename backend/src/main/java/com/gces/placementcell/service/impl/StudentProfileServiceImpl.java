@@ -88,7 +88,7 @@ public class StudentProfileServiceImpl implements StudentProfileService {
                 .placementStatus(PlacementStatus.PENDING)
                 .build();
 
-        profile.setProfileCompletionPercent((int) calculateCompletionPercentage(profile));
+        profile.setProfileCompletionPercent(calculateCompletionPercentage(profile));
         profile = studentProfileRepository.save(profile);
         log.info("Created new student profile for user: {}", email);
 
@@ -124,13 +124,13 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         if (request.department() != null) profile.setDepartment(request.department());
         if (request.departmentCode() != null) profile.setDepartmentCode(request.departmentCode());
         if (request.batch() != null) profile.setBatch(request.batch());
-        if (request.semester() != null) profile.setSemester(request.semester().intValue());
+        if (request.semester() != null) profile.setSemester(request.semester());
         if (request.cgpa() != null) profile.setCgpa(request.cgpa());
         if (request.totalBacklogs() != null) profile.setTotalBacklogs(request.totalBacklogs());
         if (request.activeBacklogs() != null) profile.setActiveBacklogs(request.activeBacklogs());
         if (request.isOpenToOpportunities() != null) profile.setIsOpenToOpportunities(request.isOpenToOpportunities());
 
-        profile.setProfileCompletionPercent((int) calculateCompletionPercentage(profile));
+        profile.setProfileCompletionPercent(calculateCompletionPercentage(profile));
         profile = studentProfileRepository.save(profile);
         log.info("Updated student profile for user: {}", email);
 

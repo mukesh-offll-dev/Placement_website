@@ -59,6 +59,8 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
                 .requestMatchers("/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
+                // Student endpoints – restricted to STUDENT role
+                .requestMatchers("/student/**").hasRole("STUDENT")
                 // All other endpoints
                 .anyRequest().permitAll()
             )
