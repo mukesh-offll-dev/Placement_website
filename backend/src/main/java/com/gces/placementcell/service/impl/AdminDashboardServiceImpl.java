@@ -55,7 +55,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .count();
 
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        long applicationsToday = jobApplicationRepository.countByAppliedAtGreaterThanEqual(todayStart);
+        long applicationsToday = jobApplicationRepository.countByAppliedOnGreaterThanEqual(todayStart);
 
         // Department-wise counts
         Map<String, Long> deptStudentCount = new LinkedHashMap<>();
@@ -97,12 +97,12 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .limit(5)
                 .map(j -> RecentJobDto.builder()
                         .id(j.getId())
-                        .company(j.getCompany())
+                        .company(j.getCompanyName())
                         .title(j.getTitle())
                         .role(j.getRole())
                         .salary(j.getSalary())
                         .location(j.getLocation())
-                        .cgpa(j.getRequirements())
+                        .cgpa(j.getMinCgpa() != null ? j.getMinCgpa().toPlainString() : null)
                         .deadline(j.getApplicationDeadline())
                         .status(j.getStatus())
                         .createdAt(j.getCreatedAt())
@@ -110,7 +110,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .collect(Collectors.toList());
 
         // Recent Applications
-        List<RecentApplicationDto> recentApplications = jobApplicationRepository.findTop10ByOrderByAppliedAtDesc().stream()
+        List<RecentApplicationDto> recentApplications = jobApplicationRepository.findTop10ByOrderByAppliedOnDesc().stream()
                 .map(app -> {
                     StudentProfile sp = app.getStudentProfile();
                     Job j = app.getJob();
@@ -120,7 +120,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                             .studentRollNo(sp != null ? sp.getRollNo() : "")
                             .studentDepartment(sp != null ? sp.getDepartment() : "")
                             .jobTitle(j != null ? j.getTitle() : "Unknown Job")
-                            .company(j != null ? j.getCompany() : "")
+                            .company(j != null ? j.getCompanyName() : "")
                             .status(app.getStatus())
                             .appliedAt(app.getAppliedAt())
                             .build();

@@ -5,7 +5,6 @@ import jakarta.persistence.metamodel.EntityType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * test a renamed or dropped column stays invisible until a query actually runs — which
  * is how several mappings drifted during the branch merges.
  */
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
+@PostgresSchemaTest
 @DisplayName("Entity/Schema Validation Test")
 class EntitySchemaValidationTest {
 

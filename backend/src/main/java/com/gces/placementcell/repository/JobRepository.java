@@ -44,6 +44,43 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByStatusAndIsDeletedFalse(JobStatus status);
 
+    List<Job> findByIsActiveTrueAndIsDeletedFalse();
+
+    // -- Paged listings. The entity graph fetches company/postedBy in the same query;
+    // collections stay lazy because joining several bags at once is a cartesian product.
+
+    @EntityGraph(attributePaths = {"company", "postedBy"})
+    Page<Job> findByIsDeletedFalse(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"company", "postedBy"})
+    Page<Job> findByStatusAndIsDeletedFalse(JobStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"company", "postedBy"})
+    Page<Job> findByCompanyId(Long companyId, Pageable pageable);
+
+    /** Jobs a student can still apply to: active, not deleted, deadline not passed. */
+    @EntityGraph(attributePaths = {"company"})
+    @Query("""
+            SELECT j FROM Job j
+            WHERE j.isDeleted = false
+              AND j.isActive = true
+              AND j.status = :status
+              AND j.applicationDeadline >= :today
+            """)
+    Page<Job> findOpenJobs(@Param("status") JobStatus status,
+                           @Param("today") LocalDate today,
+                           Pageable pageable);
+
+    /**
+     * Job detail with company, poster and skills. Only one collection is fetched:
+     * two List associations in one query throw MultipleBagFetchException.
+     */
+    @EntityGraph(attributePaths = {"company", "postedBy", "skills"})
+    Optional<Job> findWithDetailsById(Long id);
+
+    @EntityGraph(attributePaths = {"company", "postedBy", "skills"})
+    Optional<Job> findWithDetailsByIdAndIsDeletedFalse(Long id);
+
     long countByStatusAndIsDeletedFalse(JobStatus status);
 
     long countByIsDeletedFalse();

@@ -245,7 +245,26 @@ public class StudentProfile {
         this.updatedAt = LocalDateTime.now();
     }
 
+    // Id-level access to placedCompany for callers that only hold the company id
+    // (admin forms, CSV export). Not persistent properties: the entity uses field access.
+    public Long getPlacedCompanyId() {
+        return this.placedCompany != null ? this.placedCompany.getId() : null;
+    }
+
+    public void setPlacedCompanyId(Long placedCompanyId) {
+        this.placedCompany = companyRef(placedCompanyId);
+    }
+
+    private static Company companyRef(Long companyId) {
+        return companyId != null ? Company.builder().id(companyId).build() : null;
+    }
+
     public static class StudentProfileBuilder {
+        public StudentProfileBuilder placedCompanyId(Long placedCompanyId) {
+            this.placedCompany = companyRef(placedCompanyId);
+            return this;
+        }
+
         public StudentProfileBuilder semester(Integer semester) {
             this.semester = semester != null ? semester.shortValue() : null;
             return this;

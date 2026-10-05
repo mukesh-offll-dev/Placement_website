@@ -3,7 +3,6 @@ package com.gces.placementcell;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
@@ -14,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Read-only verification that the live database schema produced by schema.sql
  * matches what the JPA entities expect. Performs no writes.
  */
-@SpringBootTest
+@PostgresSchemaTest
 @DisplayName("Schema Consistency Test")
 class SchemaConsistencyTest {
 

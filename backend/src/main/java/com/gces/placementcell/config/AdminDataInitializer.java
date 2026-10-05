@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,9 @@ import org.springframework.stereotype.Component;
  * If an admin already exists, this step is skipped.
  */
 @Component
+// Same switch as DataInitializer, so one property turns all startup seeding off
+// (tests set it false; production keeps the default of enabled).
+@ConditionalOnProperty(name = "app.data-init.enabled", havingValue = "true", matchIfMissing = true)
 public class AdminDataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDataInitializer.class);

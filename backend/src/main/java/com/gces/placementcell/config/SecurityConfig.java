@@ -3,6 +3,7 @@ package com.gces.placementcell.config;
 import com.gces.placementcell.security.AdminAuthFilter;
 import com.gces.placementcell.security.CustomAccessDeniedHandler;
 import com.gces.placementcell.security.CustomAuthenticationEntryPoint;
+import com.gces.placementcell.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,14 +35,10 @@ public class SecurityConfig {
     private final AdminAuthFilter adminAuthFilter;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
     private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final CustomUserDetailsService customUserDetailsService;
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
-        return new JwtAuthenticationFilter(jwtService, customUserDetailsService);
-    }
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfig.corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
@@ -56,6 +53,8 @@ public class SecurityConfig {
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/health").permitAll()
+                // Must precede the /auth/** permitAll: only an existing admin may create another.
+                .requestMatchers("/auth/register/admin").hasRole("ADMIN")
                 .requestMatchers("/auth/**").permitAll()
                 // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
                 .requestMatchers("/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
@@ -64,6 +63,9 @@ public class SecurityConfig {
                 // All other endpoints
                 .anyRequest().permitAll()
             )
+            // Bearer token is the primary scheme; HTTP Basic is a deliberate fallback for
+            // API clients and tooling (covered by RoleBasedAccessControlTest).
+            .httpBasic(Customizer.withDefaults())
             .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
             // Allow H2 console frames in dev
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));

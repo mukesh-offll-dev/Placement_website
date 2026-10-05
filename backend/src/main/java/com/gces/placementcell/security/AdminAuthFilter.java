@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -40,8 +41,16 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                         new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
                 );
 
+                // The principal must be a UserDetails: controllers resolve it with
+                // @AuthenticationPrincipal UserDetails, which yields null for a plain String.
+                UserDetails principal = org.springframework.security.core.userdetails.User
+                        .withUsername(user.getEmail())
+                        .password("")
+                        .authorities(authorities)
+                        .build();
+
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
+                        new UsernamePasswordAuthenticationToken(principal, null, authorities);
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }

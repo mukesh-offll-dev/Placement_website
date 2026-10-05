@@ -30,6 +30,7 @@ public class DataInitializer implements CommandLineRunner {
     private final StudentProjectRepository studentProjectRepository;
     private final ProjectTechStackRepository projectTechStackRepository;
     private final JobRepository jobRepository;
+    private final CompanyRepository companyRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -63,81 +64,31 @@ public class DataInitializer implements CommandLineRunner {
                 .build());
 
         // 2. Jobs
-        Job googleJob = jobRepository.save(Job.builder()
-                .title("Software Engineer")
-                .company("Google")
-                .location("Bangalore")
-                .salary("24 LPA")
-                .employmentType(EmploymentType.FULL_TIME)
-                .skills("Java, React, System Design, Algorithms")
-                .requirements("8.5+ CGPA, no active backlogs")
-                .numberOfOpenings(10)
-                .applicationDeadline(LocalDate.now().plusMonths(2))
-                .status(JobStatus.ACTIVE)
-                .postedBy(officerUser)
-                .build());
+        Job googleJob = seedJob(officerUser, "Google", "Technology", "Software Engineer", "Bangalore",
+                "24 LPA", "2400000.00", "8.50", 10, LocalDate.now().plusMonths(2),
+                List.of("Java", "React", "System Design", "Algorithms"), "8.5+ CGPA, no active backlogs");
 
-        Job amazonJob = jobRepository.save(Job.builder()
-                .title("Data Analyst")
-                .company("Amazon")
-                .location("Hyderabad")
-                .salary("18 LPA")
-                .employmentType(EmploymentType.FULL_TIME)
-                .skills("SQL, Python, PowerBI, Tableau")
-                .requirements("7.5+ CGPA")
-                .numberOfOpenings(8)
-                .applicationDeadline(LocalDate.now().plusMonths(1))
-                .status(JobStatus.ACTIVE)
-                .postedBy(officerUser)
-                .build());
+        Job amazonJob = seedJob(officerUser, "Amazon", "Technology", "Data Analyst", "Hyderabad",
+                "18 LPA", "1800000.00", "7.50", 8, LocalDate.now().plusMonths(1),
+                List.of("SQL", "Python", "PowerBI", "Tableau"), "7.5+ CGPA");
 
-        Job msJob = jobRepository.save(Job.builder()
-                .title("Cloud Engineer")
-                .company("Microsoft")
-                .location("Hyderabad")
-                .salary("22 LPA")
-                .employmentType(EmploymentType.FULL_TIME)
-                .skills("Azure, Linux, Kubernetes, Terraform")
-                .requirements("8.0+ CGPA")
-                .numberOfOpenings(5)
-                .applicationDeadline(LocalDate.now().plusDays(25))
-                .status(JobStatus.ACTIVE)
-                .postedBy(officerUser)
-                .build());
+        Job msJob = seedJob(officerUser, "Microsoft", "Technology", "Cloud Engineer", "Hyderabad",
+                "22 LPA", "2200000.00", "8.00", 5, LocalDate.now().plusDays(25),
+                List.of("Azure", "Linux", "Kubernetes", "Terraform"), "8.0+ CGPA");
 
-        Job zohoJob = jobRepository.save(Job.builder()
-                .title("Full Stack Developer")
-                .company("Zoho")
-                .location("Chennai")
-                .salary("10 LPA")
-                .employmentType(EmploymentType.FULL_TIME)
-                .skills("Java, JavaScript, React, MySQL")
-                .requirements("7.0+ CGPA")
-                .numberOfOpenings(15)
-                .applicationDeadline(LocalDate.now().plusDays(20))
-                .status(JobStatus.ACTIVE)
-                .postedBy(officerUser)
-                .build());
+        Job zohoJob = seedJob(officerUser, "Zoho", "Technology", "Full Stack Developer", "Chennai",
+                "10 LPA", "1000000.00", "7.00", 15, LocalDate.now().plusDays(20),
+                List.of("Java", "JavaScript", "React", "MySQL"), "7.0+ CGPA");
 
-        Job infosysJob = jobRepository.save(Job.builder()
-                .title("DevOps Engineer")
-                .company("Infosys")
-                .location("Mysore")
-                .salary("8 LPA")
-                .employmentType(EmploymentType.FULL_TIME)
-                .skills("Docker, CI/CD, AWS, Bash")
-                .requirements("6.5+ CGPA")
-                .numberOfOpenings(20)
-                .applicationDeadline(LocalDate.now().plusMonths(1))
-                .status(JobStatus.ACTIVE)
-                .postedBy(officerUser)
-                .build());
+        Job infosysJob = seedJob(officerUser, "Infosys", "IT Services", "DevOps Engineer", "Mysore",
+                "8 LPA", "800000.00", "6.50", 20, LocalDate.now().plusMonths(1),
+                List.of("Docker", "CI/CD", "AWS", "Bash"), "6.5+ CGPA");
 
         // 3. Students
         createStudentData(
                 "Adithya K", "adithya.k@gce.edu.in", "912822104001", "+91 98765 00001",
                 "Computer Science (CSE)", "CSE", "B.E CSE", "2022-2026", (short) 7,
-                new BigDecimal("8.92"), PlacementStatus.PLACED, googleJob.getId(), new BigDecimal("2400000.00"),
+                new BigDecimal("8.92"), PlacementStatus.PLACED, googleJob.getCompany(), new BigDecimal("2400000.00"),
                 (short) 95, List.of("React", "Node.js", "Java", "AWS"),
                 List.of(googleJob, amazonJob), googleJob
         );
@@ -169,7 +120,7 @@ public class DataInitializer implements CommandLineRunner {
         createStudentData(
                 "Vijay T", "vijay.t@gce.edu.in", "912822105005", "+91 98765 00005",
                 "Electrical (EEE)", "EEE", "B.E EEE", "2022-2026", (short) 7,
-                new BigDecimal("9.10"), PlacementStatus.PLACED, msJob.getId(), new BigDecimal("2200000.00"),
+                new BigDecimal("9.10"), PlacementStatus.PLACED, msJob.getCompany(), new BigDecimal("2200000.00"),
                 (short) 100, List.of("Power Systems", "PLC", "Python", "Cloud"),
                 List.of(msJob, googleJob), msJob
         );
@@ -201,10 +152,38 @@ public class DataInitializer implements CommandLineRunner {
         log.info("Database bootstrap completed successfully.");
     }
 
+    /** Saves a job for the named company (created on first use) with its skill and requirement rows. */
+    private Job seedJob(User postedBy, String companyName, String industry, String role, String location,
+                        String ctcText, String ctcValue, String minCgpa, int vacancies, LocalDate deadline,
+                        List<String> skills, String requirement) {
+        Company company = companyRepository.findByNameIgnoreCase(companyName)
+                .orElseGet(() -> companyRepository.save(Company.builder()
+                        .name(companyName)
+                        .industry(industry)
+                        .build()));
+
+        Job job = Job.builder()
+                .company(company)
+                .jobRole(role)
+                .location(location)
+                .ctcText(ctcText)
+                .ctcValue(new BigDecimal(ctcValue))
+                .minCgpa(new BigDecimal(minCgpa))
+                .jobType(EmploymentType.FULL_TIME)
+                .vacancies(vacancies)
+                .applicationDeadline(deadline)
+                .status(JobStatus.ACTIVE)
+                .postedBy(postedBy)
+                .build();
+        skills.forEach(skill -> job.addSkill(JobSkill.builder().skillName(skill).build()));
+        job.addRequirement(JobRequirement.builder().requirement(requirement).build());
+        return jobRepository.save(job);
+    }
+
     private void createStudentData(
             String name, String email, String rollNo, String phone,
             String dept, String deptCode, String degree, String batch, short sem,
-            BigDecimal cgpa, PlacementStatus status, Long placedCompanyId, BigDecimal placedCtc,
+            BigDecimal cgpa, PlacementStatus status, Company placedCompany, BigDecimal placedCtc,
             short completion, List<String> skills, List<Job> appliedJobs, Job placedJob) {
 
         User u = userRepository.save(User.builder()
@@ -234,7 +213,7 @@ public class DataInitializer implements CommandLineRunner {
                 .activeBacklogs(0)
                 .placementStatus(status)
                 .isOpenToOpportunities(status != PlacementStatus.PLACED)
-                .placedCompanyId(placedCompanyId)
+                .placedCompany(placedCompany)
                 .placedCtc(placedCtc)
                 .placedOn(status == PlacementStatus.PLACED ? LocalDate.now().minusDays(10) : null)
                 .profileCompletionPercent(completion)
@@ -245,7 +224,7 @@ public class DataInitializer implements CommandLineRunner {
             studentSkillRepository.save(StudentSkill.builder()
                     .studentProfile(sp)
                     .skillName(skill)
-                    .proficiency("INTERMEDIATE")
+                    .proficiency(SkillProficiency.INTERMEDIATE)
                     .build());
         }
 
@@ -284,7 +263,7 @@ public class DataInitializer implements CommandLineRunner {
                     .job(job)
                     .studentProfile(sp)
                     .status(appStatus)
-                    .appliedAt(LocalDateTime.now().minusDays(3))
+                    .appliedOn(LocalDateTime.now().minusDays(3))
                     .build());
         }
     }

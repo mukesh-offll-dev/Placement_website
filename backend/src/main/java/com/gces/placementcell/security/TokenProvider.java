@@ -1,26 +1,39 @@
 package com.gces.placementcell.security;
 
 import com.gces.placementcell.entity.User;
-import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.repository.UserRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Base64;
+import java.util.Date;
 import java.util.Optional;
 
 /**
- * Generates and validates stateless HMAC-SHA256 signed authentication tokens.
- * Works seamlessly with zero external JWT libraries required.
+ * Issues and validates the bearer tokens used by every authenticated request.
+ *
+ * Tokens are standard HS256 JWTs (header.payload.signature) because the frontend
+ * decodes the payload to read {@code exp} and decide whether the user is still
+ * signed in; a non-JWT format makes that check fail and logs every user out.
+ *
+ * Claims: {@code sub} = email, {@code uid} = user id, {@code role} = UserRole name.
+ * The signing key is the same {@code app.jwt.secret} JwtService uses, so tokens
+ * from either class validate here.
  */
 @Component
 public class TokenProvider {
 
-    private final byte[] secretKey;
+    /** HS256 needs a key of at least 256 bits. */
+    private static final int MIN_KEY_BYTES = 32;
+
+    private final SecretKey signingKey;
     private final long tokenValidityMillis;
     private final UserRepository userRepository;
 
@@ -30,76 +43,71 @@ public class TokenProvider {
             UserRepository userRepository) {
         this.tokenValidityMillis = validityMillis > 0 ? validityMillis : 86400000L;
         this.userRepository = userRepository;
-
-        if (secret != null && !secret.isBlank()) {
-            this.secretKey = secret.getBytes(StandardCharsets.UTF_8);
-        } else {
-            // Secure 256-bit fallback secret
-            byte[] randomKey = new byte[32];
-            new SecureRandom().nextBytes(randomKey);
-            this.secretKey = randomKey;
-        }
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes(secret));
     }
 
-    /**
-     * Generate an HMAC signed token for a user.
-     * Format: Base64Url(payload) + "." + Base64Url(HMAC(payload))
-     */
     public String generateToken(User user) {
-        long expiry = System.currentTimeMillis() + tokenValidityMillis;
-        String payload = user.getId() + ":" + user.getEmail() + ":" + user.getRole().name() + ":" + expiry;
-        String encodedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
-        String signature = sign(encodedPayload);
-        return encodedPayload + "." + signature;
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(user.getEmail())
+                .claim("uid", user.getId())
+                .claim("role", user.getRole().name())
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + tokenValidityMillis))
+                .signWith(signingKey)
+                .compact();
     }
 
     /**
-     * Validate token and load user from database.
+     * Returns the active, non-deleted user the token belongs to, or empty if the token
+     * is malformed, tampered with, expired, or names a user that no longer qualifies.
      */
     public Optional<User> validateTokenAndGetUser(String token) {
-        if (token == null || !token.contains(".")) {
+        if (token == null || token.isBlank()) {
             return Optional.empty();
         }
 
         try {
-            int dot = token.indexOf('.');
-            String encodedPayload = token.substring(0, dot);
-            String providedSignature = token.substring(dot + 1);
+            // parseSignedClaims verifies the signature and rejects expired tokens.
+            Claims claims = Jwts.parser()
+                    .verifyWith(signingKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
 
-            String expectedSignature = sign(encodedPayload);
-            if (!expectedSignature.equals(providedSignature)) {
+            String email = claims.getSubject();
+            if (email == null || email.isBlank()) {
                 return Optional.empty();
             }
 
-            String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
-            String[] parts = payload.split(":");
-            if (parts.length < 4) {
-                return Optional.empty();
-            }
+            Number uid = claims.get("uid", Number.class);
+            Optional<User> user = uid != null
+                    ? userRepository.findByIdAndIsDeletedFalse(uid.longValue())
+                    : userRepository.findByEmailAndIsDeletedFalse(email);
 
-            Long userId = Long.parseLong(parts[0]);
-            String email = parts[1];
-            long expiry = Long.parseLong(parts[3]);
-
-            if (System.currentTimeMillis() > expiry) {
-                return Optional.empty();
-            }
-
-            return userRepository.findByIdAndIsDeletedFalse(userId)
-                    .filter(u -> u.getEmail().equalsIgnoreCase(email) && Boolean.TRUE.equals(u.getIsActive()));
+            return user.filter(u -> u.getEmail().equalsIgnoreCase(email)
+                    && Boolean.TRUE.equals(u.getIsActive()));
         } catch (Exception e) {
             return Optional.empty();
         }
     }
 
-    private String sign(String data) {
+    private static byte[] keyBytes(String secret) {
+        if (secret == null || secret.isBlank()) {
+            // No secret configured: tokens stay valid only until restart.
+            byte[] random = new byte[MIN_KEY_BYTES];
+            new SecureRandom().nextBytes(random);
+            return random;
+        }
+        byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
+        if (raw.length >= MIN_KEY_BYTES) {
+            return raw;
+        }
+        // Stretch a short secret rather than refusing to start.
         try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(secretKey, "HmacSHA256"));
-            byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hmacBytes);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to calculate HMAC signature", e);
+            return MessageDigest.getInstance("SHA-256").digest(raw);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
         }
     }
 }

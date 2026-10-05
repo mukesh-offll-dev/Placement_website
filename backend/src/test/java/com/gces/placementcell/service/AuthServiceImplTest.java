@@ -8,7 +8,7 @@ import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.AdminProfileRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
-import com.gces.placementcell.security.JwtService;
+import com.gces.placementcell.security.TokenProvider;
 import com.gces.placementcell.service.impl.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -45,10 +44,7 @@ class AuthServiceImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JwtService jwtService;
-
-    @Mock
-    private AuthenticationManager authenticationManager;
+    private TokenProvider tokenProvider;
 
     private AuthServiceImpl authService;
 
@@ -59,8 +55,7 @@ class AuthServiceImplTest {
                 studentProfileRepository,
                 adminProfileRepository,
                 passwordEncoder,
-                jwtService,
-                authenticationManager
+                tokenProvider
         );
     }
 

@@ -47,6 +47,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     private final ProjectTechStackRepository projectTechStackRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final JobRepository jobRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -175,7 +176,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                     StudentSkill skill = StudentSkill.builder()
                             .studentProfile(savedProfile)
                             .skillName(skillName.trim())
-                            .proficiency("INTERMEDIATE")
+                            .proficiency(com.gces.placementcell.entity.enums.SkillProficiency.INTERMEDIATE)
                             .build();
                     studentSkillRepository.save(skill);
                 }
@@ -300,7 +301,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                     studentSkillRepository.save(StudentSkill.builder()
                             .studentProfile(profile)
                             .skillName(s.trim())
-                            .proficiency("INTERMEDIATE")
+                            .proficiency(com.gces.placementcell.entity.enums.SkillProficiency.INTERMEDIATE)
                             .build());
                 }
             }
@@ -429,8 +430,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
             return Collections.emptyMap();
         }
 
-        return jobRepository.findAllById(companyIds).stream()
-                .collect(Collectors.toMap(Job::getId, Job::getCompany, (a, b) -> a));
+        // placed_company_id references companies, not jobs.
+        return companyRepository.findAllById(companyIds).stream()
+                .collect(Collectors.toMap(Company::getId, Company::getName, (a, b) -> a));
     }
 
     private StudentSummaryDto mapToSummaryDto(StudentProfile p, String companyName) {
@@ -472,8 +474,8 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         // 1. Placed company name
         String placedCompanyName = null;
         if (profile.getPlacedCompanyId() != null) {
-            placedCompanyName = jobRepository.findById(profile.getPlacedCompanyId())
-                    .map(Job::getCompany)
+            placedCompanyName = companyRepository.findById(profile.getPlacedCompanyId())
+                    .map(Company::getName)
                     .orElse(null);
         }
 
@@ -482,7 +484,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .map(s -> SkillDto.builder()
                         .id(s.getId())
                         .skillName(s.getSkillName())
-                        .proficiency(s.getProficiency())
+                        .proficiency(s.getProficiency() != null ? s.getProficiency().name() : null)
                         .build())
                 .collect(Collectors.toList());
 
@@ -540,7 +542,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                         .id(app.getId())
                         .jobId(app.getJob() != null ? app.getJob().getId() : null)
                         .jobTitle(app.getJob() != null ? app.getJob().getTitle() : null)
-                        .company(app.getJob() != null ? app.getJob().getCompany() : null)
+                        .company(app.getJob() != null ? app.getJob().getCompanyName() : null)
                         .status(app.getStatus())
                         .currentStage(app.getCurrentStage())
                         .appliedAt(app.getAppliedAt())

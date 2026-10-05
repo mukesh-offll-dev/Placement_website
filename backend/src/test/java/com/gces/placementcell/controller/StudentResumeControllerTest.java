@@ -40,6 +40,14 @@ class StudentResumeControllerTest {
     @MockBean
     private FileStorageService fileStorageService;
 
+    // AdminAuthFilter is a servlet-filter bean, so the MVC slice constructs it even with
+    // addFilters = false; its dependencies are not part of the slice and must be mocked.
+    @MockBean
+    private com.gces.placementcell.security.TokenProvider tokenProvider;
+
+    @MockBean
+    private com.gces.placementcell.repository.UserRepository userRepository;
+
     @Test
     void testUploadResume_Success() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
