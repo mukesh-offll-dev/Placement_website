@@ -168,12 +168,24 @@ class DtoContractTest {
     class RequestValidation {
 
         @Test
-        @DisplayName("Login rejects a blank email and a short password")
+        @DisplayName("Login rejects a blank email and a blank password")
         void testLoginValidation() {
-            var invalid = new LoginRequest("", "short");
+            var invalid = new LoginRequest("", "");
             assertEquals(Set.of("email", "password"), violatedProperties(invalid));
 
             assertTrue(validator.validate(new LoginRequest("officer@gces.edu", "Str0ngPass")).isEmpty());
+        }
+
+        @Test
+        @DisplayName("Login accepts a short password; length policy applies only at registration")
+        void testLoginAcceptsShortPassword() {
+            // A 6-character password must reach the credential check, not be rejected
+            // as "Validation failed" before the account is ever looked up.
+            assertTrue(validator.validate(new LoginRequest("student@gces.edu", "123456")).isEmpty());
+
+            var weakRegistration = new RegisterRequest("s@gces.edu", "123456", "Asha Rao", null, UserRole.STUDENT);
+            assertTrue(violatedProperties(weakRegistration).contains("password"),
+                    "Registration must still enforce the minimum length");
         }
 
         @Test

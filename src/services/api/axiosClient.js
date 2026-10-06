@@ -50,7 +50,18 @@ axiosClient.interceptors.response.use(
   (error) => {
     if (error.response) {
       const { status, data } = error.response;
-      const message = data?.message || error.message || 'An unexpected error occurred';
+      // For bean-validation failures the backend's top-level message is just
+      // "Validation failed"; the useful text is per field in data.data. Surface the
+      // field messages so the user sees *why* (e.g. "Email must be a valid address").
+      const fieldErrors =
+        data?.data && typeof data.data === 'object' && !Array.isArray(data.data)
+          ? Object.values(data.data).filter((v) => typeof v === 'string')
+          : [];
+      const message =
+        (status === 400 && fieldErrors.length > 0 ? fieldErrors.join(' ') : null) ||
+        data?.message ||
+        error.message ||
+        'An unexpected error occurred';
 
       // 401 Unauthorized: token expired, invalid, or missing
       if (status === 401) {

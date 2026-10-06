@@ -17,8 +17,11 @@ public record LoginRequest(
         @Size(max = 150, message = "Email cannot exceed 150 characters")
         String email,
 
+        // No minimum length here: login only checks whether the password matches.
+        // Strength rules belong on RegisterRequest; enforcing them at login would lock
+        // out any existing account whose password predates or bypassed that policy.
         @NotBlank(message = "Password is required")
-        @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+        @Size(max = 100, message = "Password cannot exceed 100 characters")
         String password,
 
         String expectedRole
