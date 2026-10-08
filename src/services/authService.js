@@ -6,7 +6,18 @@
  * Stores the JWT in localStorage and exposes helpers for other API calls.
  */
 
+<<<<<<< HEAD
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+=======
+export {
+  API_BASE_URL,
+  TOKEN_KEY,
+  USER_KEY,
+  LEGACY_TOKEN_KEY,
+  LEGACY_USER_KEY,
+  resetAuthRedirectGuard,
+} from './api/axiosClient.js';
+>>>>>>> 96b1817 (Implement unauthorized logout handling)
 
 // ─────────────────────────────────────────────
 // Storage helpers

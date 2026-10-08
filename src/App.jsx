@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -22,9 +23,47 @@ import StudentApplicationsPage from './pages/StudentApplicationsPage';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
+const AUTH_PAGES = ['/login', '/admin/login', '/student/login', '/student/register'];
+
+/**
+ * Listens for centralized 401 unauthorized events inside the React Router context.
+ * Redirects ADMIN users to /admin/login and student/other users to /student/login,
+ * while preventing repeated redirects if already on a login or registration page.
+ */
+function AuthUnauthorizedListener() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleUnauthorized = (event) => {
+      const currentPath = location.pathname;
+      const isAlreadyOnAuthPage = AUTH_PAGES.some(
+        (page) => currentPath === page || currentPath.startsWith(page + '/')
+      );
+
+      if (isAlreadyOnAuthPage) {
+        return;
+      }
+
+      const role = event?.detail?.role;
+      const targetPath = role === 'ADMIN' ? '/admin/login' : '/student/login';
+
+      navigate(targetPath, { replace: true });
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, [navigate, location.pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthUnauthorizedListener />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
