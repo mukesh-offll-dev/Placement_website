@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { login } from '../services/authService';
+import { login, clearAuth, isAuthenticated, getRole } from '../services/authService';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
@@ -11,10 +11,17 @@ export default function StudentLoginPage() {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // If already authenticated as STUDENT, redirect straight to dashboard
+  useEffect(() => {
+    if (isAuthenticated() && getRole() === 'STUDENT') {
+      navigate('/student/dashboard', { replace: true });
+    }
+  }, [navigate]);
+
   const validate = () => {
     const e = {};
     if (!form.email.trim()) e.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Invalid email address';
+    else if (!/\S+@\S+\.\S+/.test(form.email.trim())) e.email = 'Invalid email address';
     if (!form.password) e.password = 'Password is required';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -22,19 +29,26 @@ export default function StudentLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setApiError('');
     if (!validate()) return;
 
     setLoading(true);
     try {
-      const user = await login(form.email, form.password);
+      const user = await login({
+        email: form.email.trim(),
+        password: form.password,
+        expectedRole: 'STUDENT',
+      });
 
-      if (user.role !== 'STUDENT') {
+      if (!user || user.role !== 'STUDENT') {
+        clearAuth();
         setApiError('This login portal is for students only. Please use the Admin Login.');
         return;
       }
       navigate('/student/dashboard', { replace: true });
     } catch (err) {
+      clearAuth();
       setApiError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -44,6 +58,7 @@ export default function StudentLoginPage() {
   const handleChange = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
+    if (apiError) setApiError('');
   };
 
   return (

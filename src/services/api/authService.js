@@ -82,7 +82,7 @@ export const login = async (emailOrCredentials, password) => {
       : { email: emailOrCredentials, password };
 
   const response = await axiosClient.post('/auth/login', payload);
-  const authData = response.data;
+  const authData = response && response.data ? response.data : response;
   storeAuth(authData);
   resetAuthRedirectGuard();
   return authData;
