@@ -16,6 +16,9 @@ import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.JobSelectionRoundRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.exception.ResourceNotFoundException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +31,9 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -96,6 +101,48 @@ class ApplicationServiceTest {
         assertEquals(1, response.timeline().size());
         assertEquals("Application Submitted", response.timeline().get(0).stageLabel());
         verify(applicationRepository).existsByJobIdAndStudentProfileId(job.getId(), student.getId());
+    }
+
+    @Test
+    void listMyApplicationsUsesTheProfileBelongingToTheAuthenticatedUser() {
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        StudentProfile student = StudentProfile.builder()
+                .id(5L)
+                .user(studentUser)
+                .fullName("Student Example")
+                .email(studentUser.getEmail())
+                .build();
+        when(userRepository.findByEmailAndIsDeletedFalse(studentUser.getEmail()))
+                .thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(studentUser.getId())).thenReturn(Optional.of(student));
+        when(applicationRepository.findByStudentProfileId(eq(student.getId()), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        var response = applicationService.listMyApplications(studentUser.getEmail(), 0, 100);
+
+        assertEquals(0, response.getTotalElements());
+        verify(studentProfileRepository).findByUserId(studentUser.getId());
+        verify(applicationRepository).findByStudentProfileId(eq(student.getId()), any(Pageable.class));
+    }
+
+    @Test
+    void getMyApplicationDoesNotExposeAnotherStudentsApplication() {
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        StudentProfile student = StudentProfile.builder().id(5L).user(studentUser).build();
+        StudentProfile anotherStudent = StudentProfile.builder().id(6L).build();
+        JobApplication anotherStudentsApplication = JobApplication.builder()
+                .id(12L)
+                .job(openJob())
+                .studentProfile(anotherStudent)
+                .build();
+        when(userRepository.findByEmailAndIsDeletedFalse(studentUser.getEmail()))
+                .thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(studentUser.getId())).thenReturn(Optional.of(student));
+        when(applicationRepository.findWithTimelineById(anotherStudentsApplication.getId()))
+                .thenReturn(Optional.of(anotherStudentsApplication));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> applicationService.getMyApplication(studentUser.getEmail(), anotherStudentsApplication.getId()));
     }
 
     @Test
