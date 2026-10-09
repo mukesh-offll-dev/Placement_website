@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Landmark, Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { login } from '../services/authService';
+import { login, clearAuth, isAuthenticated, getRole } from '../services/authService';
 
 function generateCaptcha() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -18,10 +18,17 @@ export default function AdminLoginPage() {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // If already authenticated as ADMIN, redirect straight to dashboard
+  useEffect(() => {
+    if (isAuthenticated() && getRole() === 'ADMIN') {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [navigate]);
+
   const validate = () => {
     const e = {};
     if (!form.username.trim()) e.username = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(form.username)) e.username = 'Enter a valid email address';
+    else if (!/\S+@\S+\.\S+/.test(form.username.trim())) e.username = 'Enter a valid email address';
     if (!form.password) e.password = 'Password is required';
     if (form.captchaInput.toUpperCase() !== captcha) {
       e.captcha = 'CAPTCHA does not match';
@@ -34,14 +41,20 @@ export default function AdminLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setApiError('');
     if (!validate()) return;
 
     setLoading(true);
     try {
-      const user = await login(form.username, form.password);
+      const user = await login({
+        email: form.username.trim(),
+        password: form.password,
+        expectedRole: 'ADMIN',
+      });
 
-      if (user.role !== 'ADMIN') {
+      if (!user || user.role !== 'ADMIN') {
+        clearAuth();
         setApiError('This portal is for administrators only. Please use the Student Login.');
         setCaptcha(generateCaptcha());
         setForm((f) => ({ ...f, captchaInput: '' }));
@@ -49,6 +62,7 @@ export default function AdminLoginPage() {
       }
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
+      clearAuth();
       setApiError(err.message || 'Login failed. Please check your credentials.');
       setCaptcha(generateCaptcha());
       setForm((f) => ({ ...f, captchaInput: '' }));
@@ -60,6 +74,7 @@ export default function AdminLoginPage() {
   const handleChange = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
+    if (apiError) setApiError('');
   };
 
   return (
