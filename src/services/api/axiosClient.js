@@ -10,6 +10,20 @@ export const API_BASE_URL =
   'http://localhost:8080/api';
 export const TOKEN_KEY = 'placement_jwt';
 export const USER_KEY = 'placement_user';
+export const LEGACY_TOKEN_KEY = 'token';
+export const LEGACY_USER_KEY = 'user';
+
+/**
+ * Unauthorized redirect guard to prevent multiple simultaneous 401 responses
+ * from triggering repeated redirects or event storms.
+ */
+let isAuthRedirecting = false;
+
+export const resetAuthRedirectGuard = () => {
+  isAuthRedirecting = false;
+};
+
+export const getIsAuthRedirecting = () => isAuthRedirecting;
 
 /**
  * Reusable Axios Client configured for the Placement Cell Spring Boot backend.
@@ -64,12 +78,56 @@ axiosClient.interceptors.response.use(
         'An unexpected error occurred';
 
       // 401 Unauthorized: token expired, invalid, or missing
-      if (status === 401) {
+      // Exclude login/auth credential verification requests so login forms can display errors
+      const requestUrl = error.config?.url || '';
+      const isAuthEndpoint =
+        requestUrl.includes('/auth/login') ||
+        requestUrl.includes('/auth/register') ||
+        requestUrl.endsWith('/login');
+
+      if (status === 401 && !isAuthEndpoint) {
+        // 1. Read the user's role BEFORE clearing the stored user data
+        let role = null;
+        try {
+          const rawUser = localStorage.getItem(USER_KEY) || localStorage.getItem(LEGACY_USER_KEY);
+          if (rawUser) {
+            const parsed = JSON.parse(rawUser);
+            role = parsed.role || null;
+          }
+        } catch {
+          role = null;
+        }
+
+        if (!role) {
+          try {
+            const rawToken = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+            if (rawToken && rawToken.includes('.')) {
+              const payload = JSON.parse(atob(rawToken.split('.')[1]));
+              role = payload.role || null;
+            }
+          } catch {
+            role = null;
+          }
+        }
+
+        // 2. Clear current and legacy auth keys
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
-        // Optional dispatch for app-wide auth state listeners
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:unauthorized', { detail: { status, message } }));
+        localStorage.removeItem(LEGACY_TOKEN_KEY);
+        localStorage.removeItem(LEGACY_USER_KEY);
+
+        // 3. Prevent multiple simultaneous 401 responses from triggering repeated redirects
+        if (!isAuthRedirecting) {
+          isAuthRedirecting = true;
+
+          // 4. Dispatch a global auth:unauthorized event containing status, message, and role
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('auth:unauthorized', {
+                detail: { status, message, role },
+              })
+            );
+          }
         }
       }
 

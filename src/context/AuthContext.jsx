@@ -1,72 +1,59 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import {
+  getToken,
+  getUser,
+  clearAuth,
+  login as authServiceLogin,
+} from '../services/authService.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
-    try {
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [token, setToken] = useState(() => getToken());
+  const [user, setUser] = useState(() => getUser());
   const [loading, setLoading] = useState(false);
 
+  // Sync state with storage and listen for global unauthorized events
   useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-    } else {
-      localStorage.removeItem('token');
-    }
-  }, [token]);
+    const handleUnauthorized = () => {
+      setToken(null);
+      setUser(null);
+    };
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
-  }, [user]);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, []);
 
   const login = async ({ email, password }, expectedRole) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          expectedRole,
-        }),
-      });
+      const authData = await authServiceLogin({ email, password });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (expectedRole && authData.role !== expectedRole) {
+        clearAuth();
+        setToken(null);
+        setUser(null);
         return {
           success: false,
-          error: data.message || 'Login failed. Please check your credentials.',
+          error: `Unauthorized: account role is ${authData.role}, expected ${expectedRole}.`,
         };
       }
 
-      setToken(data.data.token);
+      setToken(authData.token);
       setUser({
-        id: data.data.id,
-        email: data.data.email,
-        role: data.data.role,
-        fullName: data.data.fullName,
+        id: authData.userId || authData.id,
+        email: authData.email,
+        role: authData.role,
+        fullName: authData.fullName,
       });
 
-      return { success: true, user: data.data };
+      return { success: true, user: authData };
     } catch (err) {
       return {
         success: false,
-        error: 'Unable to connect to server. Please try again later.',
+        error: err.message || 'Unable to connect to server. Please try again later.',
       };
     } finally {
       setLoading(false);
@@ -76,8 +63,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuth();
   };
 
   const isAuthenticated = Boolean(token && user);
@@ -100,6 +86,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+/* eslint-disable-next-line react-refresh/only-export-components */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
@@ -107,3 +94,5 @@ export function useAuth() {
   }
   return context;
 }
+
+export default AuthContext;

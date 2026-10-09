@@ -1,4 +1,13 @@
-import axiosClient, { TOKEN_KEY, USER_KEY, API_BASE_URL } from './axiosClient.js';
+import axiosClient, {
+  TOKEN_KEY,
+  USER_KEY,
+  LEGACY_TOKEN_KEY,
+  LEGACY_USER_KEY,
+  resetAuthRedirectGuard,
+  API_BASE_URL,
+} from './axiosClient.js';
+
+export { resetAuthRedirectGuard };
 
 /**
  * Authentication API Service
@@ -7,6 +16,7 @@ import axiosClient, { TOKEN_KEY, USER_KEY, API_BASE_URL } from './axiosClient.js
 
 export const storeAuth = (authResponse) => {
   if (!authResponse) return;
+  resetAuthRedirectGuard();
   if (authResponse.token) {
     localStorage.setItem(TOKEN_KEY, authResponse.token);
   }
@@ -19,18 +29,22 @@ export const storeAuth = (authResponse) => {
       fullName: authResponse.fullName,
     })
   );
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_USER_KEY);
 };
 
 export const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_USER_KEY);
 };
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
+export const getToken = () => localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
 
 export const getUser = () => {
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = localStorage.getItem(USER_KEY) || localStorage.getItem(LEGACY_USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -70,6 +84,7 @@ export const login = async (emailOrCredentials, password) => {
   const response = await axiosClient.post('/auth/login', payload);
   const authData = response.data;
   storeAuth(authData);
+  resetAuthRedirectGuard();
   return authData;
 };
 
@@ -88,6 +103,7 @@ export const registerStudent = async (studentData) => {
   const response = await axiosClient.post('/auth/register/student', payload);
   const authData = response.data;
   storeAuth(authData);
+  resetAuthRedirectGuard();
   return authData;
 };
 
@@ -133,9 +149,14 @@ export const authFetch = async (path, options = {}) => {
   });
 
   if (response.status === 401) {
+    const role = getRole();
     clearAuth();
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.dispatchEvent(
+        new CustomEvent('auth:unauthorized', {
+          detail: { status: 401, message: 'Session expired. Please log in again.', role },
+        })
+      );
     }
     throw new Error('Session expired. Please log in again.');
   }
@@ -147,6 +168,7 @@ export const authFetch = async (path, options = {}) => {
  * Logout - clear credentials and redirect.
  */
 export const logout = (redirectTo = '/login') => {
+  resetAuthRedirectGuard();
   clearAuth();
   if (typeof window !== 'undefined' && redirectTo) {
     window.location.href = redirectTo;
@@ -166,6 +188,7 @@ const authService = {
   getUser,
   isAuthenticated,
   getRole,
+  resetAuthRedirectGuard,
 };
 
 export default authService;
