@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
         expectedRole: 'ADMIN',
       });
 
-      if (!user || user.role !== 'ADMIN') {
+      if (!user || !user.token || user.role !== 'ADMIN') {
         clearAuth();
         setApiError('This portal is for administrators only. Please use the Student Login.');
         setCaptcha(generateCaptcha());

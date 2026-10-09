@@ -175,4 +175,51 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.success", is(false)))
                 .andExpect(jsonPath("$.message", containsString("Authentication failed")));
     }
+
+    @Test
+    @DisplayName("POST /auth/login with unknown email returns 401 Unauthorized and error message")
+    void testLoginUnknownEmailReturns401() throws Exception {
+        LoginRequest request = new LoginRequest("unknown@gces.edu", "Password123");
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Invalid email or password"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", is("Invalid email or password")))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("POST /auth/login with incorrect password returns 401 Unauthorized and error message")
+    void testLoginIncorrectPasswordReturns401() throws Exception {
+        LoginRequest request = new LoginRequest("student@gces.edu", "WrongPassword");
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Invalid email or password"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", is("Invalid email or password")))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("POST /auth/login with role mismatch returns 403 Forbidden")
+    void testLoginRoleMismatchReturns403() throws Exception {
+        LoginRequest request = new LoginRequest("student@gces.edu", "Password123", "ADMIN");
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException("Unauthorized role for this login portal"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", containsString("Unauthorized role")));
+    }
 }
