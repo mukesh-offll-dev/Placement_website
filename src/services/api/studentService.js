@@ -3,7 +3,7 @@ import axiosClient from './axiosClient.js';
 /**
  * Student API Service
  * Maps to backend:
- * - StudentController (/api/student/me)
+ * - StudentController (/api/student/me, /api/student/dashboard)
  * - StudentProfileController (/api/student/profile)
  */
 
@@ -13,7 +13,16 @@ import axiosClient from './axiosClient.js';
  */
 export const getMyProfileSummary = async () => {
   const response = await axiosClient.get('/student/me');
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Get authenticated student's dashboard statistics.
+ * GET /api/student/dashboard
+ */
+export const getStudentDashboard = async () => {
+  const response = await axiosClient.get('/student/dashboard');
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -22,7 +31,7 @@ export const getMyProfileSummary = async () => {
  */
 export const getProfile = async () => {
   const response = await axiosClient.get('/student/profile');
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -32,7 +41,7 @@ export const getProfile = async () => {
  */
 export const createProfile = async (profileData) => {
   const response = await axiosClient.post('/student/profile', profileData);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -42,11 +51,12 @@ export const createProfile = async (profileData) => {
  */
 export const updateProfile = async (profileData) => {
   const response = await axiosClient.put('/student/profile', profileData);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 const studentService = {
   getMyProfileSummary,
+  getStudentDashboard,
   getProfile,
   createProfile,
   updateProfile,

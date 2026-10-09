@@ -19,6 +19,7 @@ import {
   validateFile,
   formatFileSize,
 } from '../services/fileUploadService';
+import { createProject } from '../services/api/projectService';
 
 const Github = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -38,10 +39,20 @@ const Github = ({ className = 'w-4 h-4' }) => (
 const TECH_SUGGESTIONS = [
   'React', 'Node.js', 'Python', 'Java', 'TypeScript', 'JavaScript',
   'MongoDB', 'PostgreSQL', 'AWS', 'Docker', 'Figma', 'Flutter',
-  'Django', 'FastAPI', 'Express', 'TailwindCSS', 'Firebase',
+  'Django', 'FastAPI', 'Express', 'TailwindCSS', 'Firebase', 'Spring Boot',
 ];
 
 const ALLOWED_MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+
+const isValidUrl = (string) => {
+  if (!string) return true;
+  try {
+    const url = new URL(string);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
 
 export default function AddProjectPage() {
   const navigate = useNavigate();
@@ -64,15 +75,23 @@ export default function AddProjectPage() {
   const [errors, setErrors] = useState({});
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [mediaUploadStatus, setMediaUploadStatus] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   /* ── helpers ── */
-  const handleChange = (field) => (e) =>
+  const handleChange = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
 
   const addTech = (tag) => {
     const trimmed = tag.trim();
     if (trimmed && !form.tech.includes(trimmed)) {
       setForm((f) => ({ ...f, tech: [...f.tech, trimmed], techInput: '' }));
+      if (errors.tech) {
+        setErrors((prev) => ({ ...prev, tech: '' }));
+      }
     }
   };
 
@@ -110,20 +129,20 @@ export default function AddProjectPage() {
     setUploadingMedia(false);
 
     if (res.success && res.data) {
+      const uploadedUrl = res.data.fileUrl || res.data.downloadUrl;
       setForm((f) => ({
         ...f,
         mediaPreview: isPdf ? 'pdf' : localUrl,
-        mediaUrl: res.data.fileUrl || res.data.downloadUrl,
+        mediaUrl: uploadedUrl,
         mediaFileName: file.name,
         mediaFileType: isPdf ? 'pdf' : 'image',
         mediaFileSize: file.size,
       }));
       setMediaUploadStatus({
         type: 'success',
-        text: `Uploaded "${file.name}" successfully!`,
+        text: `Uploaded "${file.name}" to server successfully!`,
       });
     } else {
-      // Graceful fallback for local display
       setForm((f) => ({
         ...f,
         mediaPreview: isPdf ? 'pdf' : localUrl,
@@ -134,7 +153,7 @@ export default function AddProjectPage() {
       }));
       setMediaUploadStatus({
         type: 'success',
-        text: `File selected: "${file.name}"`,
+        text: `File attached: "${file.name}"`,
       });
     }
 
@@ -160,28 +179,63 @@ export default function AddProjectPage() {
 
   const validate = () => {
     const e = {};
-    if (!form.title.trim()) e.title = 'Project title is required.';
-    if (!form.description.trim()) e.description = 'A short description is required.';
-    if (form.tech.length === 0) e.tech = 'Add at least one technology.';
+    if (!form.title.trim()) {
+      e.title = 'Project title is required.';
+    } else if (form.title.trim().length > 150) {
+      e.title = 'Project title cannot exceed 150 characters.';
+    }
+
+    if (!form.description.trim()) {
+      e.description = 'A project description is required.';
+    } else if (form.description.trim().length > 2000) {
+      e.description = 'Description cannot exceed 2000 characters.';
+    }
+
+    if (form.tech.length === 0) {
+      e.tech = 'Add at least one technology stack item.';
+    }
+
+    if (form.liveUrl.trim() && !isValidUrl(form.liveUrl.trim())) {
+      e.liveUrl = 'Please enter a valid URL starting with http:// or https://';
+    }
+
+    if (form.repoUrl.trim() && !isValidUrl(form.repoUrl.trim())) {
+      e.repoUrl = 'Please enter a valid repository URL starting with http:// or https://';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const newProject = {
+    setIsSubmitting(true);
+    setErrors({});
+
+    const projectPayload = {
       title: form.title.trim(),
-      desc: form.description.trim(),
-      tech: form.tech,
-      live: form.liveUrl.trim(),
-      repo: form.repoUrl.trim(),
-      media: form.mediaUrl || form.mediaPreview,
-      mediaFileName: form.mediaFileName,
+      description: form.description.trim(),
+      liveUrl: form.liveUrl.trim() || null,
+      repoUrl: form.repoUrl.trim() || null,
+      mediaUrl: form.mediaUrl || null,
+      techStack: form.tech,
     };
 
-    navigate('/student/profile', { state: { newProject } });
+    try {
+      await createProject(projectPayload);
+      navigate('/student/profile', {
+        state: {
+          message: `Project "${form.title.trim()}" added to your profile showcase!`,
+        },
+      });
+    } catch (err) {
+      setErrors({
+        submit: err.message || 'Failed to create project on backend. Please check details.',
+      });
+      setIsSubmitting(false);
+    }
   };
 
   /* ── progress indicator ── */
@@ -197,10 +251,10 @@ export default function AddProjectPage() {
 
   return (
     <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 overflow-x-hidden">
-      {/* Back */}
+      {/* Back button */}
       <button
         onClick={() => navigate('/student/profile')}
-        className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-6"
+        className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-6 font-medium"
       >
         <ArrowLeft className="w-4 h-4" /> Back to Profile
       </button>
@@ -214,9 +268,23 @@ export default function AddProjectPage() {
           <h1 className="text-2xl font-bold text-gray-900">Add New Project</h1>
         </div>
         <p className="text-gray-500 text-sm pl-14">
-          Showcase your work — fill in the details below to add it to your profile.
+          Showcase your engineering work — fill in the details below to add it to your placement profile.
         </p>
       </div>
+
+      {/* Submission error alert */}
+      {errors.submit && (
+        <div className="flex items-start gap-2.5 p-4 rounded-xl mb-6 text-sm bg-red-50 border border-red-200 text-red-800">
+          <AlertCircle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" />
+          <div className="flex-1 font-medium">{errors.submit}</div>
+          <button
+            onClick={() => setErrors((e) => ({ ...e, submit: null }))}
+            className="text-gray-400 hover:text-gray-600 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="grid lg:grid-cols-3 gap-6">
@@ -225,7 +293,7 @@ export default function AddProjectPage() {
           <div className="lg:col-span-2 space-y-5">
 
             {/* Project Title & Description */}
-            <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
               <h2 className="font-semibold text-gray-900 mb-4">Project Details</h2>
 
               <div className="space-y-4">
@@ -235,9 +303,10 @@ export default function AddProjectPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. CloudScaler — Auto-scaling Platform"
+                    placeholder="e.g. CloudScaler — Intelligent Resource Auto-Scaling"
                     value={form.title}
                     onChange={handleChange('title')}
+                    disabled={isSubmitting}
                     className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
                       errors.title ? 'border-red-400 bg-red-50' : 'border-gray-300'
                     }`}
@@ -253,9 +322,10 @@ export default function AddProjectPage() {
                   </label>
                   <textarea
                     rows={4}
-                    placeholder="Briefly describe what this project does, the problem it solves, and your role in building it..."
+                    placeholder="Describe the problem solved, your architectural approach, features built, and the impact..."
                     value={form.description}
                     onChange={handleChange('description')}
+                    disabled={isSubmitting}
                     className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none transition ${
                       errors.description ? 'border-red-400 bg-red-50' : 'border-gray-300'
                     }`}
@@ -267,7 +337,7 @@ export default function AddProjectPage() {
                       <span />
                     )}
                     <span className="text-xs text-gray-400">
-                      {form.description.length} / 500
+                      {form.description.length} / 2000
                     </span>
                   </div>
                 </div>
@@ -275,8 +345,8 @@ export default function AddProjectPage() {
             </div>
 
             {/* Technologies */}
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-1">Technologies Used</h2>
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+              <h2 className="font-semibold text-gray-900 mb-1">Technologies Used <span className="text-red-500">*</span></h2>
               <p className="text-gray-400 text-xs mb-4">
                 Type a technology and press Enter or comma to add it.
               </p>
@@ -290,7 +360,7 @@ export default function AddProjectPage() {
                 {form.tech.map((tag) => (
                   <span
                     key={tag}
-                    className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2.5 py-1 rounded-full"
+                    className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2.5 py-1 rounded-full font-medium"
                   >
                     {tag}
                     <button
@@ -304,166 +374,178 @@ export default function AddProjectPage() {
                 ))}
                 <input
                   type="text"
-                  placeholder={form.tech.length === 0 ? 'React, Node.js, Python...' : ''}
+                  placeholder={form.tech.length === 0 ? 'Type a technology and press Enter...' : 'Add more...'}
                   value={form.techInput}
                   onChange={handleChange('techInput')}
                   onKeyDown={handleTechKeyDown}
-                  onBlur={() => form.techInput.trim() && addTech(form.techInput)}
-                  className="flex-1 min-w-[120px] outline-none text-sm bg-transparent"
+                  disabled={isSubmitting}
+                  className="flex-1 min-w-[120px] text-sm focus:outline-none bg-transparent"
                 />
               </div>
               {errors.tech && (
                 <p className="text-red-500 text-xs mt-1">{errors.tech}</p>
               )}
 
-              {/* Suggestions */}
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {TECH_SUGGESTIONS.filter((s) => !form.tech.includes(s)).slice(0, 10).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => addTech(s)}
-                    className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 px-2.5 py-1 rounded-full hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
-                  >
-                    <Plus className="w-2.5 h-2.5" /> {s}
-                  </button>
-                ))}
+              {/* Suggested tags */}
+              <div className="mt-3">
+                <p className="text-xs text-gray-400 mb-2">Suggested tags:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {TECH_SUGGESTIONS.filter((t) => !form.tech.includes(t)).slice(0, 10).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => addTech(t)}
+                      disabled={isSubmitting}
+                      className="text-xs bg-gray-100 hover:bg-blue-50 hover:text-blue-600 text-gray-600 px-2.5 py-1 rounded-full transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-2.5 h-2.5" /> {t}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Links */}
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">Project Links</h2>
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+              <h2 className="font-semibold text-gray-900 mb-1">Project Links</h2>
+              <p className="text-gray-400 text-xs mb-4">
+                Add links to where recruiters can test or view the source code.
+              </p>
 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Live URL
+                    Live Demo URL
                   </label>
                   <div className="relative">
-                    <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                      <ExternalLink className="w-4 h-4" />
+                    </span>
                     <input
                       type="url"
-                      placeholder="https://yourproject.vercel.app"
+                      placeholder="https://myproject.vercel.app"
                       value={form.liveUrl}
                       onChange={handleChange('liveUrl')}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      disabled={isSubmitting}
+                      className={`w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
+                        errors.liveUrl ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
                   </div>
+                  {errors.liveUrl && (
+                    <p className="text-red-500 text-xs mt-1">{errors.liveUrl}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    GitHub / Repository URL
+                    Source Code / Repository URL
                   </label>
                   <div className="relative">
-                    <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Github className="w-4 h-4" />
+                    </span>
                     <input
                       type="url"
                       placeholder="https://github.com/username/project"
                       value={form.repoUrl}
                       onChange={handleChange('repoUrl')}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      disabled={isSubmitting}
+                      className={`w-full pl-10 pr-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
+                        errors.repoUrl ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
                   </div>
+                  {errors.repoUrl && (
+                    <p className="text-red-500 text-xs mt-1">{errors.repoUrl}</p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Media Upload */}
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <div className="flex justify-between items-center mb-1">
-                <h2 className="font-semibold text-gray-900">Project Screenshot / Media Banner</h2>
-                {uploadingMedia && (
-                  <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading media...
-                  </span>
-                )}
+            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-semibold text-gray-900">Project Screenshot or Media</h2>
+                <span className="text-xs text-gray-400 font-normal">Optional</span>
               </div>
               <p className="text-gray-400 text-xs mb-4">
-                Upload a screenshot, demo image, or document (JPG, PNG, WebP, PDF up to 10MB).
+                Upload a preview banner, architecture diagram, or PDF documentation (Max 10MB).
               </p>
 
-              {/* Status banner */}
               {mediaUploadStatus && (
                 <div
-                  className={`flex items-start gap-2 p-3 rounded-xl mb-4 text-xs ${
-                    mediaUploadStatus.type === 'success'
-                      ? 'bg-green-50 border border-green-200 text-green-700'
-                      : 'bg-red-50 border border-red-200 text-red-700'
+                  className={`flex items-center gap-2 p-3 rounded-xl mb-3 text-xs ${
+                    mediaUploadStatus.type === 'error'
+                      ? 'bg-red-50 text-red-600 border border-red-200'
+                      : 'bg-green-50 text-green-700 border border-green-200'
                   }`}
                 >
-                  {mediaUploadStatus.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
+                  {mediaUploadStatus.type === 'error' ? (
+                    <AlertCircle className="w-4 h-4 shrink-0" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
                   )}
-                  <div className="flex-1">{mediaUploadStatus.text}</div>
-                  <button
-                    type="button"
-                    onClick={() => setMediaUploadStatus(null)}
-                    className="text-gray-400 hover:text-gray-600 text-xs font-bold"
-                  >
-                    ✕
-                  </button>
+                  <span>{mediaUploadStatus.text}</span>
                 </div>
               )}
 
               {form.mediaPreview ? (
-                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                  {form.mediaFileType === 'pdf' || form.mediaPreview === 'pdf' ? (
-                    <div className="h-44 flex flex-col items-center justify-center gap-2 p-4 text-center">
-                      <FileText className="w-12 h-12 text-red-500" />
-                      <p className="text-sm font-semibold text-gray-800">{form.mediaFileName || 'PDF Document Attached'}</p>
+                <div className="relative border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {form.mediaFileType === 'pdf' || form.mediaPreview === 'pdf' ? (
+                      <div className="bg-red-100 p-2.5 rounded-lg text-red-600">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                    ) : (
+                      <img
+                        src={form.mediaPreview}
+                        alt="Project media preview"
+                        className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                      />
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 break-all">
+                        {form.mediaFileName || 'Project Media File'}
+                      </p>
                       {form.mediaFileSize && (
-                        <p className="text-xs text-gray-500">{formatFileSize(form.mediaFileSize)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {formatFileSize(form.mediaFileSize)}
+                        </p>
                       )}
                     </div>
-                  ) : (
-                    <img
-                      src={form.mediaPreview}
-                      alt="Project preview"
-                      className="w-full h-48 object-cover"
-                    />
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => mediaRef.current?.click()}
-                      className="bg-white/90 backdrop-blur-sm rounded-lg px-2.5 py-1 shadow text-xs font-medium text-gray-700 hover:bg-white transition-colors flex items-center gap-1"
-                    >
-                      <Upload className="w-3 h-3" /> Change
-                    </button>
-                    <button
-                      type="button"
-                      onClick={removeMedia}
-                      className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors"
-                      title="Remove file"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={removeMedia}
+                    disabled={isSubmitting}
+                    className="p-1.5 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition"
+                    title="Remove media"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  disabled={uploadingMedia}
+                  disabled={uploadingMedia || isSubmitting}
                   onClick={() => mediaRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-xl h-40 flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50/50 transition-colors group disabled:opacity-60"
+                  className="w-full border-2 border-dashed border-gray-300 rounded-xl h-40 flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50/40 transition group disabled:opacity-60"
                 >
-                  <div className="bg-gray-100 group-hover:bg-blue-100 p-3 rounded-full transition-colors">
+                  <div className="bg-gray-100 group-hover:bg-blue-100 p-3 rounded-full transition">
                     {uploadingMedia ? (
                       <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
                     ) : (
-                      <Upload className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                      <Upload className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition" />
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 group-hover:text-blue-600 transition-colors font-medium">
-                    {uploadingMedia ? 'Uploading media...' : 'Click or browse to upload project media'}
+                  <p className="text-sm text-gray-500 group-hover:text-blue-600 transition font-medium">
+                    {uploadingMedia ? 'Uploading media to server...' : 'Click to upload project media file'}
                   </p>
                   <p className="text-xs text-gray-400">PNG, JPG, JPEG, WebP, PDF up to 10 MB</p>
                 </button>
               )}
+
               <input
                 type="file"
                 ref={mediaRef}
@@ -477,42 +559,50 @@ export default function AddProjectPage() {
             <div className="flex gap-3 pb-6">
               <button
                 type="submit"
-                className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm"
+                disabled={isSubmitting || uploadingMedia}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Add Project to Profile
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Saving Project...
+                  </>
+                ) : (
+                  'Add Project to Profile'
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/student/profile')}
-                className="flex-1 border border-gray-300 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm"
+                disabled={isSubmitting}
+                className="flex-1 border border-gray-300 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-50 transition text-sm"
               >
                 Cancel
               </button>
             </div>
           </div>
 
-          {/* ── RIGHT: live preview + tips ── */}
+          {/* ── RIGHT: Live Preview & Tips ── */}
           <div className="space-y-5">
 
-            {/* Form completion */}
-            <div className="bg-white rounded-2xl shadow-sm p-5">
-              <div className="flex justify-between text-sm font-medium mb-2">
+            {/* Form Completion */}
+            <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+              <div className="flex justify-between text-sm font-semibold mb-2">
                 <span className="text-gray-700">Form Completion</span>
                 <span className="text-blue-600">{completionPct}%</span>
               </div>
-              <div className="w-full bg-gray-200 h-2 rounded">
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-blue-600 h-2 rounded transition-all duration-500"
+                  className="bg-blue-600 h-full rounded-full transition-all duration-500"
                   style={{ width: `${completionPct}%` }}
                 />
               </div>
-              <ul className="mt-3 space-y-1.5">
+              <ul className="mt-4 space-y-2">
                 {[
-                  { label: 'Title', done: !!form.title.trim() },
+                  { label: 'Project Title', done: !!form.title.trim() },
                   { label: 'Description', done: !!form.description.trim() },
-                  { label: 'Technologies', done: form.tech.length > 0 },
-                  { label: 'Live URL', done: !!form.liveUrl.trim() },
-                  { label: 'Repo URL', done: !!form.repoUrl.trim() },
+                  { label: 'Tech Stack (at least 1)', done: form.tech.length > 0 },
+                  { label: 'Live Demo URL', done: !!form.liveUrl.trim() },
+                  { label: 'Repository URL', done: !!form.repoUrl.trim() },
                   { label: 'Screenshot / Media', done: !!form.mediaPreview },
                 ].map(({ label, done }) => (
                   <li key={label} className="flex items-center gap-2 text-xs">
@@ -523,7 +613,7 @@ export default function AddProjectPage() {
                     >
                       {done ? '✓' : ''}
                     </span>
-                    <span className={done ? 'text-gray-700' : 'text-gray-400'}>{label}</span>
+                    <span className={done ? 'text-gray-700 font-medium' : 'text-gray-400'}>{label}</span>
                   </li>
                 ))}
               </ul>
@@ -531,9 +621,9 @@ export default function AddProjectPage() {
 
             {/* Live Preview Card */}
             {form.title && (
-              <div className="bg-white rounded-2xl shadow-sm p-5">
+              <div className="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                  Preview
+                  Card Preview
                 </p>
                 {form.mediaPreview && (
                   form.mediaFileType === 'pdf' || form.mediaPreview === 'pdf' ? (
@@ -557,21 +647,21 @@ export default function AddProjectPage() {
                 {form.tech.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-3">
                     {form.tech.map((t) => (
-                      <span key={t} className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded">
+                      <span key={t} className="bg-blue-50 text-blue-700 text-[11px] px-2 py-0.5 rounded font-medium">
                         {t}
                       </span>
                     ))}
                   </div>
                 )}
                 {(form.liveUrl || form.repoUrl) && (
-                  <div className="flex gap-3 mt-3">
+                  <div className="flex gap-3 mt-3 pt-2 border-t border-gray-100">
                     {form.liveUrl && (
-                      <span className="flex items-center gap-1 text-xs text-blue-600">
-                        <ExternalLink className="w-3 h-3" /> Live
+                      <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                        <ExternalLink className="w-3 h-3" /> Live Demo
                       </span>
                     )}
                     {form.repoUrl && (
-                      <span className="flex items-center gap-1 text-xs text-gray-600">
+                      <span className="flex items-center gap-1 text-xs text-gray-600 font-medium">
                         <Github className="w-3 h-3" /> Repo
                       </span>
                     )}
@@ -580,15 +670,14 @@ export default function AddProjectPage() {
               </div>
             )}
 
-            {/* Tips */}
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-              <p className="text-xs font-semibold text-blue-700 mb-2">💡 Tips for a great project</p>
-              <ul className="space-y-1.5 text-xs text-blue-600">
-                <li>• Keep the title concise and specific</li>
-                <li>• Mention the problem solved in your description</li>
-                <li>• Add a live demo link to stand out</li>
-                <li>• Include at least 3 technologies</li>
-                <li>• Upload a clean screenshot or project banner</li>
+            {/* Tips Card */}
+            <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-5">
+              <p className="text-xs font-bold text-blue-900 mb-2">💡 Tips for a strong showcase</p>
+              <ul className="space-y-1.5 text-xs text-blue-800">
+                <li>• Keep the title clear and outcome-oriented</li>
+                <li>• Emphasize your personal contribution and tech choices</li>
+                <li>• Providing a public GitHub repository link builds credibility</li>
+                <li>• Add architecture diagrams or UI screenshots when possible</li>
               </ul>
             </div>
           </div>

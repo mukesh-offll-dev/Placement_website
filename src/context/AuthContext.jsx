@@ -1,72 +1,106 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useCallback } from 'react';
+import {
+  getToken,
+  getUser,
+  storeAuth,
+  clearAuth,
+  login as apiLogin,
+  registerStudent as apiRegisterStudent,
+  getCurrentUser as apiGetCurrentUser,
+} from '../services/authService';
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
+  const [token, setToken] = useState(() => getToken());
+  const [user, setUser] = useState(() => getUser());
+  const [loading, setLoading] = useState(false);
+
+  // Sync state whenever unauthorized event is fired by axiosClient interceptor
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setToken(null);
+      setUser(null);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:unauthorized', handleUnauthorized);
+      return () => {
+        window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      };
+    }
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    if (!getToken()) return null;
     try {
-      return saved ? JSON.parse(saved) : null;
+      const userData = await apiGetCurrentUser();
+      if (userData) {
+        setUser((prev) => {
+          const updated = { ...(prev || {}), ...userData };
+          storeAuth({ token: getToken(), ...updated });
+          return updated;
+        });
+      }
+      return userData;
     } catch {
       return null;
     }
-  });
-  const [loading, setLoading] = useState(false);
+  }, []);
 
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-    } else {
-      localStorage.removeItem('token');
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-    }
-  }, [user]);
-
-  const login = async ({ email, password }, expectedRole) => {
+  const login = async (credentials, expectedRole) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          expectedRole,
-        }),
-      });
+      const email = typeof credentials === 'object' ? credentials.email : credentials;
+      const password = typeof credentials === 'object' ? credentials.password : arguments[1];
 
-      const data = await response.json();
+      const authData = await apiLogin(email, password);
 
-      if (!response.ok || !data.success) {
+      if (expectedRole && authData.role !== expectedRole) {
+        clearAuth();
+        setToken(null);
+        setUser(null);
         return {
           success: false,
-          error: data.message || 'Login failed. Please check your credentials.',
+          error: `Unauthorized role. Expected ${expectedRole}, got ${authData.role}.`,
         };
       }
 
-      setToken(data.data.token);
+      setToken(authData.token);
       setUser({
-        id: data.data.id,
-        email: data.data.email,
-        role: data.data.role,
-        fullName: data.data.fullName,
+        userId: authData.userId,
+        email: authData.email,
+        role: authData.role,
+        fullName: authData.fullName,
       });
 
-      return { success: true, user: data.data };
+      return { success: true, user: authData };
     } catch (err) {
       return {
         success: false,
-        error: 'Unable to connect to server. Please try again later.',
+        error: err.message || 'Login failed. Please check your credentials.',
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (studentData) => {
+    setLoading(true);
+    try {
+      const authData = await apiRegisterStudent(studentData);
+      setToken(authData.token);
+      setUser({
+        userId: authData.userId,
+        email: authData.email,
+        role: authData.role,
+        fullName: authData.fullName,
+      });
+      return { success: true, user: authData };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message || 'Registration failed.',
       };
     } finally {
       setLoading(false);
@@ -74,25 +108,27 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    clearAuth();
     setToken(null);
     setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
   };
 
   const isAuthenticated = Boolean(token && user);
-  const hasRole = (role) => user?.role === role;
+  const hasRole = (targetRole) => user?.role === targetRole;
 
   return (
     <AuthContext.Provider
       value={{
         token,
         user,
+        role: user?.role || null,
         loading,
         isAuthenticated,
         hasRole,
         login,
+        register,
         logout,
+        refreshUser,
       }}
     >
       {children}
@@ -100,10 +136,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+// eslint-disable-next-line react-refresh/only-export-components
+export { useAuth } from './useAuth';
+export default AuthContext;
