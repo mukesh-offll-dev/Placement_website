@@ -41,7 +41,7 @@ export default function StudentLoginPage() {
         expectedRole: 'STUDENT',
       });
 
-      if (!user || user.role !== 'STUDENT') {
+      if (!user || !user.token || user.role !== 'STUDENT') {
         clearAuth();
         setApiError('This login portal is for students only. Please use the Admin Login.');
         return;

@@ -15,11 +15,10 @@ export { resetAuthRedirectGuard };
  */
 
 export const storeAuth = (authResponse) => {
-  if (!authResponse) return;
+  if (!authResponse || !authResponse.token) return;
+  // A fresh session re-arms the 401 redirect guard, so the *next* expiry redirects too.
   resetAuthRedirectGuard();
-  if (authResponse.token) {
-    localStorage.setItem(TOKEN_KEY, authResponse.token);
-  }
+  localStorage.setItem(TOKEN_KEY, authResponse.token);
   localStorage.setItem(
     USER_KEY,
     JSON.stringify({
@@ -55,7 +54,9 @@ export const isAuthenticated = () => {
   const token = getToken();
   if (!token) return false;
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1]));
     return payload.exp * 1000 > Date.now();
   } catch {
     return false;
@@ -81,11 +82,24 @@ export const login = async (emailOrCredentials, password) => {
       ? emailOrCredentials
       : { email: emailOrCredentials, password };
 
-  const response = await axiosClient.post('/auth/login', payload);
-  const authData = response && response.data ? response.data : response;
-  storeAuth(authData);
-  resetAuthRedirectGuard();
-  return authData;
+  try {
+    const response = await axiosClient.post('/auth/login', payload);
+    const authData =
+      response?.data && typeof response.data === 'object' && response.data.token
+        ? response.data
+        : response;
+
+    if (!authData || !authData.token) {
+      clearAuth();
+      throw new Error('Authentication failed: No token received from server');
+    }
+
+    storeAuth(authData); // also re-arms the 401 redirect guard
+    return authData;
+  } catch (err) {
+    clearAuth();
+    throw err;
+  }
 };
 
 /**

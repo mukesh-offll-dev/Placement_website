@@ -326,6 +326,38 @@ class RoleBasedAccessControlTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("Login with unknown email returns 401 Unauthorized and error message")
+    void loginWithUnknownEmailReturns401() throws Exception {
+        LoginRequestDTO req = new LoginRequestDTO();
+        req.setEmail("completely.unknown@gces.edu.np");
+        req.setPassword("AnyPassword@123");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", is("Invalid email or password")))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("Login with incorrect password returns 401 Unauthorized and error message")
+    void loginWithIncorrectPasswordReturns401() throws Exception {
+        LoginRequestDTO req = new LoginRequestDTO();
+        req.setEmail(STUDENT_EMAIL);
+        req.setPassword("WrongPassword@999");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", is("Invalid email or password")))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
     // --- 8. HTTP Basic Fallback Verification ---
 
     @Test
