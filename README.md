@@ -644,6 +644,7 @@ Placement_website/
 ├── src/                          # React Frontend Source Code
 │   ├── assets/                   # CSS and graphic assets
 │   ├── components/               # Reusable UI components (Navbar, Cards, Modals)
+│   ├── context/AuthContext.jsx   # Global authenticated session, token, and role
 │   ├── layouts/                  # Layout wrappers (AdminLayout, StudentLayout)
 │   ├── pages/                    # React page views
 │   │   ├── LandingPage.jsx       # Public landing page
@@ -681,6 +682,12 @@ Placement_website/
 ├── vite.config.js                # Vite build and server settings
 └── README.md                     # Complete project documentation
 ```
+
+The frontend wraps the application in `AuthProvider`. Components can use `useAuth()` to access
+the current `session`, `token`, `user`, and `role`, or call the shared `login`, `registerStudent`,
+and `logout` actions. Protected routes and portal navigation use this same state; the session is
+restored from browser storage after reload and cleared when the token expires or an API request
+returns an unauthorized response.
 
 ---
 

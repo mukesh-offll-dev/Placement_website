@@ -3,54 +3,76 @@ import {
   getToken,
   getUser,
   clearAuth,
+  isAuthenticated as hasStoredSession,
   login as authServiceLogin,
+  registerStudent as authServiceRegisterStudent,
 } from '../services/authService.js';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => getToken());
-  const [user, setUser] = useState(() => getUser());
-  const [loading, setLoading] = useState(false);
+const getSessionUser = (authData) => ({
+  id: authData.userId || authData.id,
+  email: authData.email,
+  role: authData.role,
+  fullName: authData.fullName,
+});
 
-  // Sync state with storage and listen for global unauthorized events
+const getStoredSession = () => {
+  const token = getToken();
+  const user = getUser();
+
+  if (!token || !user || !hasStoredSession()) {
+    clearAuth();
+    return { token: null, user: null };
+  }
+
+  return { token, user };
+};
+
+export function AuthProvider({ children }) {
+  const [session, setSession] = useState(getStoredSession);
+  const [loading, setLoading] = useState(false);
+  const { token, user } = session;
+
   useEffect(() => {
     const handleUnauthorized = () => {
-      setToken(null);
-      setUser(null);
+      setSession({ token: null, user: null });
+    };
+
+    const handleStorage = () => {
+      setSession(getStoredSession());
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
+    window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
-  const login = async ({ email, password }, expectedRole) => {
+  const login = async (credentials, expectedRole) => {
+    const { expectedRole: credentialRole, ...loginCredentials } = credentials;
     setLoading(true);
     try {
-      const authData = await authServiceLogin({ email, password });
+      const authData = await authServiceLogin(loginCredentials);
+      const requiredRole = expectedRole || credentialRole;
 
-      if (expectedRole && authData.role !== expectedRole) {
+      if (requiredRole && authData.role !== requiredRole) {
         clearAuth();
-        setToken(null);
-        setUser(null);
+        setSession({ token: null, user: null });
         return {
           success: false,
-          error: `Unauthorized: account role is ${authData.role}, expected ${expectedRole}.`,
+          error: `Unauthorized: account role is ${authData.role}, expected ${requiredRole}.`,
         };
       }
 
-      setToken(authData.token);
-      setUser({
-        id: authData.userId || authData.id,
-        email: authData.email,
-        role: authData.role,
-        fullName: authData.fullName,
-      });
+      setSession({ token: authData.token, user: getSessionUser(authData) });
 
       return { success: true, user: authData };
     } catch (err) {
+      clearAuth();
+      setSession({ token: null, user: null });
       return {
         success: false,
         error: err.message || 'Unable to connect to server. Please try again later.',
@@ -60,24 +82,35 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const registerStudent = async (studentData) => {
+    const authData = await authServiceRegisterStudent(studentData);
+    if (authData?.token) {
+      setSession({ token: authData.token, user: getSessionUser(authData) });
+    }
+    return authData;
+  };
+
   const logout = () => {
-    setToken(null);
-    setUser(null);
     clearAuth();
+    setSession({ token: null, user: null });
   };
 
   const isAuthenticated = Boolean(token && user);
-  const hasRole = (role) => user?.role === role;
+  const role = user?.role || null;
+  const hasRole = (requiredRole) => role === requiredRole;
 
   return (
     <AuthContext.Provider
       value={{
+        session: isAuthenticated ? { token, user, role } : null,
         token,
         user,
+        role,
         loading,
         isAuthenticated,
         hasRole,
         login,
+        registerStudent,
         logout,
       }}
     >
