@@ -1,30 +1,149 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Briefcase, ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
-
-const ALL_JOBS = [
-  { id: 1, company: 'Google', role: 'Software Engineer', cgpa: '8.5+', deadline: 'Nov 15, 2026', location: 'Bangalore', type: 'Full Time', ctc: '24 LPA', status: 'Open' },
-  { id: 2, company: 'Amazon', role: 'Data Analyst', cgpa: '7.5+', deadline: 'Nov 01, 2026', location: 'Hyderabad', type: 'Full Time', ctc: '18 LPA', status: 'Open' },
-  { id: 3, company: 'Microsoft', role: 'Cloud Engineer', cgpa: '8.0+', deadline: 'Oct 30, 2026', location: 'Hyderabad', type: 'Full Time', ctc: '22 LPA', status: 'Open' },
-  { id: 4, company: 'Zoho', role: 'UI/UX Designer', cgpa: '7.0+', deadline: 'Oct 28, 2026', location: 'Chennai', type: 'Full Time', ctc: '10 LPA', status: 'Closing Soon' },
-  { id: 5, company: 'TCS', role: 'Systems Engineer', cgpa: '6.5+', deadline: 'Nov 10, 2026', location: 'Pan India', type: 'Full Time', ctc: '7 LPA', status: 'Open' },
-  { id: 6, company: 'Infosys', role: 'Associate Developer', cgpa: '6.5+', deadline: 'Nov 05, 2026', location: 'Pan India', type: 'Full Time', ctc: '6.5 LPA', status: 'Open' },
-  { id: 7, company: 'Wipro', role: 'Project Engineer', cgpa: '6.0+', deadline: 'Nov 20, 2026', location: 'Pan India', type: 'Full Time', ctc: '6 LPA', status: 'Open' },
-  { id: 8, company: 'Freshworks', role: 'Frontend Developer', cgpa: '7.5+', deadline: 'Nov 08, 2026', location: 'Chennai', type: 'Full Time', ctc: '12 LPA', status: 'Open' },
-];
+import {
+  Search,
+  Filter,
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Clock,
+  Loader2,
+  AlertCircle,
+  RotateCw,
+} from 'lucide-react';
+import { jobService } from '../services/api';
 
 const PAGE_SIZE = 5;
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return 'No Deadline';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+};
+
+const isDeadlineClosingSoon = (dateStr) => {
+  if (!dateStr) return false;
+  try {
+    const deadline = new Date(dateStr);
+    const now = new Date();
+    const diffDays = (deadline - now) / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 5;
+  } catch {
+    return false;
+  }
+};
+
+const formatJobType = (type) => {
+  if (!type) return 'Full Time';
+  switch (type) {
+    case 'FULL_TIME':
+      return 'Full Time';
+    case 'INTERNSHIP':
+      return 'Internship';
+    case 'PART_TIME':
+      return 'Part Time';
+    case 'CONTRACT':
+      return 'Contract';
+    default:
+      return type;
+  }
+};
 
 export default function JobsPage({ isAdmin = false }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [jobs, setJobs] = useState(ALL_JOBS);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [newJob, setNewJob] = useState({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
+
+  const fetchJobs = useCallback(async (signal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetcher = isAdmin ? jobService.getAdminJobs : jobService.getJobs;
+      const responseData = await fetcher({ page: 0, size: 100 }, { signal });
+
+      // Spring Data Page returns { content: [...] }; array returned directly is also handled safely
+      const rawList = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.content)
+          ? responseData.content
+          : [];
+
+      const normalized = rawList.map((j) => {
+        const companyName =
+          j.company?.name ||
+          j.company?.shortName ||
+          (typeof j.company === 'string' ? j.company : 'Company');
+        const companyShort = (
+          j.company?.shortName ||
+          (companyName && companyName.length >= 2 ? companyName.slice(0, 2) : 'JB')
+        ).toUpperCase();
+        const logoColor = j.company?.logoColor || 'bg-blue-100 text-blue-700';
+        const role = j.jobRole || j.role || 'Job Opening';
+        const location = j.location || 'Location Not Specified';
+        const ctc = j.ctcText || (j.ctcValue ? `${j.ctcValue} LPA` : j.ctc || 'Not Disclosed');
+        const cgpa = j.minCgpa != null ? `${j.minCgpa}+` : j.cgpa || 'Not Specified';
+        const type = formatJobType(j.jobType || j.type);
+        const deadline = j.applicationDeadline ? formatDate(j.applicationDeadline) : j.deadline || 'No Deadline';
+
+        let status = j.status || 'Open';
+        if (j.expired) {
+          status = 'Expired';
+        } else if (j.applicationDeadline && isDeadlineClosingSoon(j.applicationDeadline)) {
+          status = 'Closing Soon';
+        } else if (j.status === 'ACTIVE') {
+          status = 'Open';
+        }
+
+        return {
+          id: j.id,
+          company: companyName,
+          companyShort,
+          logoColor,
+          role,
+          location,
+          ctc,
+          cgpa,
+          type,
+          deadline,
+          status,
+          raw: j,
+        };
+      });
+
+      setJobs(normalized);
+    } catch (err) {
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') {
+        return;
+      }
+      setError(err?.message || 'Failed to load job drives. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchJobs(controller.signal);
+    return () => controller.abort();
+  }, [fetchJobs]);
 
   const filtered = jobs.filter((j) => {
     const q = search.toLowerCase();
-    return j.company.toLowerCase().includes(q) || j.role.toLowerCase().includes(q);
+    return (
+      j.company.toLowerCase().includes(q) ||
+      j.role.toLowerCase().includes(q) ||
+      j.location.toLowerCase().includes(q)
+    );
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -32,12 +151,20 @@ export default function JobsPage({ isAdmin = false }) {
 
   const handleAdd = (e) => {
     e.preventDefault();
-    setJobs((prev) => [...prev, { ...newJob, id: Date.now(), status: 'Open', type: 'Full Time' }]);
+    const created = {
+      ...newJob,
+      id: Date.now(),
+      companyShort: (newJob.company.slice(0, 2) || 'JB').toUpperCase(),
+      logoColor: 'bg-blue-100 text-blue-700',
+      status: 'Open',
+      type: 'Full Time',
+    };
+    setJobs((prev) => [created, ...prev]);
     setNewJob({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
     setShowAddModal(false);
   };
 
-  const content = (
+  return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-2xl font-bold">Job Drives</h2>
@@ -60,7 +187,10 @@ export default function JobsPage({ isAdmin = false }) {
             type="text"
             placeholder="Search company or role..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -70,31 +200,69 @@ export default function JobsPage({ isAdmin = false }) {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-white rounded-xl p-12 text-center shadow-sm flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <p className="text-gray-500 text-sm">Loading job drives...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {!loading && error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center shadow-sm">
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+          <p className="text-red-700 font-medium text-sm mb-1">{error}</p>
+          <p className="text-red-500 text-xs mb-4">Could not connect to the backend server. Please check your connection and retry.</p>
+          <button
+            onClick={() => fetchJobs()}
+            className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
+          >
+            <RotateCw className="w-3.5 h-3.5" /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="bg-white rounded-xl p-10 text-center text-gray-400 shadow-sm">
+          <Briefcase className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+          {search.trim() ? 'No jobs match your search criteria.' : 'No active job drives found.'}
+        </div>
+      )}
+
       {/* Job Cards */}
-      <div className="space-y-4">
-        {paginated.length === 0 ? (
-          <div className="bg-white rounded-xl p-10 text-center text-gray-400 shadow-sm">
-            <Briefcase className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-            No jobs found.
-          </div>
-        ) : (
-          paginated.map((job) => (
+      {!loading && !error && filtered.length > 0 && (
+        <div className="space-y-4">
+          {paginated.map((job) => (
             <div key={job.id} className="bg-white rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
-              <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center font-bold text-blue-700 text-sm shrink-0">
-                {job.company.slice(0, 2).toUpperCase()}
+              <div
+                className={`w-14 h-14 ${job.logoColor} rounded-xl flex items-center justify-center font-bold text-sm shrink-0`}
+              >
+                {job.companyShort}
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-start gap-2">
                   <h3 className="font-bold text-base">{job.company}</h3>
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full ${job.status === 'Closing Soon' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full ${
+                      job.status === 'Closing Soon' || job.status === 'Expired'
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-green-100 text-green-600'
+                    }`}
+                  >
                     {job.status}
                   </span>
                 </div>
                 <p className="text-gray-600 text-sm">{job.role}</p>
                 <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-400">
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location}</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Deadline: {job.deadline}</span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> {job.location}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Deadline: {job.deadline}
+                  </span>
                   <span>CGPA: {job.cgpa}</span>
                   <span>CTC: {job.ctc}</span>
                 </div>
@@ -115,42 +283,44 @@ export default function JobsPage({ isAdmin = false }) {
                 )}
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
-        <p>
-          Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
-          {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+      {!loading && !error && filtered.length > 0 && (
+        <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
+          <p>
+            Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
+            {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1">
             <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`w-8 h-8 rounded text-sm ${page === p ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {p}
+              <ChevronLeft className="w-4 h-4" />
             </button>
-          ))}
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`w-8 h-8 rounded text-sm ${page === p ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Add Job Modal */}
       {showAddModal && (
@@ -195,6 +365,4 @@ export default function JobsPage({ isAdmin = false }) {
       )}
     </main>
   );
-
-  return content;
 }
