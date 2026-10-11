@@ -13,7 +13,7 @@ import axiosClient, { API_BASE_URL } from './axiosClient.js';
  */
 export const getAllProjects = async () => {
   const response = await axiosClient.get('/student/projects');
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -22,7 +22,7 @@ export const getAllProjects = async () => {
  */
 export const getProjectById = async (projectId) => {
   const response = await axiosClient.get(`/student/projects/${projectId}`);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -32,7 +32,7 @@ export const getProjectById = async (projectId) => {
  */
 export const createProject = async (projectData) => {
   const response = await axiosClient.post('/student/projects', projectData);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -43,7 +43,7 @@ export const createProject = async (projectData) => {
  */
 export const updateProject = async (projectId, projectData) => {
   const response = await axiosClient.put(`/student/projects/${projectId}`, projectData);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -53,7 +53,7 @@ export const updateProject = async (projectId, projectData) => {
  */
 export const deleteProject = async (projectId) => {
   const response = await axiosClient.delete(`/student/projects/${projectId}`);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -70,7 +70,7 @@ export const uploadProjectMediaStandalone = async (file) => {
       'Content-Type': 'multipart/form-data',
     },
   });
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -88,7 +88,7 @@ export const uploadProjectMedia = async (projectId, file) => {
       'Content-Type': 'multipart/form-data',
     },
   });
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -98,7 +98,7 @@ export const uploadProjectMedia = async (projectId, file) => {
  */
 export const getProjectMedia = async (projectId) => {
   const response = await axiosClient.get(`/projects/${projectId}/media`);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**
@@ -108,7 +108,7 @@ export const getProjectMedia = async (projectId) => {
  */
 export const deleteProjectMedia = async (projectId) => {
   const response = await axiosClient.delete(`/projects/${projectId}/media`);
-  return response.data;
+  return response?.data !== undefined ? response.data : response;
 };
 
 /**

@@ -26,7 +26,13 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Capitalized names are components. eslint-plugin-react is not installed, so
+      // core no-unused-vars cannot see a binding used only as a JSX tag; without
+      // argsIgnorePattern every `map(({ icon: Icon }) => <Icon />)` is a false error.
+      'no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' },
+      ],
     },
   },
 ])

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Outlet, useLocation, Link, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, Link } from 'react-router-dom';
 import {
   Menu,
   Bell,
@@ -32,7 +32,6 @@ export default function AdminLayout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState(recentAdminNotifs);
   const location = useLocation();
-  const navigate = useNavigate();
   const notifRef = useRef(null);
   const { user } = useAuth();
 

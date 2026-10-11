@@ -105,7 +105,7 @@ export default function NotificationsPage() {
     setActionError(null);
     try {
       await notificationService.markAllAsRead();
-    } catch (err) {
+    } catch {
       setNotifs(previous);
       setActionError('Failed to mark all as read. Please try again.');
     }
@@ -117,7 +117,7 @@ export default function NotificationsPage() {
     setActionError(null);
     try {
       await notificationService.deleteNotification(id);
-    } catch (err) {
+    } catch {
       setNotifs(previous);
       setActionError('Failed to dismiss notification. Please try again.');
     }
@@ -138,7 +138,7 @@ export default function NotificationsPage() {
       } else {
         await notificationService.markAsUnread(id);
       }
-    } catch (err) {
+    } catch {
       setNotifs(previous);
       setActionError('Failed to update notification. Please try again.');
     }

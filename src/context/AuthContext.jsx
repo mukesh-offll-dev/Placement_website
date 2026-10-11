@@ -1,13 +1,17 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   getToken,
   getUser,
+  storeAuth,
   clearAuth,
   isAuthenticated as hasStoredSession,
   login as authServiceLogin,
   registerStudent as authServiceRegisterStudent,
+  getCurrentUser as authServiceGetCurrentUser,
 } from '../services/authService.js';
 
+// Exported as the default only: a named context export trips the react-refresh
+// lint rule, and useAuth below is the supported way to read it.
 const AuthContext = createContext(null);
 
 const getSessionUser = (authData) => ({
@@ -90,6 +94,39 @@ export function AuthProvider({ children }) {
     return authData;
   };
 
+  /**
+   * Re-reads the signed-in user from GET /auth/me and merges the result into the
+   * session, so a profile edited elsewhere (or by an admin) shows up without a
+   * re-login. Returns null when there is no session or the request fails.
+   */
+  const refreshUser = useCallback(async () => {
+    const currentToken = getToken();
+    if (!currentToken) return null;
+
+    try {
+      const userData = await authServiceGetCurrentUser();
+      if (!userData) return null;
+
+      setSession((prev) => {
+        const merged = { ...(prev.user || {}), ...userData, id: userData.id ?? prev.user?.id };
+        // storeAuth reads userId, while the session keeps it as id — map it back
+        // so a reload does not lose the user's id.
+        storeAuth({
+          token: currentToken,
+          userId: merged.id,
+          email: merged.email,
+          role: merged.role,
+          fullName: merged.fullName,
+        });
+        return { token: currentToken, user: merged };
+      });
+
+      return userData;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const logout = () => {
     clearAuth();
     setSession({ token: null, user: null });
@@ -111,6 +148,9 @@ export function AuthProvider({ children }) {
         hasRole,
         login,
         registerStudent,
+        // Alias: some pages call register() instead of registerStudent().
+        register: registerStudent,
+        refreshUser,
         logout,
       }}
     >

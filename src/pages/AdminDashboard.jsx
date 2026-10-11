@@ -27,7 +27,8 @@ const initialJobs = [
 ];
 
 export default function AdminDashboard() {
-  const [notifCount, setNotifCount] = useState(0);
+  // Counter is incremented but not rendered yet; keep the setter, drop the binding.
+  const [, setNotifCount] = useState(0);
   const [jobs, setJobs] = useState(initialJobs);
   const [stats, setStats] = useState({
     totalJobs: 2,

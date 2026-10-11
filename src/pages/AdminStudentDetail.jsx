@@ -10,7 +10,12 @@ import {
   Eye,
   Download,
   Loader2,
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Award,
 } from 'lucide-react';
+import { getStudentById } from '../services/api/adminService';
 import {
   getStudentResume,
   getResumeViewUrl,
@@ -18,144 +23,116 @@ import {
   formatFileSize,
 } from '../services/fileUploadService';
 
-const STUDENTS_DB = {
-  1: {
-    id: 1,
-    name: 'Adithya K',
-    dept: 'Computer Science (CSE)',
-    cgpa: 8.92,
-    sem: 7,
-    profile: 95,
-    status: 'Placed',
-    email: 'adithya.k@gce.edu.in',
-    phone: '+91 98765 00001',
-    address: 'Trichy',
-    degree: 'B.E CSE',
-    college: 'GCE Srirangam',
-    year: '2022-2026',
-    about: 'Passionate full-stack developer with expertise in React and Node.js.',
-    skills: ['React', 'Node.js', 'Python', 'AWS'],
-    company: 'Google',
-    ctc: '24 LPA',
-  },
-  2: {
-    id: 2,
-    name: 'Priya M',
-    dept: 'Electronics (ECE)',
-    cgpa: 7.5,
-    sem: 7,
-    profile: 100,
-    status: 'Active',
-    email: 'priya.m@gce.edu.in',
-    phone: '+91 98765 00002',
-    address: 'Chennai',
-    degree: 'B.E ECE',
-    college: 'GCE Srirangam',
-    year: '2022-2026',
-    about: 'Electronics and embedded systems enthusiast with VLSI design experience.',
-    skills: ['VLSI', 'Embedded C', 'MATLAB'],
-    company: null,
-    ctc: null,
-  },
-  3: {
-    id: 3,
-    name: 'Rahul S',
-    dept: 'Mechanical (MECH)',
-    cgpa: 8.1,
-    sem: 5,
-    profile: 65,
-    status: 'Pending',
-    email: 'rahul.s@gce.edu.in',
-    phone: '+91 98765 00003',
-    address: 'Coimbatore',
-    degree: 'B.E MECH',
-    college: 'GCE Srirangam',
-    year: '2023-2027',
-    about: 'Mechanical engineering student interested in automotive and robotics.',
-    skills: ['AutoCAD', 'SolidWorks', 'ANSYS'],
-    company: null,
-    ctc: null,
-  },
-};
-
 export default function AdminStudentDetail() {
   const { id } = useParams();
-  const studentId = parseInt(id);
-  const student = STUDENTS_DB[studentId];
+  const studentId = parseInt(id, 10);
 
+  const [student, setStudent] = useState(null);
+  const [loadingStudent, setLoadingStudent] = useState(true);
   const [resume, setResume] = useState(null);
   const [loadingResume, setLoadingResume] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadResumeData = async () => {
-      setLoadingResume(true);
+    const loadData = async () => {
+      setLoadingStudent(true);
+      setError(null);
 
-      // 1. Try to fetch from backend API
-      const res = await getStudentResume(studentId);
-      if (isMounted && res.success && res.data) {
-        setResume({
-          fileName: res.data.fileName || 'Student_Resume.pdf',
-          fileSize: res.data.fileSize,
-          uploadedAt: res.data.uploadedAt,
-          status: res.data.status,
-          viewUrl: res.data.resumeUrl || getResumeViewUrl(studentId),
-          downloadUrl: res.data.downloadUrl || getResumeDownloadUrl(studentId),
-        });
-        setLoadingResume(false);
-        return;
+      try {
+        const studentData = await getStudentById(studentId);
+        if (isMounted) {
+          if (studentData) {
+            setStudent({
+              id: studentData.id,
+              name: studentData.fullName || 'Student',
+              dept: studentData.department || (studentData.departmentCode ? `${studentData.departmentCode} Dept` : 'General'),
+              cgpa: studentData.cgpa ? Number(studentData.cgpa) : null,
+              sem: studentData.semester || 'N/A',
+              profile: studentData.profileCompletionPercent ?? 75,
+              status: studentData.placementStatus || 'PENDING',
+              email: studentData.email,
+              phone: studentData.phone || 'Not provided',
+              address: studentData.address || 'Not provided',
+              degree: studentData.degree || 'B.E Engineering',
+              college: studentData.college || 'Government College of Engineering, Srirangam',
+              year: studentData.batch || '2022-2026',
+              rollNo: studentData.rollNo || 'N/A',
+              about: studentData.about || 'Student has not filled their summary yet.',
+              skills: ['Computer Science', 'Technical Problem Solving'],
+            });
+          } else {
+            setError('Student profile not found in backend records.');
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.message || 'Error loading student profile.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingStudent(false);
+        }
       }
 
-      // 2. Check localStorage cache
-      const cached = localStorage.getItem(`student_resume_${studentId}`);
-      if (isMounted) {
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            setResume({
-              fileName: parsed.fileName || 'Student_Resume.pdf',
-              fileSize: parsed.fileSize,
-              uploadedAt: parsed.uploadedAt,
-              status: parsed.status,
-              viewUrl: parsed.url || getResumeViewUrl(studentId),
-              downloadUrl: getResumeDownloadUrl(studentId),
-            });
-          } catch {
-            setResume(null);
-          }
-        } else if (studentId === 1) {
-          // Default mock resume for student 1 if neither backend nor localStorage has updated
+      // Fetch resume
+      setLoadingResume(true);
+      try {
+        const res = await getStudentResume(studentId);
+        if (isMounted && res.success && res.data) {
           setResume({
-            fileName: 'Adithya_K_Resume.pdf',
-            fileSize: 1450000,
-            uploadedAt: '2026-09-10T14:30:00Z',
-            status: 'VERIFIED',
-            viewUrl: getResumeViewUrl(studentId),
-            downloadUrl: getResumeDownloadUrl(studentId),
+            fileName: res.data.fileName || 'Student_Resume.pdf',
+            fileSize: res.data.fileSize,
+            uploadedAt: res.data.uploadedAt,
+            status: res.data.status || 'VERIFIED',
+            viewUrl: res.data.downloadUrl || res.data.resumeUrl || getResumeViewUrl(studentId),
+            downloadUrl: res.data.downloadUrl || getResumeDownloadUrl(studentId),
           });
         } else {
           setResume(null);
         }
-        setLoadingResume(false);
+      } catch {
+        if (isMounted) setResume(null);
+      } finally {
+        if (isMounted) setLoadingResume(false);
       }
     };
 
     if (studentId) {
-      loadResumeData();
+      loadData();
     }
+
     return () => {
       isMounted = false;
     };
   }, [studentId]);
 
-  if (!student) {
+  if (loadingStudent) {
+    return (
+      <main className="flex-1 flex flex-col items-center justify-center p-12">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+        <p className="text-gray-500 text-sm">Loading student profile from backend...</p>
+      </main>
+    );
+  }
+
+  if (error || !student) {
     return (
       <main className="flex-1 flex items-center justify-center p-10">
-        <div className="text-center text-gray-500">
-          <p className="text-xl font-semibold mb-3">Student not found</p>
-          <Link to="/admin/students" className="text-blue-600 hover:underline">
-            ← Back to Students
+        <div className="text-center text-gray-500 max-w-sm">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <p className="text-xl font-semibold mb-2 text-gray-800">
+            {error || 'Student not found'}
+          </p>
+          <p className="text-xs text-gray-400 mb-5">
+            Unable to locate student with ID {studentId} in the Placement Cell system.
+          </p>
+          <Link
+            to="/admin/students"
+            className="inline-flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 transition"
+          >
+            ← Back to Students Directory
           </Link>
         </div>
       </main>
@@ -166,7 +143,7 @@ export default function AdminStudentDetail() {
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
       <Link
         to="/admin/students"
-        className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-5"
+        className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-5 font-medium"
       >
         <ArrowLeft className="w-4 h-4" /> Back to Students
       </Link>
@@ -174,44 +151,68 @@ export default function AdminStudentDetail() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">
           {/* Profile Header */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="h-24 bg-gradient-to-r from-blue-500 to-indigo-400" />
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="h-28 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-5 relative">
-              <div className="absolute -top-10 left-5">
-                <div className="w-20 h-20 rounded-full border-4 border-white bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+              <div className="absolute -top-12 left-5">
+                <div className="w-20 h-20 rounded-full border-4 border-white bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-md">
                   {student.name[0]}
                 </div>
               </div>
-              <div className="mt-12">
-                <h2 className="text-xl font-bold">{student.name}</h2>
-                <p className="text-gray-500 text-sm">{student.degree}</p>
-                <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
-                  <GraduationCap className="w-3.5 h-3.5" /> {student.college}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {student.skills.map((s) => (
+              <div className="mt-10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
+                    <p className="text-gray-600 text-sm">{student.degree}</p>
+                    <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
+                      <GraduationCap className="w-3.5 h-3.5 text-blue-500" /> {student.college}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <span
-                      key={s}
-                      className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full"
+                      className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
+                        student.status === 'PLACED' || student.status === 'Placed'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}
                     >
-                      {s}
+                      {student.status}
                     </span>
-                  ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-100">
+                  <span className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full font-medium">
+                    Roll No: {student.rollNo}
+                  </span>
+                  <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                    {student.dept}
+                  </span>
+                  {student.cgpa && (
+                    <span className="text-xs bg-green-50 text-green-700 px-2.5 py-1 rounded-full font-medium">
+                      CGPA: {student.cgpa}
+                    </span>
+                  )}
+                  {student.sem && (
+                    <span className="text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-medium">
+                      Sem: {student.sem}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Resume Section */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <h3 className="font-semibold text-lg text-gray-900 mb-3">Resume</h3>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-semibold text-lg text-gray-900 mb-3">Student Resume</h3>
             {loadingResume ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-3">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                <span>Loading resume details...</span>
+                <span>Loading resume details from backend...</span>
               </div>
             ) : resume ? (
-              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600">
                     <FileText className="w-6 h-6" />
@@ -221,15 +222,10 @@ export default function AdminStudentDetail() {
                       {resume.fileName}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-0.5">
-                      {resume.fileSize && (
-                        <span>{formatFileSize(resume.fileSize)}</span>
-                      )}
+                      {resume.fileSize && <span>{formatFileSize(resume.fileSize)}</span>}
                       {resume.fileSize && resume.uploadedAt && <span>•</span>}
                       {resume.uploadedAt && (
-                        <span>
-                          Uploaded{' '}
-                          {new Date(resume.uploadedAt).toLocaleDateString()}
-                        </span>
+                        <span>Uploaded {new Date(resume.uploadedAt).toLocaleDateString()}</span>
                       )}
                       {resume.status && (
                         <>
@@ -252,122 +248,105 @@ export default function AdminStudentDetail() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <a
-                    href={resume.viewUrl || getResumeViewUrl(studentId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3.5 py-2 rounded-lg transition-colors shadow-sm"
-                  >
-                    <Eye className="w-3.5 h-3.5" /> View Resume
-                  </a>
-                  <a
-                    href={resume.downloadUrl || getResumeDownloadUrl(studentId)}
-                    download={resume.fileName || 'Resume.pdf'}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3.5 py-2 rounded-lg transition-colors shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download Resume
-                  </a>
+                  {resume.viewUrl && (
+                    <a
+                      href={resume.viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg transition"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </a>
+                  )}
+                  {resume.downloadUrl && (
+                    <a
+                      href={resume.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download
+                    </a>
+                  )}
                 </div>
               </div>
             ) : (
-              <div className="p-4 rounded-xl border border-dashed border-gray-200 text-center text-gray-500 bg-gray-50/40">
-                <p className="text-sm font-medium text-gray-700">No resume uploaded</p>
+              <div className="border border-dashed border-gray-300 rounded-xl p-6 text-center bg-gray-50/50">
+                <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-gray-600">No Resume Uploaded</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  The student has not uploaded a resume yet.
+                  The student has not yet uploaded a resume file.
                 </p>
               </div>
             )}
           </div>
 
-          {/* About */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <h3 className="font-semibold mb-2">About</h3>
-            <p className="text-gray-600 text-sm">{student.about}</p>
-          </div>
+          {/* Academic & Contact Details */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-semibold text-lg text-gray-900 mb-3">Profile Information</h3>
+            <div className="grid sm:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <p className="flex items-center gap-2 text-gray-600">
+                  <Mail className="w-4 h-4 text-blue-500 shrink-0" /> {student.email}
+                </p>
+                <p className="flex items-center gap-2 text-gray-600">
+                  <Phone className="w-4 h-4 text-blue-500 shrink-0" /> {student.phone}
+                </p>
+                <p className="flex items-center gap-2 text-gray-600">
+                  <MapPin className="w-4 h-4 text-blue-500 shrink-0" /> {student.address}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-gray-600">
+                  <span className="font-medium text-gray-700">Batch:</span> {student.year}
+                </p>
+                <p className="text-gray-600">
+                  <span className="font-medium text-gray-700">Department:</span> {student.dept}
+                </p>
+                <p className="text-gray-600">
+                  <span className="font-medium text-gray-700">CGPA:</span>{' '}
+                  {student.cgpa !== null ? student.cgpa : 'N/A'}
+                </p>
+              </div>
+            </div>
 
-          {/* Contact */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <h3 className="font-semibold mb-3">Contact Information</h3>
-            <div className="space-y-2">
-              <p className="flex items-center gap-2 text-sm text-gray-600">
-                <Mail className="w-4 h-4 text-blue-500" /> {student.email}
-              </p>
-              <p className="flex items-center gap-2 text-sm text-gray-600">
-                <Phone className="w-4 h-4 text-blue-500" /> {student.phone}
-              </p>
-              <p className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="w-4 h-4 text-blue-500" /> {student.address}
-              </p>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-1">About</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{student.about}</p>
             </div>
           </div>
         </div>
 
-        {/* Right */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold text-sm mb-3">Academic Details</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Department</span>
-                <span className="font-medium">{student.dept}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">CGPA</span>
-                <span className="font-semibold text-blue-600">{student.cgpa}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Semester</span>
-                <span className="font-medium">{student.sem}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Batch</span>
-                <span className="font-medium">{student.year}</span>
-              </div>
+        {/* Sidebar */}
+        <div className="space-y-5">
+          {/* Profile Completion */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex justify-between text-sm font-semibold mb-2">
+              <span className="text-gray-900">Profile Completion</span>
+              <span className="text-blue-600">{student.profile}%</span>
             </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold text-sm mb-3">Placement Status</h3>
-            <span
-              className={`text-sm px-3 py-1 rounded-full ${
-                student.status === 'Placed'
-                  ? 'bg-green-100 text-green-700'
-                  : student.status === 'Active'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-yellow-100 text-yellow-700'
-              }`}
-            >
-              {student.status}
-            </span>
-            {student.company && (
-              <div className="mt-3 text-sm">
-                <p className="text-gray-500">
-                  Placed at:{' '}
-                  <span className="font-semibold text-gray-900">
-                    {student.company}
-                  </span>
-                </p>
-                <p className="text-gray-500">
-                  CTC:{' '}
-                  <span className="font-semibold text-green-600">
-                    {student.ctc}
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold text-sm mb-3">Profile Completion</h3>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-500">Completion</span>
-              <span className="text-blue-600 font-medium">{student.profile}%</span>
-            </div>
-            <div className="w-full bg-gray-200 h-2 rounded">
+            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
               <div
-                className="bg-blue-600 h-2 rounded"
+                className="bg-blue-600 h-full rounded-full"
                 style={{ width: `${student.profile}%` }}
               />
+            </div>
+          </div>
+
+          {/* Placement Status */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-semibold text-sm text-gray-900 mb-3">Placement Verification</h3>
+            <div
+              className={`p-3 rounded-xl border ${
+                student.status === 'PLACED' || student.status === 'Placed'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-blue-50 border-blue-200 text-blue-800'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <Award className="w-4 h-4" />
+                <span>{student.status}</span>
+              </div>
             </div>
           </div>
         </div>
