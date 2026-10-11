@@ -1,3 +1,4 @@
+import { createElement, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Briefcase,
@@ -6,6 +7,7 @@ import {
   ChevronRight,
   TrendingUp,
 } from 'lucide-react';
+import studentService from '../services/api/studentService.js';
 
 const recentJobs = [
   { id: 1, company: 'Google', role: 'Software Engineer', cgpa: '8.5+', deadline: 'Nov 15, 2026', status: 'Open' },
@@ -14,19 +16,114 @@ const recentJobs = [
   { id: 4, company: 'Zoho', role: 'UI/UX Designer', cgpa: '7.0+', deadline: 'Oct 28, 2026', status: 'Closing Soon' },
 ];
 
-const myApplications = [
-  { company: 'TCS', role: 'Systems Engineer', appliedOn: 'Oct 10, 2026', status: 'Under Review' },
-  { company: 'Infosys', role: 'Associate Developer', appliedOn: 'Oct 5, 2026', status: 'Shortlisted' },
-];
-
 const appStatusStyle = {
-  'Under Review': 'bg-yellow-100 text-yellow-700',
-  Shortlisted: 'bg-green-100 text-green-700',
-  Rejected: 'bg-red-100 text-red-700',
-  Selected: 'bg-blue-100 text-blue-700',
+  APPLIED: 'bg-blue-100 text-blue-700',
+  UNDER_REVIEW: 'bg-yellow-100 text-yellow-700',
+  SHORTLISTED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
+  SELECTED: 'bg-blue-100 text-blue-700',
+  WITHDRAWN: 'bg-gray-100 text-gray-700',
 };
 
+const appStatusLabel = {
+  APPLIED: 'Applied',
+  UNDER_REVIEW: 'Under Review',
+  SHORTLISTED: 'Shortlisted',
+  REJECTED: 'Rejected',
+  SELECTED: 'Selected',
+  WITHDRAWN: 'Withdrawn',
+};
+
+const formatAppliedDate = (value) => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return 'Date unavailable';
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Date unavailable'
+    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const getApplicationStatus = (status) => {
+  if (typeof status !== 'string' || !status.trim()) {
+    return 'Status unavailable';
+  }
+
+  return (
+    appStatusLabel[status] ||
+    status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
+};
+
+const getApplicationStatusStyle = (status) =>
+  (typeof status === 'string' && appStatusStyle[status]) || 'bg-gray-100 text-gray-700';
+
 export default function StudentDashboard() {
+  const [applications, setApplications] = useState([]);
+  const [applicationsState, setApplicationsState] = useState('loading');
+  const applicationsRequest = useRef(null);
+
+  const loadApplications = useCallback(async () => {
+    applicationsRequest.current?.abort();
+    const controller = new AbortController();
+    applicationsRequest.current = controller;
+    setApplicationsState('loading');
+
+    try {
+      const result = await studentService.getMyApplications({ signal: controller.signal });
+      if (applicationsRequest.current === controller) {
+        setApplications(result);
+        setApplicationsState('success');
+      }
+    } catch {
+      if (applicationsRequest.current === controller && !controller.signal.aborted) {
+        setApplicationsState('error');
+      }
+    } finally {
+      if (applicationsRequest.current === controller) {
+        applicationsRequest.current = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadApplications();
+    return () => applicationsRequest.current?.abort();
+  }, [loadApplications]);
+
+  const applicationStats = [
+    {
+      label: 'Applied',
+      value: applications.length,
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+    },
+    {
+      label: 'Shortlisted',
+      value: applications.filter((application) => application.status === 'SHORTLISTED').length,
+      icon: TrendingUp,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+    },
+    {
+      label: 'Pending',
+      value: applications.filter(
+        (application) =>
+          application.status === 'APPLIED' || application.status === 'UNDER_REVIEW'
+      ).length,
+      icon: Clock,
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-50',
+    },
+  ];
+
+  const applicationStatValue = (value) =>
+    applicationsState === 'success' ? value : applicationsState === 'loading' ? '...' : '—';
+
+  const recentApplications = applications.slice(0, 2);
+
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
       {/* Welcome */}
@@ -39,15 +136,15 @@ export default function StudentDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Jobs Available', value: '24', icon: Briefcase, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Applied', value: '4', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Shortlisted', value: '2', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
-          { label: 'Pending', value: '2', icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+          ...applicationStats,
         ].map(({ label, value, icon: StatIcon, color, bg }) => (
           <div key={label} className="bg-white rounded-xl p-4 shadow-sm">
             <div className={`${bg} w-9 h-9 rounded-lg flex items-center justify-center mb-3`}>
-              <StatIcon className={`w-5 h-5 ${color}`} />
+              {createElement(StatIcon, { className: `w-5 h-5 ${color}` })}
             </div>
-            <p className="text-2xl font-bold">{value}</p>
+            <p className="text-2xl font-bold">
+              {label === 'Jobs Available' ? value : applicationStatValue(value)}
+            </p>
             <p className="text-gray-500 text-xs mt-0.5">{label}</p>
           </div>
         ))}
@@ -116,20 +213,45 @@ export default function StudentDashboard() {
           {/* My Applications */}
           <div className="bg-white rounded-xl p-5 shadow-sm">
             <h3 className="font-semibold text-sm mb-3">My Applications</h3>
-            <div className="space-y-3">
-              {myApplications.map((app, i) => (
-                <div key={i} className="border-b pb-3 last:border-0 last:pb-0">
-                  <p className="font-medium text-sm">{app.company}</p>
-                  <p className="text-gray-500 text-xs">{app.role}</p>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-gray-400 text-xs">{app.appliedOn}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${appStatusStyle[app.status]}`}>
-                      {app.status}
-                    </span>
+            {applicationsState === 'loading' ? (
+              <p className="text-gray-500 text-xs" role="status">Loading applications...</p>
+            ) : applicationsState === 'error' ? (
+              <div className="text-xs text-gray-500" role="alert">
+                <p>Unable to load your applications.</p>
+                <button
+                  type="button"
+                  onClick={loadApplications}
+                  className="text-blue-600 hover:underline mt-1"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : applications.length === 0 ? (
+              <p className="text-gray-500 text-xs">You have not applied to any jobs yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {recentApplications.map((application) => (
+                  <div key={application.id} className="border-b pb-3 last:border-0 last:pb-0">
+                    <p className="font-medium text-sm">
+                      {application.job?.company?.name || 'Company unavailable'}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      {application.job?.jobRole || 'Role unavailable'}
+                    </p>
+                    <div className="flex justify-between items-center mt-1 gap-2">
+                      <span className="text-gray-400 text-xs">
+                        {formatAppliedDate(application.appliedOn)}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${getApplicationStatusStyle(application.status)}`}
+                      >
+                        {getApplicationStatus(application.status)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             <Link to="/student/applications" className="block text-center text-xs text-blue-600 mt-3 hover:underline">
               View all applications →
             </Link>
