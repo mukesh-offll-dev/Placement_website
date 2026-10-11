@@ -14,6 +14,7 @@ export { default as adminService } from './adminService.js';
 export { default as healthService } from './healthService.js';
 export { default as fileService } from './fileService.js';
 export { default as jobService } from './jobService.js';
+export { default as notificationService } from './notificationService.js';
 
 // Re-export named methods for direct imports
 export * from './authService.js';
@@ -23,3 +24,4 @@ export * from './adminService.js';
 export * from './healthService.js';
 export * from './fileService.js';
 export * from './jobService.js';
+export * from './notificationService.js';
