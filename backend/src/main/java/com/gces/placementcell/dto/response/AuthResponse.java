@@ -18,4 +18,15 @@ public class AuthResponse {
     private String name;
     private UserRole role;
     private String message;
+
+    public String getFullName() {
+        return this.name;
+    }
+
+    public static class AuthResponseBuilder {
+        public AuthResponseBuilder fullName(String fullName) {
+            this.name = fullName;
+            return this;
+        }
+    }
 }

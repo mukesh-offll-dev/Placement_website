@@ -317,8 +317,28 @@ public class Job {
 
     // Custom builder helpers for backward compatibility
     public static class JobBuilder {
+        public JobBuilder company(String companyName) {
+            if (companyName != null) {
+                this.company = Company.builder().name(companyName).build();
+            }
+            return this;
+        }
+
+        public JobBuilder company(Company company) {
+            this.company = company;
+            return this;
+        }
+
         public JobBuilder title(String title) {
             this.jobRole = title;
+            return this;
+        }
+
+        public JobBuilder skills(String skillsCsv) {
+            return this;
+        }
+
+        public JobBuilder requirements(String requirementsText) {
             return this;
         }
 

@@ -42,7 +42,24 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByIsDeletedFalse();
 
+    Page<Job> findByIsDeletedFalse(Pageable pageable);
+
     List<Job> findByStatusAndIsDeletedFalse(JobStatus status);
+
+    Page<Job> findByStatusAndIsDeletedFalse(JobStatus status, Pageable pageable);
+
+    Page<Job> findByCompanyId(Long companyId, Pageable pageable);
+
+    @Query("SELECT j FROM Job j WHERE j.status = :status AND j.applicationDeadline >= :deadline AND j.isDeleted = false")
+    Page<Job> findOpenJobs(@Param("status") JobStatus status, @Param("deadline") LocalDate deadline, Pageable pageable);
+
+    default Optional<Job> findWithDetailsById(Long id) {
+        return findById(id);
+    }
+
+    default Optional<Job> findWithDetailsByIdAndIsDeletedFalse(Long id) {
+        return findById(id).filter(j -> !Boolean.TRUE.equals(j.getIsDeleted()));
+    }
 
     long countByStatusAndIsDeletedFalse(JobStatus status);
 

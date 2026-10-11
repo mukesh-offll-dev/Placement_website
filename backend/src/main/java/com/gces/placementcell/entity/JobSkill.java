@@ -10,7 +10,12 @@ import lombok.*;
  * A single skill a job asks for.
  */
 @Entity
-@Table(name = "job_skills")
+@Table(
+    name = "job_skills",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uq_job_skill", columnNames = {"job_id", "skill_name"})
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor

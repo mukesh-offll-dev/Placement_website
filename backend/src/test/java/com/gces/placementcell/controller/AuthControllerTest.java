@@ -1,6 +1,7 @@
 package com.gces.placementcell.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gces.placementcell.dto.request.AdminLoginRequest;
 import com.gces.placementcell.dto.request.LoginRequest;
 import com.gces.placementcell.dto.request.RegisterRequest;
 import com.gces.placementcell.dto.response.AuthResponse;
@@ -135,7 +136,7 @@ class AuthControllerTest {
                 .fullName("Test Student")
                 .build();
 
-        when(authService.login(any(LoginRequest.class))).thenReturn(response);
+        when(authService.login(any(AdminLoginRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class AdminAuthFilter extends OncePerRequestFilter {
 
@@ -40,8 +39,15 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                         new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
                 );
 
+                org.springframework.security.core.userdetails.UserDetails userDetails =
+                        org.springframework.security.core.userdetails.User
+                                .withUsername(user.getEmail())
+                                .password("")
+                                .authorities(authorities)
+                                .build();
+
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
+                        new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }

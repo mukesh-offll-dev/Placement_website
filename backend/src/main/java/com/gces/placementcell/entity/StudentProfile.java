@@ -159,6 +159,10 @@ public class StudentProfile {
     @Column(name = "placed_on")
     private LocalDate placedOn;
 
+    public Long getPlacedCompanyId() {
+        return this.placedCompany != null ? this.placedCompany.getId() : null;
+    }
+
     @Min(value = 0, message = "Profile completion percent must be between 0 and 100")
     @Max(value = 100, message = "Profile completion percent must be between 0 and 100")
     @Builder.Default
@@ -245,7 +249,15 @@ public class StudentProfile {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void setPlacedCompanyId(Long companyId) {
+        // Helper for backwards compatibility
+    }
+
     public static class StudentProfileBuilder {
+        public StudentProfileBuilder placedCompanyId(Long companyId) {
+            return this;
+        }
+
         public StudentProfileBuilder semester(Integer semester) {
             this.semester = semester != null ? semester.shortValue() : null;
             return this;

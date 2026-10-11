@@ -14,5 +14,7 @@ public interface StudentSkillRepository extends JpaRepository<StudentSkill, Long
 
     List<StudentSkill> findByStudentProfileId(Long studentProfileId);
 
+    List<StudentSkill> findByStudentProfileIdOrderBySkillNameAsc(Long studentProfileId);
+
     void deleteByStudentProfileId(Long studentProfileId);
 }

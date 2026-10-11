@@ -19,7 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * test a renamed or dropped column stays invisible until a query actually runs — which
  * is how several mappings drifted during the branch merges.
  */
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
+@SpringBootTest(properties = {
+        "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.sql.init.mode=always"
+})
 @DisplayName("Entity/Schema Validation Test")
 class EntitySchemaValidationTest {
 

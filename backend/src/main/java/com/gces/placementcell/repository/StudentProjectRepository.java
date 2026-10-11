@@ -19,11 +19,27 @@ public interface StudentProjectRepository extends JpaRepository<StudentProject, 
 
     List<StudentProject> findByStudentProfileIdOrderByCreatedAtDesc(Long studentProfileId);
 
+    default List<StudentProject> findByStudentIdOrderByCreatedAtDesc(Long studentId) {
+        return findByStudentProfileIdOrderByCreatedAtDesc(studentId);
+    }
+
     Optional<StudentProject> findByStudentProfileIdAndTitle(Long studentProfileId, String title);
+
+    default Optional<StudentProject> findByStudentIdAndTitle(Long studentId, String title) {
+        return findByStudentProfileIdAndTitle(studentId, title);
+    }
 
     Optional<StudentProject> findByIdAndStudentProfileId(Long id, Long studentProfileId);
 
+    default Optional<StudentProject> findByIdAndStudentId(Long id, Long studentId) {
+        return findByIdAndStudentProfileId(id, studentId);
+    }
+
     boolean existsByStudentProfileIdAndTitle(Long studentProfileId, String title);
+
+    default boolean existsByStudentIdAndTitle(Long studentId, String title) {
+        return existsByStudentProfileIdAndTitle(studentId, title);
+    }
 
     List<StudentProject> findByStudentProfileIdAndTitleContainingIgnoreCase(Long studentProfileId, String keyword);
 

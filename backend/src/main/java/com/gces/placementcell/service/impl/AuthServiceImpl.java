@@ -34,17 +34,23 @@ public class AuthServiceImpl implements AuthService {
         String identifier = request.getUsername().trim();
 
         User user = userRepository.findByEmailAndIsDeletedFalse(identifier)
-                .orElseThrow(() -> new BadRequestException("Invalid email or password"));
+                .orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("Invalid email or password"));
 
         if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException("Account is inactive. Please contact administrator.");
+            throw new org.springframework.security.access.AccessDeniedException("Account is inactive. Please contact administrator.");
+        }
+
+        if (request.getExpectedRole() != null && !request.getExpectedRole().isBlank()) {
+            if (!user.getRole().name().equalsIgnoreCase(request.getExpectedRole().trim())) {
+                throw new org.springframework.security.access.AccessDeniedException("Role not authorized for this portal");
+            }
         }
 
         boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.getPasswordHash())
                 || request.getPassword().equals(user.getPasswordHash());
 
         if (!passwordMatches) {
-            throw new BadRequestException("Invalid email or password");
+            throw new org.springframework.security.authentication.BadCredentialsException("Invalid email or password");
         }
 
         user.setLastLoginAt(LocalDateTime.now());
@@ -71,5 +77,55 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole())
                 .message("Login successful")
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse registerStudent(com.gces.placementcell.dto.request.RegisterRequest request) {
+        if (userRepository.findByEmailAndIsDeletedFalse(request.email()).isPresent()) {
+            throw new BadRequestException("Email already registered: " + request.email());
+        }
+
+        User user = User.builder()
+                .email(request.email().trim())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .role(com.gces.placementcell.entity.enums.UserRole.STUDENT)
+                .accountStatus(com.gces.placementcell.entity.enums.AccountStatus.ACTIVE)
+                .isActive(true)
+                .isEmailVerified(true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        user = userRepository.save(user);
+
+        StudentProfile profile = StudentProfile.builder()
+                .user(user)
+                .fullName(request.fullName().trim())
+                .email(request.email().trim())
+                .rollNo(request.rollNo())
+                .placementStatus(com.gces.placementcell.entity.enums.PlacementStatus.PENDING)
+                .isOpenToOpportunities(true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        studentProfileRepository.save(profile);
+
+        String token = tokenProvider.generateToken(user);
+        return AuthResponse.builder()
+                .token(token)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .name(profile.getFullName())
+                .role(user.getRole())
+                .message("Student registered successfully")
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.gces.placementcell.dto.response.UserResponse getCurrentUser(String email) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new com.gces.placementcell.exception.ResourceNotFoundException("User not found with email: " + email));
+        return com.gces.placementcell.dto.response.UserResponse.from(user);
     }
 }

@@ -92,6 +92,18 @@ public class TokenProvider {
         }
     }
 
+    public boolean validateToken(String token) {
+        return validateTokenAndGetUser(token).isPresent();
+    }
+
+    public String getEmailFromToken(String token) {
+        return validateTokenAndGetUser(token).map(User::getEmail).orElse(null);
+    }
+
+    public String getRoleFromToken(String token) {
+        return validateTokenAndGetUser(token).map(u -> u.getRole().name()).orElse(null);
+    }
+
     private String sign(String data) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

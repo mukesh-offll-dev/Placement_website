@@ -8,7 +8,7 @@ import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.AdminProfileRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
-import com.gces.placementcell.security.JwtService;
+import com.gces.placementcell.security.TokenProvider;
 import com.gces.placementcell.service.impl.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,10 +45,7 @@ class AuthServiceImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JwtService jwtService;
-
-    @Mock
-    private AuthenticationManager authenticationManager;
+    private TokenProvider tokenProvider;
 
     private AuthServiceImpl authService;
 
@@ -57,10 +54,8 @@ class AuthServiceImplTest {
         authService = new AuthServiceImpl(
                 userRepository,
                 studentProfileRepository,
-                adminProfileRepository,
                 passwordEncoder,
-                jwtService,
-                authenticationManager
+                tokenProvider
         );
     }
 

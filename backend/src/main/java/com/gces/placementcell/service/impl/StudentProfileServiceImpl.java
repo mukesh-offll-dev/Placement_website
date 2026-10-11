@@ -80,7 +80,7 @@ public class StudentProfileServiceImpl implements StudentProfileService {
                 .department(request.department())
                 .departmentCode(request.departmentCode())
                 .batch(request.batch())
-                .semester(request.semester() != null ? request.semester().intValue() : null)
+                .semester(request.semester() != null ? request.semester().shortValue() : null)
                 .cgpa(request.cgpa())
                 .totalBacklogs(request.totalBacklogs() != null ? request.totalBacklogs() : 0)
                 .activeBacklogs(request.activeBacklogs() != null ? request.activeBacklogs() : 0)
@@ -88,7 +88,7 @@ public class StudentProfileServiceImpl implements StudentProfileService {
                 .placementStatus(PlacementStatus.PENDING)
                 .build();
 
-        profile.setProfileCompletionPercent((int) calculateCompletionPercentage(profile));
+        profile.setProfileCompletionPercent(calculateCompletionPercentage(profile));
         profile = studentProfileRepository.save(profile);
         log.info("Created new student profile for user: {}", email);
 
@@ -124,13 +124,13 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         if (request.department() != null) profile.setDepartment(request.department());
         if (request.departmentCode() != null) profile.setDepartmentCode(request.departmentCode());
         if (request.batch() != null) profile.setBatch(request.batch());
-        if (request.semester() != null) profile.setSemester(request.semester().intValue());
+        if (request.semester() != null) profile.setSemester(request.semester().shortValue());
         if (request.cgpa() != null) profile.setCgpa(request.cgpa());
         if (request.totalBacklogs() != null) profile.setTotalBacklogs(request.totalBacklogs());
         if (request.activeBacklogs() != null) profile.setActiveBacklogs(request.activeBacklogs());
         if (request.isOpenToOpportunities() != null) profile.setIsOpenToOpportunities(request.isOpenToOpportunities());
 
-        profile.setProfileCompletionPercent((int) calculateCompletionPercentage(profile));
+        profile.setProfileCompletionPercent(calculateCompletionPercentage(profile));
         profile = studentProfileRepository.save(profile);
         log.info("Updated student profile for user: {}", email);
 

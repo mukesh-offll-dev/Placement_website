@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import org.hibernate.annotations.Check;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,6 +22,10 @@ import java.util.List;
  * Maps to table 'notifications'. Individual recipients are stored in 'notification_recipients'.
  */
 @Entity
+@Check(
+    name = "chk_notifications_type",
+    constraints = "notification_type IN ('GENERAL', 'JOB', 'APPLICATION', 'PLACEMENT_DRIVE', 'INTERVIEW', 'DEADLINE', 'ANNOUNCEMENT', 'SYSTEM')"
+)
 @Table(
     name = "notifications",
     indexes = {

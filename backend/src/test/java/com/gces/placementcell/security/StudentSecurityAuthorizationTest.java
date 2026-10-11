@@ -11,6 +11,7 @@ import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.service.StudentProfileService;
 import com.gces.placementcell.service.StudentProjectService;
+import com.gces.placementcell.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = {StudentProfileController.class, StudentProjectController.class})
-@Import({SecurityConfig.class, CorsConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class, CustomAccessDeniedHandler.class})
+@Import({SecurityConfig.class, CorsConfig.class, CustomAuthenticationEntryPoint.class, CustomAccessDeniedHandler.class})
 @DisplayName("Spring Security Role Authorization Tests for Student APIs")
 class StudentSecurityAuthorizationTest {
 
@@ -50,6 +51,12 @@ class StudentSecurityAuthorizationTest {
 
     @MockBean
     private JwtService jwtService;
+
+    @MockBean
+    private TokenProvider tokenProvider;
+
+    @MockBean
+    private UserRepository userRepository;
 
     // =========================================================================
     // Student Profile Security Tests

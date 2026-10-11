@@ -7,6 +7,7 @@ import com.gces.placementcell.entity.*;
 import com.gces.placementcell.entity.enums.AccountStatus;
 import com.gces.placementcell.entity.enums.ApplicationStatus;
 import com.gces.placementcell.entity.enums.PlacementStatus;
+import com.gces.placementcell.entity.enums.SkillProficiency;
 import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
@@ -175,7 +176,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                     StudentSkill skill = StudentSkill.builder()
                             .studentProfile(savedProfile)
                             .skillName(skillName.trim())
-                            .proficiency("INTERMEDIATE")
+                            .proficiency(SkillProficiency.INTERMEDIATE)
                             .build();
                     studentSkillRepository.save(skill);
                 }
@@ -300,7 +301,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                     studentSkillRepository.save(StudentSkill.builder()
                             .studentProfile(profile)
                             .skillName(s.trim())
-                            .proficiency("INTERMEDIATE")
+                            .proficiency(SkillProficiency.INTERMEDIATE)
                             .build());
                 }
             }
@@ -430,7 +431,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         }
 
         return jobRepository.findAllById(companyIds).stream()
-                .collect(Collectors.toMap(Job::getId, Job::getCompany, (a, b) -> a));
+                .collect(Collectors.toMap(Job::getId, Job::getCompanyName, (a, b) -> a));
     }
 
     private StudentSummaryDto mapToSummaryDto(StudentProfile p, String companyName) {
@@ -473,7 +474,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         String placedCompanyName = null;
         if (profile.getPlacedCompanyId() != null) {
             placedCompanyName = jobRepository.findById(profile.getPlacedCompanyId())
-                    .map(Job::getCompany)
+                    .map(Job::getCompanyName)
                     .orElse(null);
         }
 
@@ -482,7 +483,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .map(s -> SkillDto.builder()
                         .id(s.getId())
                         .skillName(s.getSkillName())
-                        .proficiency(s.getProficiency())
+                        .proficiency(s.getProficiency() != null ? s.getProficiency().name() : null)
                         .build())
                 .collect(Collectors.toList());
 
@@ -540,7 +541,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                         .id(app.getId())
                         .jobId(app.getJob() != null ? app.getJob().getId() : null)
                         .jobTitle(app.getJob() != null ? app.getJob().getTitle() : null)
-                        .company(app.getJob() != null ? app.getJob().getCompany() : null)
+                        .company(app.getJob() != null ? app.getJob().getCompanyName() : null)
                         .status(app.getStatus())
                         .currentStage(app.getCurrentStage())
                         .appliedAt(app.getAppliedAt())

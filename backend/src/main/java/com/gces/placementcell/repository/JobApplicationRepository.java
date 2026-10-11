@@ -21,7 +21,11 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
 
     List<JobApplication> findByJobId(Long jobId);
 
+    Page<JobApplication> findByJobId(Long jobId, Pageable pageable);
+
     List<JobApplication> findByStudentProfileId(Long studentProfileId);
+
+    Page<JobApplication> findByStudentProfileId(Long studentProfileId, Pageable pageable);
 
     List<JobApplication> findByStudentProfileUserId(Long userId);
 
@@ -31,17 +35,41 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
 
     List<JobApplication> findByStatus(ApplicationStatus status);
 
+    Page<JobApplication> findByStatus(ApplicationStatus status, Pageable pageable);
+
+    @Query("SELECT a FROM JobApplication a WHERE (:jobId IS NULL OR a.job.id = :jobId) AND (:status IS NULL OR a.status = :status)")
+    Page<JobApplication> findForAdmin(@Param("jobId") Long jobId, @Param("status") ApplicationStatus status, Pageable pageable);
+
+    default Optional<JobApplication> findWithTimelineById(Long id) {
+        return findById(id);
+    }
+
+    @Query("SELECT a.status AS status, COUNT(a) AS count FROM JobApplication a WHERE a.job.id = :jobId GROUP BY a.status")
+    List<Object[]> countGroupedByStatusForJobRaw(@Param("jobId") Long jobId);
+
+    default Object countGroupedByStatusForJob(Long jobId) {
+        return countGroupedByStatusForJobRaw(jobId);
+    }
+
     List<JobApplication> findByStudentProfileIdAndStatus(Long studentProfileId, ApplicationStatus status);
 
     long countByJobId(Long jobId);
 
     long countByJobIdAndStatus(Long jobId, ApplicationStatus status);
 
-    long countByStudentProfileId(Long studentProfileId);
-
     long countByStatus(ApplicationStatus status);
 
-    long countByAppliedAtGreaterThanEqual(java.time.LocalDateTime since);
+    long countByStudentProfileId(Long studentProfileId);
 
-    List<JobApplication> findTop10ByOrderByAppliedAtDesc();
+    long countByAppliedOnGreaterThanEqual(java.time.LocalDateTime since);
+
+    default long countByAppliedAtGreaterThanEqual(java.time.LocalDateTime since) {
+        return countByAppliedOnGreaterThanEqual(since);
+    }
+
+    List<JobApplication> findTop10ByOrderByAppliedOnDesc();
+
+    default List<JobApplication> findTop10ByOrderByAppliedAtDesc() {
+        return findTop10ByOrderByAppliedOnDesc();
+    }
 }

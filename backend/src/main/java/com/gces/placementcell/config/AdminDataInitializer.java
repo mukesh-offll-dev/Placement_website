@@ -21,6 +21,11 @@ import org.springframework.stereotype.Component;
  * If an admin already exists, this step is skipped.
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "app.data-init.enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class AdminDataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDataInitializer.class);
@@ -62,14 +67,16 @@ public class AdminDataInitializer implements CommandLineRunner {
                     .build();
             adminUser = userRepository.save(adminUser);
 
-            AdminProfile adminProfile = AdminProfile.builder()
-                    .user(adminUser)
-                    .name(defaultName)
-                    .designation("Placement Officer")
-                    .build();
-            adminProfileRepository.save(adminProfile);
+            if (adminUser != null) {
+                AdminProfile adminProfile = AdminProfile.builder()
+                        .user(adminUser)
+                        .name(defaultName)
+                        .designation("Placement Officer")
+                        .build();
+                adminProfileRepository.save(adminProfile);
 
-            log.info("Default admin account created successfully.");
+                log.info("Default admin account created successfully.");
+            }
         } else {
             log.debug("Admin account already exists in database. Bootstrapping skipped.");
         }

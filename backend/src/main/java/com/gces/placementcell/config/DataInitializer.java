@@ -245,7 +245,7 @@ public class DataInitializer implements CommandLineRunner {
             studentSkillRepository.save(StudentSkill.builder()
                     .studentProfile(sp)
                     .skillName(skill)
-                    .proficiency("INTERMEDIATE")
+                    .proficiency(SkillProficiency.INTERMEDIATE)
                     .build());
         }
 

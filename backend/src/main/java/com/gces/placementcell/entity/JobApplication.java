@@ -186,4 +186,11 @@ public class JobApplication {
         timeline.remove(entry);
         entry.setJobApplication(null);
     }
+
+    public static class JobApplicationBuilder {
+        public JobApplicationBuilder appliedAt(LocalDateTime appliedAt) {
+            this.appliedOn = appliedAt;
+            return this;
+        }
+    }
 }

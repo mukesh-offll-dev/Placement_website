@@ -119,7 +119,7 @@ public class AdminController {
      * GET /api/admin/students
      * Returns a summary list of all registered students.
      */
-    @GetMapping("/students")
+    @GetMapping("/students/summary")
     public ResponseEntity<ApiResponse<List<StudentSummaryResponse>>> getAllStudents() {
         List<StudentProfile> profiles = studentProfileRepository.findAll();
         List<StudentSummaryResponse> summaries = profiles.stream()
