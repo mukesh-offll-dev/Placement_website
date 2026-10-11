@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
-import { logout, getUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -19,10 +19,11 @@ const navItems = [
 
 export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
   const navigate = useNavigate();
-  const currentUser = getUser();
+  const { user: currentUser, logout } = useAuth();
 
   const handleLogout = () => {
-    logout('/admin/login');
+    logout();
+    navigate('/admin/login', { replace: true });
   };
 
   const sidebarContent = (

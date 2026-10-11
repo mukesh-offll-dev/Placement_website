@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { isAuthenticated, getRole } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * ProtectedRoute
@@ -16,9 +16,10 @@ export default function ProtectedRoute({
   requiredRole,
   redirectTo,
 }) {
+  const { isAuthenticated, role } = useAuth();
   const targetRole = allowedRole || requiredRole;
 
-  if (!isAuthenticated()) {
+  if (!isAuthenticated) {
     const defaultRedirect = targetRole === 'ADMIN'
       ? '/admin/login'
       : (targetRole === 'STUDENT' ? '/student/login' : '/login');
@@ -26,7 +27,6 @@ export default function ProtectedRoute({
   }
 
   if (targetRole) {
-    const role = getRole();
     if (role !== targetRole) {
       // Authenticated but wrong role → redirect to their own authorized dashboard
       const dashboardPath = role === 'ADMIN' ? '/admin/dashboard' : '/student/dashboard';

@@ -9,7 +9,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
-import { getUser, logout } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 const breadcrumbMap = {
   '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
@@ -27,7 +27,7 @@ export default function StudentLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const currentUser = getUser();
+  const { user: currentUser, logout } = useAuth();
 
   // Compute breadcrumbs
   const getBreadcrumbs = () => {
@@ -113,7 +113,10 @@ export default function StudentLayout() {
             </Link>
 
             <button
-              onClick={() => logout('/student/login')}
+              onClick={() => {
+                logout();
+                navigate('/student/login', { replace: true });
+              }}
               title="Logout"
               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
             >

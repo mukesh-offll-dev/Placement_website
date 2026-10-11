@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle, CheckCircle2, User, Mail, Hash, Lock } from 'lucide-react';
-import { registerStudent } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 export default function StudentRegisterPage() {
   const navigate = useNavigate();
+  const { registerStudent } = useAuth();
 
   const [form, setForm] = useState({
     fullName: '',

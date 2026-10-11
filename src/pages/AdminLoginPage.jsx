@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Landmark, Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
-import { login, clearAuth, isAuthenticated, getRole } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 function generateCaptcha() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -10,6 +10,7 @@ function generateCaptcha() {
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  const { login, isAuthenticated, role } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [captcha, setCaptcha] = useState(generateCaptcha());
   // Note: 'username' field accepts the admin's email address
@@ -20,10 +21,10 @@ export default function AdminLoginPage() {
 
   // If already authenticated as ADMIN, redirect straight to dashboard
   useEffect(() => {
-    if (isAuthenticated() && getRole() === 'ADMIN') {
+    if (isAuthenticated && role === 'ADMIN') {
       navigate('/admin/dashboard', { replace: true });
     }
-  }, [navigate]);
+  }, [isAuthenticated, navigate, role]);
 
   const validate = () => {
     const e = {};
@@ -47,22 +48,24 @@ export default function AdminLoginPage() {
 
     setLoading(true);
     try {
-      const user = await login({
+      const result = await login({
         email: form.username.trim(),
         password: form.password,
         expectedRole: 'ADMIN',
       });
 
-      if (!user || !user.token || user.role !== 'ADMIN') {
-        clearAuth();
-        setApiError('This portal is for administrators only. Please use the Student Login.');
+      if (!result.success) {
+        setApiError(
+          result.error?.startsWith('Unauthorized:')
+            ? 'This portal is for administrators only. Please use the Student Login.'
+            : result.error
+        );
         setCaptcha(generateCaptcha());
         setForm((f) => ({ ...f, captchaInput: '' }));
         return;
       }
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
-      clearAuth();
       setApiError(err.message || 'Login failed. Please check your credentials.');
       setCaptcha(generateCaptcha());
       setForm((f) => ({ ...f, captchaInput: '' }));

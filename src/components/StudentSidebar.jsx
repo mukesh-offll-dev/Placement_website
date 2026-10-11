@@ -8,7 +8,7 @@ import {
   GraduationCap,
   X,
 } from 'lucide-react';
-import { logout, getUser } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -19,10 +19,11 @@ const navItems = [
 
 export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
   const navigate = useNavigate();
-  const currentUser = getUser();
+  const { user: currentUser, logout } = useAuth();
 
   const handleLogout = () => {
-    logout('/student/login');
+    logout();
+    navigate('/student/login', { replace: true });
   };
 
   const sidebarContent = (

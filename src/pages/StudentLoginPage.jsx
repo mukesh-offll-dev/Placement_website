@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { login, clearAuth, isAuthenticated, getRole } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
+  const { login, isAuthenticated, role } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
@@ -13,10 +14,10 @@ export default function StudentLoginPage() {
 
   // If already authenticated as STUDENT, redirect straight to dashboard
   useEffect(() => {
-    if (isAuthenticated() && getRole() === 'STUDENT') {
+    if (isAuthenticated && role === 'STUDENT') {
       navigate('/student/dashboard', { replace: true });
     }
-  }, [navigate]);
+  }, [isAuthenticated, navigate, role]);
 
   const validate = () => {
     const e = {};
@@ -35,20 +36,22 @@ export default function StudentLoginPage() {
 
     setLoading(true);
     try {
-      const user = await login({
+      const result = await login({
         email: form.email.trim(),
         password: form.password,
         expectedRole: 'STUDENT',
       });
 
-      if (!user || !user.token || user.role !== 'STUDENT') {
-        clearAuth();
-        setApiError('This login portal is for students only. Please use the Admin Login.');
+      if (!result.success) {
+        setApiError(
+          result.error?.startsWith('Unauthorized:')
+            ? 'This login portal is for students only. Please use the Admin Login.'
+            : result.error
+        );
         return;
       }
       navigate('/student/dashboard', { replace: true });
     } catch (err) {
-      clearAuth();
       setApiError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
