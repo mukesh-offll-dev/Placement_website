@@ -24,11 +24,14 @@ import java.util.Optional;
 
 /**
  * Controller exposing features accessible exclusively to Admins.
- * All routes under /admin/** require ROLE_ADMIN (enforced by SecurityConfig and @PreAuthorize).
+ * All routes under /admin/** require ROLE_ADMIN or ROLE_PLACEMENT_OFFICER
+ * (enforced by SecurityConfig and @PreAuthorize).
  */
 @RestController
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+// Must match the /admin/** rule in SecurityConfig, which also admits placement
+// officers; with method security enabled, 'ADMIN' alone would lock them out.
+@PreAuthorize("hasAnyRole('ADMIN', 'PLACEMENT_OFFICER')")
 public class AdminController {
 
     private final UserRepository userRepository;
