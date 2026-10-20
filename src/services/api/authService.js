@@ -50,17 +50,55 @@ export const getUser = () => {
   }
 };
 
-export const isAuthenticated = () => {
+const getTokenDetails = () => {
   const token = getToken();
-  if (!token) return false;
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return false;
-    const payload = JSON.parse(atob(parts[1]));
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
+  // TokenProvider issues standard HS256 JWTs: header.payload.signature, with the
+  // email in `sub`, the user id in `uid` and the role in `role`. An earlier custom
+  // format packed "userId:email:role:expiry" into two parts; parsing for that here
+  // returns null for every real token, which reads as "nobody is signed in".
+  const parts = token?.split('.');
+  if (!parts || parts.length !== 3) {
+    return null;
   }
+
+  try {
+    const base64Payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=');
+    const payload = JSON.parse(atob(base64Payload));
+    if (!payload.exp || payload.exp * 1000 <= Date.now()) {
+      return null;
+    }
+    return {
+      userId: payload.uid == null ? null : String(payload.uid),
+      email: payload.sub || null,
+      role: payload.role || null,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * A live session needs an unexpired token, and the stored user must agree with the
+ * token's claims — editing placement_user in devtools should not change what the UI
+ * lets you open. Each claim is compared only when both sides carry it, so a user
+ * record saved without an id does not read as a forgery.
+ */
+export const isAuthenticated = () => {
+  const details = getTokenDetails();
+  if (!details) return false;
+
+  const user = getUser();
+  if (!user) return false;
+
+  const storedId = user.userId ?? user.id;
+  if (details.userId && storedId != null && String(storedId) !== details.userId) return false;
+  if (details.email && user.email && user.email.toLowerCase() !== details.email.toLowerCase()) return false;
+  if (details.role && user.role && user.role !== details.role) return false;
+
+  return true;
 };
 
 export const getRole = () => {

@@ -1,7 +1,6 @@
 package com.gces.placementcell.security;
 
 import com.gces.placementcell.entity.User;
-import com.gces.placementcell.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,7 +25,6 @@ import java.util.Optional;
 public class AdminAuthFilter extends OncePerRequestFilter {
 
     private final TokenProvider tokenProvider;
-    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -79,13 +77,6 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             if (user.isPresent()) {
                 return user;
             }
-        }
-
-        // 3. Check X-Admin-Email header for integration / test convenience
-        String adminEmail = request.getHeader("X-Admin-Email");
-        if (StringUtils.hasText(adminEmail)) {
-            return userRepository.findByEmailAndIsDeletedFalse(adminEmail.trim())
-                    .filter(u -> Boolean.TRUE.equals(u.getIsActive()));
         }
 
         return Optional.empty();

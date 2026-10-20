@@ -67,20 +67,27 @@ public class SecurityConfig {
                 .requestMatchers("/auth/register/admin").hasRole("ADMIN")
                 .requestMatchers("/auth/**").permitAll()
                 // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
-                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
+                // AdminStudentController and AdminDashboardController are mapped at both
+                // /admin/... and /api/admin/..., and the context path is already /api, so
+                // the second spelling arrives here as /api/admin/**. Without that matcher
+                // it falls through to anyRequest() and any signed-in student could read
+                // the admin student list. The double @RequestMapping is the real bug.
+                .requestMatchers("/admin/**", "/api/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
                 // Student endpoints – restricted to STUDENT role
-                .requestMatchers("/student/**").hasRole("STUDENT")
+                .requestMatchers("/student/**", "/api/student/**").hasRole("STUDENT")
+                // Project media is only ever called from the student pages.
+                .requestMatchers("/projects/**", "/api/projects/**").hasRole("STUDENT")
                 // Job listings are read-only here (posting and editing live under
                 // /admin/jobs), so students can browse drives before signing in.
                 .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/**").permitAll()
-                // Everything below serves or mutates a specific person's data:
-                // resumes (/students/{id}/resume), project media, stored files and
-                // notifications. Authenticated only — these were reachable without a
-                // login, so anyone could download or delete another student's resume.
+                // Everything below serves or mutates a specific person's data: resumes
+                // (/students/{id}/resume), stored files and notifications. These were
+                // reachable without a login, so anyone could download or delete another
+                // student's resume. Authenticated rather than STUDENT-only, because the
+                // admin student detail page reads resumes too.
                 // Note: this proves a caller is signed in, not that the row is theirs;
                 // per-owner checks still belong in the services.
                 .requestMatchers("/students/**").authenticated()
-                .requestMatchers("/projects/**").authenticated()
                 .requestMatchers("/files/**").authenticated()
                 .requestMatchers("/notifications/**").authenticated()
                 // Deny by default: a new controller is protected until a rule opens it.

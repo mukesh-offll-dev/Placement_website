@@ -81,7 +81,7 @@ export default function App() {
         {/* Admin Routes — protected, require ADMIN role */}
         <Route
           element={
-            <ProtectedRoute allowedRole="ADMIN" redirectTo="/admin/login">
+            <ProtectedRoute allowedRoles={['ADMIN', 'PLACEMENT_OFFICER']} redirectTo="/admin/login">
               <AdminLayout />
             </ProtectedRoute>
           }

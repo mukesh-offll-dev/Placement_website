@@ -22,8 +22,9 @@ dist-ssr
 backend/.env
 backend/.env*
 backend/*.local
+# Keep every .env.example tracked, at any depth
 !.env.example
-!backend/.env.example
+!**/.env.example
 
 # Editor directories and files
 .vscode/*

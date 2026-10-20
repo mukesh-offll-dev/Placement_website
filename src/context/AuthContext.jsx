@@ -60,14 +60,20 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const authData = await authServiceLogin(loginCredentials);
-      const requiredRole = expectedRole || credentialRole;
 
-      if (requiredRole && authData.role !== requiredRole) {
+      // Accepts a single role or a list: the admin portal admits both ADMIN and
+      // PLACEMENT_OFFICER, which is what SecurityConfig grants /admin/** too.
+      const requiredRole = expectedRole || credentialRole;
+      const allowedRoles = Array.isArray(requiredRole)
+        ? requiredRole
+        : (requiredRole ? [requiredRole] : []);
+
+      if (allowedRoles.length > 0 && !allowedRoles.includes(authData.role)) {
         clearAuth();
         setSession({ token: null, user: null });
         return {
           success: false,
-          error: `Unauthorized: account role is ${authData.role}, expected ${requiredRole}.`,
+          error: `Unauthorized: account role is ${authData.role}, expected ${allowedRoles.join(' or ')}.`,
         };
       }
 

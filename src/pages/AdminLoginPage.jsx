@@ -51,7 +51,9 @@ export default function AdminLoginPage() {
       const result = await login({
         email: form.username.trim(),
         password: form.password,
-        expectedRole: 'ADMIN',
+        // Placement officers work from this portal too; sending 'ADMIN' alone
+        // rejected them even though /admin/** grants them access.
+        expectedRole: ['ADMIN', 'PLACEMENT_OFFICER'],
       });
 
       if (!result.success) {
