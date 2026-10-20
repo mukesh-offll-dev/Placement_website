@@ -20,6 +20,7 @@ import {
   formatFileSize,
 } from '../services/fileUploadService';
 import { createProject } from '../services/api/projectService';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Github = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -560,12 +561,11 @@ export default function AddProjectPage() {
               <button
                 type="submit"
                 disabled={isSubmitting || uploadingMedia}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                aria-busy={isSubmitting}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Saving Project...
-                  </>
+                  <LoadingSpinner size="sm" color="white" label="Saving Project..." showLabel />
                 ) : (
                   'Add Project to Profile'
                 )}

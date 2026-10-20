@@ -8,12 +8,12 @@ import {
   ChevronRight,
   MapPin,
   Clock,
-  Loader2,
   AlertCircle,
   RotateCw,
 } from 'lucide-react';
 import { jobService } from '../services/api';
 import EmptyState from '../components/EmptyState';
+import { JobCardSkeleton } from '../components/Skeleton';
 
 const PAGE_SIZE = 5;
 
@@ -201,13 +201,8 @@ export default function JobsPage({ isAdmin = false }) {
         </div>
       </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="bg-white rounded-xl p-12 text-center shadow-sm flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-          <p className="text-gray-500 text-sm">Loading job drives...</p>
-        </div>
-      )}
+      {/* Loading Skeleton State */}
+      {loading && <JobCardSkeleton count={PAGE_SIZE} />}
 
       {/* Error State */}
       {!loading && error && (

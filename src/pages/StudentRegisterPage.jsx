@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle, CheckCircle2, User, Mail, Hash, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function StudentRegisterPage() {
   const navigate = useNavigate();
@@ -229,16 +230,11 @@ export default function StudentRegisterPage() {
             <button
               type="submit"
               disabled={loading || success}
+              aria-busy={loading}
               className="w-full mt-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-xl shadow-md shadow-blue-200 transition duration-150 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  Creating Account…
-                </span>
+                <LoadingSpinner size="sm" color="white" label="Creating Account…" showLabel />
               ) : (
                 'Create Student Account'
               )}

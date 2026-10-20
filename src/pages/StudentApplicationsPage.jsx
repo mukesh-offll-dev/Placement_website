@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import studentService from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
+import { ApplicationCardSkeleton } from '../components/Skeleton';
 
 const STATUS_LABELS = {
   APPLIED: 'Applied',
@@ -245,10 +246,7 @@ export default function StudentApplicationsPage() {
       </div>
 
       {loadState === 'loading' ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-500 shadow-sm" role="status">
-          <Clock className="w-8 h-8 mx-auto mb-3 animate-spin text-blue-500" />
-          <p>Loading your applications...</p>
-        </div>
+        <ApplicationCardSkeleton count={4} />
       ) : loadState === 'error' ? (
         <EmptyState
           type="error"

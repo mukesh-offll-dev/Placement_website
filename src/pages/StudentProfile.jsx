@@ -42,6 +42,7 @@ import {
 } from '../services/fileUploadService';
 import { getUser } from '../services/authService';
 import EmptyState from '../components/EmptyState';
+import { ProfileSkeleton } from '../components/Skeleton';
 
 export default function StudentProfile() {
   const resumeFileRef = useRef(null);
@@ -527,15 +528,9 @@ export default function StudentProfile() {
     setSkillsList((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Loading state
+  // Loading state with skeleton screen
   if (loading) {
-    return (
-      <main className="flex-1 px-4 md:px-8 py-12 flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">Loading your profile from server...</p>
-        <p className="text-gray-400 text-xs mt-1">Connecting to Placement Cell API</p>
-      </main>
-    );
+    return <ProfileSkeleton />;
   }
 
   // Error state with Retry

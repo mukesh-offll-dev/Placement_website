@@ -15,10 +15,10 @@ import {
   Bookmark,
   Send,
   X,
-  Loader2,
 } from 'lucide-react';
 import { jobService } from '../services/api';
 import EmptyState from '../components/EmptyState';
+import { JobDetailSkeleton } from '../components/Skeleton';
 
 const JOBS_DB = {
   1: {
@@ -283,12 +283,7 @@ export default function JobDetailPage() {
   };
 
   if (loading) {
-    return (
-      <main className="flex-1 px-4 md:px-8 py-12 flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
-        <p className="text-gray-500 text-sm">Loading job drive details...</p>
-      </main>
-    );
+    return <JobDetailSkeleton />;
   }
 
   if (!job || error) {

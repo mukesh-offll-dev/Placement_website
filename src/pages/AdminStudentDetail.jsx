@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getStudentById } from '../services/api/adminService';
 import EmptyState from '../components/EmptyState';
+import { ProfileSkeleton } from '../components/Skeleton';
 import {
   getStudentResume,
   getResumeViewUrl,
@@ -113,12 +114,7 @@ export default function AdminStudentDetail() {
   }, [studentId]);
 
   if (loadingStudent) {
-    return (
-      <main className="flex-1 flex flex-col items-center justify-center p-12">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
-        <p className="text-gray-500 text-sm">Loading student profile from backend...</p>
-      </main>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (error || !student) {

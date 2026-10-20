@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import notificationService from '../services/api/notificationService';
 import EmptyState from '../components/EmptyState';
+import { ListRowSkeleton } from '../components/Skeleton';
 
 const typeConfig = {
   job: { icon: BriefcaseIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -216,21 +217,7 @@ export default function NotificationsPage() {
 
       {/* Main Content Area */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl p-4 shadow-sm flex gap-4 items-start animate-pulse"
-            >
-              <div className="shrink-0 w-10 h-10 rounded-full bg-gray-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-1/3" />
-                <div className="h-3 bg-gray-200 rounded w-3/4" />
-                <div className="h-2.5 bg-gray-200 rounded w-1/6" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <ListRowSkeleton count={3} />
       ) : error ? (
         <EmptyState
           type="error"
