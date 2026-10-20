@@ -23,6 +23,7 @@ import StudentApplicationsPage from './pages/StudentApplicationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const AUTH_PAGES = ['/login', '/admin/login', '/student/login', '/student/register'];
 
@@ -68,7 +69,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthUnauthorizedListener />
-      <Routes>
+      <ErrorBoundary>
+        <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -114,6 +116,7 @@ export default function App() {
         {/* Catch-all: 404 Not Found */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </BrowserRouter>
+    </ErrorBoundary>
+  </BrowserRouter>
   );
 }
