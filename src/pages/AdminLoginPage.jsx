@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Landmark, Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { toastSuccess, toastError } from '../utils/toast';
 
 function generateCaptcha() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -55,18 +56,21 @@ export default function AdminLoginPage() {
       });
 
       if (!result.success) {
-        setApiError(
-          result.error?.startsWith('Unauthorized:')
-            ? 'This portal is for administrators only. Please use the Student Login.'
-            : result.error
-        );
+        const errMsg = result.error?.startsWith('Unauthorized:')
+          ? 'This portal is for administrators only. Please use the Student Login.'
+          : result.error;
+        setApiError(errMsg);
+        toastError(errMsg);
         setCaptcha(generateCaptcha());
         setForm((f) => ({ ...f, captchaInput: '' }));
         return;
       }
+      toastSuccess(`Welcome, ${result.user?.fullName || 'Administrator'}!`);
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
-      setApiError(err.message || 'Login failed. Please check your credentials.');
+      const errMsg = err.message || 'Login failed. Please check your credentials.';
+      setApiError(errMsg);
+      toastError(err, 'Login failed. Please check your credentials.');
       setCaptcha(generateCaptcha());
       setForm((f) => ({ ...f, captchaInput: '' }));
     } finally {

@@ -9,6 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { toastInfo } from '../utils/toast';
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -23,6 +24,7 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
 
   const handleLogout = () => {
     logout();
+    toastInfo('You have been signed out successfully.');
     navigate('/admin/login', { replace: true });
   };
 

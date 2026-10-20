@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { getAllStudents } from '../services/api/adminService';
+import { toastSuccess, toastError } from '../utils/toast';
 
 const DEPTS = [
   'All',
@@ -73,7 +74,9 @@ export default function AdminStudents() {
       }));
       setStudents(mapped);
     } catch (err) {
-      setError(err.message || 'Failed to fetch registered students from backend.');
+      const msg = err.message || 'Failed to fetch registered students from backend.';
+      setError(msg);
+      toastError(err, msg);
     } finally {
       setLoading(false);
     }
@@ -99,6 +102,7 @@ export default function AdminStudents() {
   const handleDelete = (id) => {
     if (window.confirm('Remove this student from the current view?')) {
       setStudents((prev) => prev.filter((s) => s.id !== id));
+      toastSuccess('Student removed from the list.');
     }
   };
 

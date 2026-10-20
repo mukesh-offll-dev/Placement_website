@@ -20,6 +20,7 @@ import {
   formatFileSize,
 } from '../services/fileUploadService';
 import { createProject } from '../services/api/projectService';
+import { toastSuccess, toastError } from '../utils/toast';
 
 const Github = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -113,6 +114,7 @@ export default function AddProjectPage() {
     const validation = validateFile(file, ALLOWED_MEDIA_EXTENSIONS, 10 * 1024 * 1024);
     if (!validation.valid) {
       setMediaUploadStatus({ type: 'error', text: validation.error });
+      toastError(validation.error);
       if (mediaRef.current) mediaRef.current.value = '';
       return;
     }
@@ -142,6 +144,7 @@ export default function AddProjectPage() {
         type: 'success',
         text: `Uploaded "${file.name}" to server successfully!`,
       });
+      toastSuccess(`Media "${file.name}" uploaded successfully!`);
     } else {
       setForm((f) => ({
         ...f,
@@ -225,6 +228,7 @@ export default function AddProjectPage() {
 
     try {
       await createProject(projectPayload);
+      toastSuccess(`Project "${form.title.trim()}" added to your profile!`);
       navigate('/student/profile', {
         state: {
           message: `Project "${form.title.trim()}" added to your profile showcase!`,
@@ -234,6 +238,7 @@ export default function AddProjectPage() {
       setErrors({
         submit: err.message || 'Failed to create project on backend. Please check details.',
       });
+      toastError(err, 'Failed to create project. Please check your details and try again.');
       setIsSubmitting(false);
     }
   };

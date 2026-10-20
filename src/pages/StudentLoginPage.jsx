@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { toastSuccess, toastError } from '../utils/toast';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
@@ -43,16 +44,19 @@ export default function StudentLoginPage() {
       });
 
       if (!result.success) {
-        setApiError(
-          result.error?.startsWith('Unauthorized:')
-            ? 'This login portal is for students only. Please use the Admin Login.'
-            : result.error
-        );
+        const errMsg = result.error?.startsWith('Unauthorized:')
+          ? 'This login portal is for students only. Please use the Admin Login.'
+          : result.error;
+        setApiError(errMsg);
+        toastError(errMsg);
         return;
       }
+      toastSuccess(`Welcome back, ${result.user?.fullName || 'Student'}!`);
       navigate('/student/dashboard', { replace: true });
     } catch (err) {
-      setApiError(err.message || 'Login failed. Please check your credentials.');
+      const errMsg = err.message || 'Login failed. Please check your credentials.';
+      setApiError(errMsg);
+      toastError(err, 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

@@ -16,6 +16,7 @@ import {
   Send,
   X,
 } from 'lucide-react';
+import { toastSuccess, toastInfo } from '../utils/toast';
 
 const JOBS_DB = {
   1: {
@@ -186,6 +187,7 @@ export default function JobDetailPage() {
     setApplied(true);
     setShowApply(false);
     setApplyStep(1);
+    toastSuccess(`Application submitted for ${job.role} at ${job.company}!`);
   };
 
   const isClosingSoon = job.deadline && (() => {
@@ -230,13 +232,28 @@ export default function JobDetailPage() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setSaved(!saved)}
+                      onClick={() => {
+                        const next = !saved;
+                        setSaved(next);
+                        if (next) {
+                          toastSuccess(`Job drive at ${job.company} saved to bookmarks!`);
+                        } else {
+                          toastInfo(`Job drive at ${job.company} removed from bookmarks.`);
+                        }
+                      }}
                       className={`p-2 rounded-lg border transition-colors ${saved ? 'border-blue-200 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-400 hover:border-blue-200 hover:text-blue-600'}`}
                       title="Save job"
                     >
                       <Bookmark className="w-4 h-4" fill={saved ? 'currentColor' : 'none'} />
                     </button>
-                    <button className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:border-blue-200 hover:text-blue-600 transition-colors" title="Share">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(window.location.href);
+                        toastSuccess('Job link copied to clipboard!');
+                      }}
+                      className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:border-blue-200 hover:text-blue-600 transition-colors"
+                      title="Share"
+                    >
                       <Share2 className="w-4 h-4" />
                     </button>
                   </div>

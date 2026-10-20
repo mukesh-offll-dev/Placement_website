@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
 import { useAuth } from '../context/AuthContext';
+import { toastInfo } from '../utils/toast';
 
 const breadcrumbMap = {
   '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
@@ -115,6 +116,7 @@ export default function StudentLayout() {
             <button
               onClick={() => {
                 logout();
+                toastInfo('You have been signed out successfully.');
                 navigate('/student/login', { replace: true });
               }}
               title="Logout"
