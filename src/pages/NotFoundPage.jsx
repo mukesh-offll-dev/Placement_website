@@ -10,13 +10,12 @@ import {
   Search,
   Compass,
 } from 'lucide-react';
-import { getUser, isAuthenticated, getRole } from '../services/authService';
+import { isAuthenticated, getRole } from '../services/authService';
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
   const authed = isAuthenticated();
   const role = getRole();
-  const user = getUser();
 
   useEffect(() => {
     document.title = '404 - Page Not Found | GCES Placement Cell';
