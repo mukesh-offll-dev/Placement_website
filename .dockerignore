@@ -36,3 +36,5 @@ Thumbs.db
 
 # Documentation & Misc
 README.md
+Dockerfile
+docker-compose*.yml
