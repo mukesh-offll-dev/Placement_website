@@ -7,9 +7,12 @@ import {
   ChevronRight,
   TrendingUp,
   Loader2,
+  FileText,
 } from 'lucide-react';
 import { getUser } from '../services/authService';
 import studentService, { getStudentDashboard, getProfile } from '../services/api/studentService.js';
+import { jobService } from '../services/api';
+import EmptyState from '../components/EmptyState';
 
 const recentJobs = [
   { id: 1, company: 'Google', role: 'Software Engineer', cgpa: '8.5+', deadline: 'Nov 15, 2026', status: 'Open' },
@@ -132,15 +135,17 @@ export default function StudentDashboard() {
   const currentUser = getUser();
   const [stats, setStats] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [liveJobs, setLiveJobs] = useState(recentJobs);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     const loadDashboard = async () => {
       try {
-        const [dashData, profData] = await Promise.allSettled([
+        const [dashData, profData, jobsData] = await Promise.allSettled([
           getStudentDashboard(),
           getProfile(),
+          jobService.getJobs({ page: 0, size: 4 }),
         ]);
 
         if (isMounted) {
@@ -149,6 +154,37 @@ export default function StudentDashboard() {
           }
           if (profData.status === 'fulfilled') {
             setProfile(profData.value);
+          }
+          if (jobsData.status === 'fulfilled') {
+            const rawList = Array.isArray(jobsData.value)
+              ? jobsData.value
+              : Array.isArray(jobsData.value?.content)
+              ? jobsData.value.content
+              : null;
+            if (rawList) {
+              setLiveJobs(
+                rawList.map((j) => {
+                  const companyName =
+                    j.company?.name ||
+                    j.company?.shortName ||
+                    (typeof j.company === 'string' ? j.company : 'Company');
+                  return {
+                    id: j.id,
+                    company: companyName,
+                    role: j.jobRole || j.role || 'Job Opening',
+                    cgpa: j.minCgpa != null ? `${j.minCgpa}+` : 'Not Specified',
+                    deadline: j.applicationDeadline
+                      ? new Date(j.applicationDeadline).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: '2-digit',
+                          year: 'numeric',
+                        })
+                      : 'No Deadline',
+                    status: j.status || 'Open',
+                  };
+                })
+              );
+            }
           }
         }
       } catch {
@@ -214,33 +250,47 @@ export default function StudentDashboard() {
               View all <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="space-y-3">
-            {recentJobs.map((job) => (
-              <div key={job.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex gap-3 items-center">
-                  <div className="w-11 h-11 bg-blue-100 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm shrink-0">
-                    {job.company.slice(0, 2).toUpperCase()}
+          {liveJobs.length === 0 ? (
+            <EmptyState
+              type="empty"
+              icon={Briefcase}
+              title="No active job drives yet"
+              description="There are currently no active campus recruitment drives posted. Check back soon."
+              action={{
+                label: 'Browse Jobs Page',
+                to: '/student/jobs',
+                icon: Briefcase,
+              }}
+            />
+          ) : (
+            <div className="space-y-3">
+              {liveJobs.map((job) => (
+                <div key={job.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-11 h-11 bg-blue-100 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm shrink-0">
+                      {job.company.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">{job.company}</p>
+                      <p className="text-gray-500 text-xs">{job.role} &nbsp;|&nbsp; CGPA: {job.cgpa}</p>
+                      <p className="text-gray-400 text-xs">Deadline: {job.deadline}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">{job.company}</p>
-                    <p className="text-gray-500 text-xs">{job.role} &nbsp;|&nbsp; CGPA: {job.cgpa}</p>
-                    <p className="text-gray-400 text-xs">Deadline: {job.deadline}</p>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${job.status === 'Closing Soon' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                      {job.status}
+                    </span>
+                    <Link
+                      to={`/student/jobs/${job.id}`}
+                      className="bg-blue-600 text-white text-xs px-3.5 py-1.5 rounded-lg hover:bg-blue-700 transition font-semibold"
+                    >
+                      Apply
+                    </Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${job.status === 'Closing Soon' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                    {job.status}
-                  </span>
-                  <Link
-                    to={`/student/jobs/${job.id}`}
-                    className="bg-blue-600 text-white text-xs px-3.5 py-1.5 rounded-lg hover:bg-blue-700 transition font-semibold"
-                  >
-                    Apply
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Sidebar */}
@@ -275,18 +325,28 @@ export default function StudentDashboard() {
             {applicationsState === 'loading' ? (
               <p className="text-gray-500 text-xs" role="status">Loading applications...</p>
             ) : applicationsState === 'error' ? (
-              <div className="text-xs text-gray-500" role="alert">
-                <p>Unable to load your applications.</p>
-                <button
-                  type="button"
-                  onClick={loadApplications}
-                  className="text-blue-600 hover:underline mt-1"
-                >
-                  Retry
-                </button>
-              </div>
+              <EmptyState
+                type="error"
+                title="Unable to load"
+                description="Failed to fetch applications."
+                action={{
+                  label: 'Retry',
+                  onClick: loadApplications,
+                }}
+                compact
+              />
             ) : applications.length === 0 ? (
-              <p className="text-gray-500 text-xs">You have not applied to any jobs yet.</p>
+              <EmptyState
+                type="empty"
+                icon={FileText}
+                title="No applications yet"
+                description="You haven't applied to any drives."
+                action={{
+                  label: 'Explore Jobs',
+                  to: '/student/jobs',
+                }}
+                compact
+              />
             ) : (
               <div className="space-y-3">
                 {recentApplications.map((application) => (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,7 +15,10 @@ import {
   Bookmark,
   Send,
   X,
+  Loader2,
 } from 'lucide-react';
+import { jobService } from '../services/api';
+import EmptyState from '../components/EmptyState';
 
 const JOBS_DB = {
   1: {
@@ -169,6 +172,8 @@ const DEFAULT_JOB = {
   postedOn: 'Oct 05, 2026',
 };
 
+JOBS_DB[99] = DEFAULT_JOB;
+
 export default function JobDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -178,21 +183,149 @@ export default function JobDetailPage() {
   const [applyStep, setApplyStep] = useState(1);
   const [applyForm, setApplyForm] = useState({ resume: null, coverLetter: '', consent: false });
 
-  const job = JOBS_DB[parseInt(id)] || DEFAULT_JOB;
+  const initialJob = JOBS_DB[parseInt(id, 10)] || null;
+  const [job, setJob] = useState(initialJob);
+  const [loading, setLoading] = useState(!initialJob);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (JOBS_DB[parseInt(id, 10)]) {
+      setJob(JOBS_DB[parseInt(id, 10)]);
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchJob = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await jobService.getJobById(id);
+        if (isMounted) {
+          if (data) {
+            const companyName =
+              data.company?.name ||
+              data.company?.shortName ||
+              (typeof data.company === 'string' ? data.company : 'Company');
+            const companyLogo = (
+              data.company?.shortName ||
+              companyName.slice(0, 2) ||
+              'JB'
+            ).toUpperCase();
+
+            setJob({
+              id: data.id,
+              company: companyName,
+              logo: companyLogo,
+              logoColor: data.company?.logoColor || 'bg-blue-100 text-blue-700',
+              role: data.jobRole || data.role || 'Job Role',
+              cgpa: data.minCgpa != null ? `${data.minCgpa}+` : 'Not Specified',
+              deadline: data.applicationDeadline
+                ? new Date(data.applicationDeadline).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: '2-digit',
+                    year: 'numeric',
+                  })
+                : 'No Deadline',
+              location: data.location || 'Location Not Specified',
+              type: data.jobType || 'Full Time',
+              ctc: data.ctcText || (data.ctcValue ? `${data.ctcValue} LPA` : 'Not Disclosed'),
+              status: data.status || 'Open',
+              bond: data.bond || 'None',
+              vacancies: data.vacancies || 'Multiple',
+              department: data.department || ['All Engineering Departments'],
+              about: data.company?.about || `${companyName} campus recruitment drive.`,
+              description: data.description || 'Detailed job description will be shared during the presentation.',
+              responsibilities: Array.isArray(data.responsibilities)
+                ? data.responsibilities
+                : [data.responsibilities || 'Collaborate with cross-functional engineering teams.'],
+              requirements: Array.isArray(data.requirements)
+                ? data.requirements
+                : [data.requirements || 'B.E/B.Tech or equivalent relevant degree.'],
+              selectionProcess: Array.isArray(data.selectionProcess)
+                ? data.selectionProcess
+                : ['Online Assessment', 'Technical Round', 'HR Interview'],
+              perks: Array.isArray(data.perks) ? data.perks : ['Comprehensive Health Benefits'],
+              postedOn: data.postedOn || 'Recent',
+            });
+          } else {
+            setError('Job drive not found.');
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err?.response?.status === 404
+              ? 'Job drive not found.'
+              : err?.message || 'Failed to load job drive.'
+          );
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchJob();
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   const handleApply = (e) => {
     e.preventDefault();
-    if (applyStep === 1) { setApplyStep(2); return; }
+    if (applyStep === 1) {
+      setApplyStep(2);
+      return;
+    }
     setApplied(true);
     setShowApply(false);
     setApplyStep(1);
   };
 
-  const isClosingSoon = job.deadline && (() => {
-    const deadline = new Date(job.deadline);
-    const now = new Date();
-    return (deadline - now) / (1000 * 60 * 60 * 24) <= 5;
-  })();
+  if (loading) {
+    return (
+      <main className="flex-1 px-4 md:px-8 py-12 flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+        <p className="text-gray-500 text-sm">Loading job drive details...</p>
+      </main>
+    );
+  }
+
+  if (!job || error) {
+    return (
+      <main className="flex-1 px-4 md:px-8 py-12 flex items-center justify-center min-h-[60vh]">
+        <div className="w-full max-w-md">
+          <EmptyState
+            type="not-found"
+            icon={Briefcase}
+            title="Job Drive Not Found"
+            description={
+              error ||
+              `Unable to locate job drive #${id}. The recruitment opening may have expired, closed, or does not exist.`
+            }
+            action={{
+              label: 'Explore Job Drives',
+              to: '/student/jobs',
+              icon: Briefcase,
+            }}
+            secondaryAction={{
+              label: 'Back to Previous Page',
+              onClick: () => navigate(-1),
+              icon: ArrowLeft,
+            }}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  const isClosingSoon =
+    job.deadline &&
+    (() => {
+      const deadline = new Date(job.deadline);
+      const now = new Date();
+      return (deadline - now) / (1000 * 60 * 60 * 24) <= 5;
+    })();
 
   return (
     <>

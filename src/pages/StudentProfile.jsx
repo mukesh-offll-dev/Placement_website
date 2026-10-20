@@ -41,6 +41,7 @@ import {
   formatFileSize,
 } from '../services/fileUploadService';
 import { getUser } from '../services/authService';
+import EmptyState from '../components/EmptyState';
 
 export default function StudentProfile() {
   const resumeFileRef = useRef(null);
@@ -541,16 +542,17 @@ export default function StudentProfile() {
   if (fetchError && !profile) {
     return (
       <main className="flex-1 px-4 md:px-8 py-12 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-md text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Failed to Load Profile</h3>
-          <p className="text-sm text-gray-600 mb-5">{fetchError}</p>
-          <button
-            onClick={loadProfileData}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-700 transition"
-          >
-            <RefreshCw className="w-4 h-4" /> Try Again
-          </button>
+        <div className="w-full max-w-md">
+          <EmptyState
+            type="error"
+            title="Failed to Load Profile"
+            description={fetchError}
+            action={{
+              label: 'Try Again',
+              onClick: loadProfileData,
+              icon: RefreshCw,
+            }}
+          />
         </div>
       </main>
     );
@@ -1070,19 +1072,19 @@ export default function StudentProfile() {
                 })}
               </div>
             ) : (
-              <div className="border border-dashed border-gray-200 rounded-xl p-8 text-center bg-gray-50/50">
-                <Layers className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-gray-700">No projects added yet</p>
-                <p className="text-xs text-gray-400 mt-1 mb-4">
-                  Add projects to showcase your practical knowledge to visiting companies.
-                </p>
-                <button
-                  onClick={() => navigate('/student/add-project')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add First Project
-                </button>
-              </div>
+              <EmptyState
+                type="empty"
+                icon={Layers}
+                title="No projects added yet"
+                description="Add projects to showcase your practical knowledge, capstone works, and technical problem-solving to visiting companies."
+                action={{
+                  label: 'Add First Project',
+                  onClick: () => navigate('/student/add-project'),
+                  icon: Plus,
+                }}
+                compact
+                className="bg-gray-50/50 border-dashed border-gray-200"
+              />
             )}
           </div>
         </div>

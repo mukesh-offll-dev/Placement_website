@@ -14,8 +14,11 @@ import {
   Building2,
   CheckCircle2,
   Award,
+  Layers,
+  ExternalLink,
 } from 'lucide-react';
 import { getStudentById } from '../services/api/adminService';
+import EmptyState from '../components/EmptyState';
 import {
   getStudentResume,
   getResumeViewUrl,
@@ -61,6 +64,7 @@ export default function AdminStudentDetail() {
               rollNo: studentData.rollNo || 'N/A',
               about: studentData.about || 'Student has not filled their summary yet.',
               skills: ['Computer Science', 'Technical Problem Solving'],
+              projects: Array.isArray(studentData.projects) ? studentData.projects : [],
             });
           } else {
             setError('Student profile not found in backend records.');
@@ -119,21 +123,19 @@ export default function AdminStudentDetail() {
 
   if (error || !student) {
     return (
-      <main className="flex-1 flex items-center justify-center p-10">
-        <div className="text-center text-gray-500 max-w-sm">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-          <p className="text-xl font-semibold mb-2 text-gray-800">
-            {error || 'Student not found'}
-          </p>
-          <p className="text-xs text-gray-400 mb-5">
-            Unable to locate student with ID {studentId} in the Placement Cell system.
-          </p>
-          <Link
-            to="/admin/students"
-            className="inline-flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 transition"
-          >
-            ← Back to Students Directory
-          </Link>
+      <main className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <EmptyState
+            type="not-found"
+            icon={GraduationCap}
+            title={error || 'Student Profile Not Found'}
+            description={`Unable to locate student records with ID "${studentId}" in the Placement Cell system.`}
+            action={{
+              label: 'Back to Students Directory',
+              to: '/admin/students',
+              icon: ArrowLeft,
+            }}
+          />
         </div>
       </main>
     );
@@ -271,13 +273,14 @@ export default function AdminStudentDetail() {
                 </div>
               </div>
             ) : (
-              <div className="border border-dashed border-gray-300 rounded-xl p-6 text-center bg-gray-50/50">
-                <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-gray-600">No Resume Uploaded</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  The student has not yet uploaded a resume file.
-                </p>
-              </div>
+              <EmptyState
+                type="empty"
+                icon={FileText}
+                title="No Resume Uploaded"
+                description="The student has not yet uploaded a verified resume file."
+                compact
+                className="border-dashed border-gray-300 bg-gray-50/50"
+              />
             )}
           </div>
 
@@ -314,6 +317,66 @@ export default function AdminStudentDetail() {
               <p className="text-xs font-semibold text-gray-500 uppercase mb-1">About</p>
               <p className="text-sm text-gray-700 leading-relaxed">{student.about}</p>
             </div>
+          </div>
+
+          {/* Student Projects Showcase */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-lg text-gray-900">Projects Showcase</h3>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700">
+                {student.projects?.length || 0} Projects
+              </span>
+            </div>
+
+            {student.projects && student.projects.length > 0 ? (
+              <div className="space-y-3">
+                {student.projects.map((proj) => (
+                  <div
+                    key={proj.id || proj.title}
+                    className="border border-gray-100 rounded-xl p-4 bg-gray-50/50 hover:bg-gray-50 transition"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900">{proj.title}</h4>
+                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">{proj.description}</p>
+                      </div>
+                      {proj.liveUrl && (
+                        <a
+                          href={proj.liveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 p-1 shrink-0"
+                          title="View Live Project"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                    {proj.technologies && proj.technologies.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        {proj.technologies.map((tech) => (
+                          <span
+                            key={tech}
+                            className="text-[11px] bg-white border border-gray-200 text-gray-700 px-2 py-0.5 rounded-md font-medium"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                type="empty"
+                icon={Layers}
+                title="No Projects Showcased"
+                description="This student has not yet added any portfolio projects to their profile."
+                compact
+                className="border-dashed border-gray-200 bg-gray-50/50"
+              />
+            )}
           </div>
         </div>
 

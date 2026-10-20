@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, UserCheck, Send, TrendingUp, Briefcase } from 'lucide-react';
+import EmptyState from '../components/EmptyState';
 
 const COMPANIES = ['Google', 'Amazon', 'Microsoft', 'Infosys', 'TCS', 'Wipro', 'Zoho'];
 const ROLES = ['Software Engineer', 'Data Analyst', 'Product Manager', 'DevOps Engineer'];
@@ -122,33 +123,47 @@ export default function AdminDashboard() {
                 </Link>
               </div>
 
-              <div className="space-y-3">
-                {jobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="bg-white rounded-xl p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm"
-                  >
-                    <div className="flex gap-3 items-center">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm shrink-0">
-                        {job.company.slice(0, 2).toUpperCase()}
+              {jobs.length === 0 ? (
+                <EmptyState
+                  type="empty"
+                  icon={Briefcase}
+                  title="No recent job activity"
+                  description="No recruitment drives have been posted recently."
+                  action={{
+                    label: 'Post New Job',
+                    to: '/admin/jobs',
+                    icon: Briefcase,
+                  }}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {jobs.map((job) => (
+                    <div
+                      key={job.id}
+                      className="bg-white rounded-xl p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm"
+                    >
+                      <div className="flex gap-3 items-center">
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center font-bold text-blue-700 text-sm shrink-0">
+                          {job.company.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{job.company}</p>
+                          <p className="text-gray-500 text-xs">
+                            {job.role} &nbsp;|&nbsp; CGPA: {job.cgpa}
+                          </p>
+                          <p className="text-gray-400 text-xs">Deadline: {job.deadline}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold text-sm">{job.company}</p>
-                        <p className="text-gray-500 text-xs">
-                          {job.role} &nbsp;|&nbsp; CGPA: {job.cgpa}
-                        </p>
-                        <p className="text-gray-400 text-xs">Deadline: {job.deadline}</p>
+                      <div className="text-left sm:text-right">
+                        <span className="bg-green-100 text-green-600 px-3 py-1 rounded-full text-xs">
+                          ● {job.status}
+                        </span>
+                        <p className="text-gray-400 text-xs mt-1">Posted {job.posted}</p>
                       </div>
                     </div>
-                    <div className="text-left sm:text-right">
-                      <span className="bg-green-100 text-green-600 px-3 py-1 rounded-full text-xs">
-                        ● {job.status}
-                      </span>
-                      <p className="text-gray-400 text-xs mt-1">Posted {job.posted}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right Side */}

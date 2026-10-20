@@ -10,6 +10,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import notificationService from '../services/api/notificationService';
+import EmptyState from '../components/EmptyState';
 
 const typeConfig = {
   job: { icon: BriefcaseIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -231,22 +232,41 @@ export default function NotificationsPage() {
           ))}
         </div>
       ) : error ? (
-        <div className="bg-white rounded-xl p-8 text-center text-gray-600 shadow-sm border border-red-100">
-          <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-red-400" />
-          <h3 className="font-semibold text-gray-800 mb-1">Failed to Load Notifications</h3>
-          <p className="text-sm text-gray-500 mb-4">{error}</p>
-          <button
-            onClick={loadNotifications}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" /> Try Again
-          </button>
-        </div>
+        <EmptyState
+          type="error"
+          title="Failed to Load Notifications"
+          description={error}
+          action={{
+            label: 'Try Again',
+            onClick: loadNotifications,
+            icon: RefreshCw,
+          }}
+        />
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl p-10 text-center text-gray-400 shadow-sm">
-          <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-          <p>No notifications here.</p>
-        </div>
+        notifs.length === 0 ? (
+          <EmptyState
+            type="empty"
+            icon={Bell}
+            title="No notifications yet"
+            description="You are all caught up! Updates about campus drives, application deadlines, and placement news will appear here."
+            action={{
+              label: 'Refresh',
+              onClick: loadNotifications,
+              icon: RefreshCw,
+            }}
+          />
+        ) : (
+          <EmptyState
+            type="search"
+            icon={Bell}
+            title={`No ${activeFilter.toLowerCase()} notifications`}
+            description={`There are currently no notifications matching the "${activeFilter}" filter.`}
+            action={{
+              label: 'View All Notifications',
+              onClick: () => setActiveFilter('All'),
+            }}
+          />
+        )
       ) : (
         <div className="space-y-3">
           {filtered.map((n) => {
