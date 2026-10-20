@@ -13,6 +13,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { jobService } from '../services/api';
+import EmptyState from '../components/EmptyState';
 
 const PAGE_SIZE = 5;
 
@@ -210,25 +211,59 @@ export default function JobsPage({ isAdmin = false }) {
 
       {/* Error State */}
       {!loading && error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center shadow-sm">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <p className="text-red-700 font-medium text-sm mb-1">{error}</p>
-          <p className="text-red-500 text-xs mb-4">Could not connect to the backend server. Please check your connection and retry.</p>
-          <button
-            onClick={() => fetchJobs()}
-            className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer"
-          >
-            <RotateCw className="w-3.5 h-3.5" /> Retry
-          </button>
-        </div>
+        <EmptyState
+          type="error"
+          title="Failed to load job drives"
+          description={error}
+          action={{
+            label: 'Try Again',
+            onClick: () => fetchJobs(),
+            icon: RotateCw,
+          }}
+        />
       )}
 
-      {/* Empty State */}
+      {/* Empty State / Search Not Found */}
       {!loading && !error && filtered.length === 0 && (
-        <div className="bg-white rounded-xl p-10 text-center text-gray-400 shadow-sm">
-          <Briefcase className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-          {search.trim() ? 'No jobs match your search criteria.' : 'No active job drives found.'}
-        </div>
+        search.trim() ? (
+          <EmptyState
+            type="search"
+            title="No matching job drives found"
+            description={`We couldn't find any job drives matching "${search}". Try adjusting your keywords or clearing the search.`}
+            action={{
+              label: 'Clear Search',
+              onClick: () => {
+                setSearch('');
+                setPage(1);
+              },
+              icon: RotateCw,
+            }}
+          />
+        ) : (
+          <EmptyState
+            type="empty"
+            icon={Briefcase}
+            title="No job drives available yet"
+            description={
+              isAdmin
+                ? 'No recruitment drives have been created yet. Post a new job opportunity to get started.'
+                : 'There are currently no active campus recruitment drives open. Please check back later.'
+            }
+            action={
+              isAdmin
+                ? {
+                    label: 'Post New Job',
+                    onClick: () => setShowAddModal(true),
+                    icon: Briefcase,
+                  }
+                : {
+                    label: 'Refresh Drives',
+                    onClick: () => fetchJobs(),
+                    icon: RotateCw,
+                  }
+            }
+          />
+        )
       )}
 
       {/* Job Cards */}

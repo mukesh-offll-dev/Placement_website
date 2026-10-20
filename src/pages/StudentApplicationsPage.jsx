@@ -12,6 +12,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import studentService from '../services/api/studentService.js';
+import EmptyState from '../components/EmptyState';
 
 const STATUS_LABELS = {
   APPLIED: 'Applied',
@@ -249,30 +250,44 @@ export default function StudentApplicationsPage() {
           <p>Loading your applications...</p>
         </div>
       ) : loadState === 'error' ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-600 shadow-sm" role="alert">
-          <p className="font-medium">Unable to load your applications.</p>
-          <p className="text-sm text-gray-400 mt-1">Please check your connection and try again.</p>
-          <button
-            type="button"
-            onClick={loadApplications}
-            className="mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
-          >
-            Retry
-          </button>
-        </div>
+        <EmptyState
+          type="error"
+          title="Unable to load applications"
+          description="Could not connect to the placement server. Please check your network connection and try again."
+          action={{
+            label: 'Retry',
+            onClick: loadApplications,
+          }}
+        />
       ) : applications.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-400 shadow-sm">
-          <FileText className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-          <p className="font-medium">You have not applied to any jobs yet.</p>
-          <Link to="/student/jobs" className="text-sm text-blue-600 hover:underline mt-2 block">
-            Browse job drives
-          </Link>
-        </div>
+        <EmptyState
+          type="empty"
+          icon={FileText}
+          title="No applications submitted yet"
+          description="You haven't applied to any job drives yet. Explore active campus drives and apply to positions matching your profile."
+          action={{
+            label: 'Explore Jobs',
+            to: '/student/jobs',
+            icon: Briefcase,
+          }}
+        />
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 text-center text-gray-400 shadow-sm">
-          <Search className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-          <p className="font-medium">No applications match your search or filters.</p>
-        </div>
+        <EmptyState
+          type="search"
+          title="No matching applications found"
+          description={
+            search.trim()
+              ? `No applications matched "${search}"${activeFilter !== 'All' ? ` with status "${activeFilter}"` : ''}.`
+              : `No applications currently have status "${activeFilter}".`
+          }
+          action={{
+            label: 'Reset Filters',
+            onClick: () => {
+              setSearch('');
+              setActiveFilter('All');
+            },
+          }}
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((application) => {

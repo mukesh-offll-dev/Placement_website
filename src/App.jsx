@@ -20,6 +20,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import StudentProfile from './pages/StudentProfile';
 import AddProjectPage from './pages/AddProjectPage';
 import StudentApplicationsPage from './pages/StudentApplicationsPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -110,8 +111,8 @@ export default function App() {
           <Route path="/student/applications" element={<StudentApplicationsPage />} />
         </Route>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Catch-all: 404 Not Found */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

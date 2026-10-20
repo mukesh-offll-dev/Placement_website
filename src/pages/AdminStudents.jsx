@@ -10,8 +10,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  GraduationCap,
 } from 'lucide-react';
 import { getAllStudents } from '../services/api/adminService';
+import EmptyState from '../components/EmptyState';
 
 const DEPTS = [
   'All',
@@ -251,8 +253,33 @@ export default function AdminStudents() {
               <span className="text-xs">Loading students from backend...</span>
             </div>
           ) : paginated.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
-              {students.length === 0 ? 'No registered students found in backend database.' : 'No students matching the filter criteria.'}
+            <div className="p-4">
+              {students.length === 0 ? (
+                <EmptyState
+                  type="empty"
+                  icon={GraduationCap}
+                  title="No registered students found"
+                  description="No student profiles are registered in the backend database yet."
+                  action={{
+                    label: 'Refresh Records',
+                    onClick: fetchStudents,
+                    icon: RefreshCw,
+                  }}
+                  compact
+                />
+              ) : (
+                <EmptyState
+                  type="search"
+                  title="No matching students found"
+                  description="No registered students match your active search and department filters."
+                  action={{
+                    label: 'Clear Filters',
+                    onClick: clearFilters,
+                    icon: RefreshCw,
+                  }}
+                  compact
+                />
+              )}
             </div>
           ) : (
             paginated.map((s) => (
