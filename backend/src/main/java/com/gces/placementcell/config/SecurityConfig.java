@@ -7,7 +7,6 @@ import com.gces.placementcell.security.CustomUserDetailsService;
 import com.gces.placementcell.security.JwtAuthenticationFilter;
 import com.gces.placementcell.security.JwtService;
 import com.gces.placementcell.security.TokenProvider;
-import com.gces.placementcell.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,8 +46,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AdminAuthFilter adminAuthFilter(TokenProvider tokenProvider, UserRepository userRepository) {
-        return new AdminAuthFilter(tokenProvider, userRepository);
+    public AdminAuthFilter adminAuthFilter(TokenProvider tokenProvider) {
+        return new AdminAuthFilter(tokenProvider);
     }
 
     @Bean
@@ -76,6 +75,8 @@ public class SecurityConfig {
                 .requestMatchers("/admin/**", "/api/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
                 // Student endpoints require STUDENT authority
                 .requestMatchers("/student/**", "/students/**", "/api/student/**").hasRole("STUDENT")
+                // Project media is part of the student project feature
+                .requestMatchers("/projects/**", "/api/projects/**").hasRole("STUDENT")
                 // All other endpoints
                 .anyRequest().authenticated()
             )

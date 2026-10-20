@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
     try {
       const user = await login(form.username, form.password);
 
-      if (user.role !== 'ADMIN') {
+      if (!['ADMIN', 'PLACEMENT_OFFICER'].includes(user.role)) {
         setApiError('This portal is for administrators only. Please use the Student Login.');
         setCaptcha(generateCaptcha());
         setForm((f) => ({ ...f, captchaInput: '' }));

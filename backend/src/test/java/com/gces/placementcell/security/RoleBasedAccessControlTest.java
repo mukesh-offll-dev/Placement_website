@@ -11,6 +11,7 @@ import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.repository.AdminProfileRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.security.TokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,13 +57,18 @@ class RoleBasedAccessControlTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private TokenProvider tokenProvider;
+
     private static final String STUDENT_EMAIL = "student.test@gces.edu.np";
     private static final String ADMIN_EMAIL = "admin.test@gces.edu.np";
+    private static final String PLACEMENT_OFFICER_EMAIL = "officer.test@gces.edu.np";
     private static final String INACTIVE_EMAIL = "inactive.test@gces.edu.np";
     private static final String RAW_PASSWORD = "Password@123";
 
     private String studentToken;
     private String adminToken;
+    private String placementOfficerToken;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -124,6 +130,19 @@ class RoleBasedAccessControlTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
         adminProfileRepository.save(adminProfile);
+
+        User placementOfficer = userRepository.save(User.builder()
+                .email(PLACEMENT_OFFICER_EMAIL)
+                .passwordHash(passwordEncoder.encode(RAW_PASSWORD))
+                .role(UserRole.PLACEMENT_OFFICER)
+                .accountStatus(AccountStatus.ACTIVE)
+                .isActive(true)
+                .isEmailVerified(true)
+                .isDeleted(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build());
+        placementOfficerToken = tokenProvider.generateToken(placementOfficer);
 
         // 3. Seed Inactive User
         User inactiveUser = User.builder()
@@ -190,9 +209,24 @@ class RoleBasedAccessControlTest {
     }
 
     @Test
+    @DisplayName("An identity-only admin header cannot authenticate an unauthenticated request")
+    void adminEmailHeaderCannotAuthenticateRequest() throws Exception {
+        mockMvc.perform(get("/admin/dashboard")
+                        .header("X-Admin-Email", ADMIN_EMAIL))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("Unauthenticated request to /student/dashboard returns 401 Unauthorized")
     void unauthenticatedStudentAccessRejected() throws Exception {
         mockMvc.perform(get("/student/dashboard"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Unauthenticated request to student project media returns 401 Unauthorized")
+    void unauthenticatedProjectMediaAccessRejected() throws Exception {
+        mockMvc.perform(get("/projects/9223372036854775807/media"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -221,6 +255,14 @@ class RoleBasedAccessControlTest {
                 .andExpect(jsonPath("$.data.fullName", is("John Doe Student")));
     }
 
+    @Test
+    @DisplayName("Student role can reach student project media endpoint")
+    void studentCanAccessStudentProjectMediaEndpoint() throws Exception {
+        mockMvc.perform(get("/projects/9223372036854775807/media")
+                        .header("Authorization", "Bearer " + studentToken))
+                .andExpect(status().isNotFound());
+    }
+
     // --- 4. Student Role Boundary / Forbidden Tests ---
 
     @Test
@@ -239,6 +281,14 @@ class RoleBasedAccessControlTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @DisplayName("Admin is FORBIDDEN (403) from accessing student project media endpoint")
+    void adminForbiddenFromStudentProjectMediaEndpoint() throws Exception {
+        mockMvc.perform(get("/projects/9223372036854775807/media")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+    }
+
     // --- 5. Admin Role Authorized Features Tests ---
 
     @Test
@@ -250,6 +300,15 @@ class RoleBasedAccessControlTest {
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.adminEmail", is(ADMIN_EMAIL)))
                 .andExpect(jsonPath("$.data.portal", is("Admin Management Console")));
+    }
+
+    @Test
+    @DisplayName("Placement officer role allowed by admin policy can access admin dashboard")
+    void placementOfficerCanAccessAdminDashboard() throws Exception {
+        mockMvc.perform(get("/admin/dashboard")
+                        .header("Authorization", "Bearer " + placementOfficerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.adminEmail", is(PLACEMENT_OFFICER_EMAIL)));
     }
 
     @Test

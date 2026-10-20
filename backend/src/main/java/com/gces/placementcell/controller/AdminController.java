@@ -28,11 +28,11 @@ import java.util.Optional;
 
 /**
  * Controller exposing features accessible exclusively to Admins.
- * All routes under /admin/** require ROLE_ADMIN (enforced by SecurityConfig and @PreAuthorize).
+ * All routes under /admin/** require ROLE_ADMIN or ROLE_PLACEMENT_OFFICER.
  */
 @RestController
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'PLACEMENT_OFFICER')")
 public class AdminController {
 
     private final UserRepository userRepository;

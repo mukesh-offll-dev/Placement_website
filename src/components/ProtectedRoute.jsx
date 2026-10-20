@@ -13,23 +13,26 @@ import { isAuthenticated, getRole } from '../services/authService';
 export default function ProtectedRoute({
   children,
   allowedRole,
+  allowedRoles,
   requiredRole,
   redirectTo,
 }) {
-  const targetRole = allowedRole || requiredRole;
+  const targetRoles = allowedRoles || [allowedRole || requiredRole].filter(Boolean);
 
   if (!isAuthenticated()) {
-    const defaultRedirect = targetRole === 'ADMIN'
+    const defaultRedirect = targetRoles.includes('ADMIN') || targetRoles.includes('PLACEMENT_OFFICER')
       ? '/admin/login'
-      : (targetRole === 'STUDENT' ? '/student/login' : '/login');
+      : (targetRoles.includes('STUDENT') ? '/student/login' : '/login');
     return <Navigate to={redirectTo || defaultRedirect} replace />;
   }
 
-  if (targetRole) {
+  if (targetRoles.length > 0) {
     const role = getRole();
-    if (role !== targetRole) {
+    if (!targetRoles.includes(role)) {
       // Authenticated but wrong role → redirect to their own authorized dashboard
-      const dashboardPath = role === 'ADMIN' ? '/admin/dashboard' : '/student/dashboard';
+      const dashboardPath = ['ADMIN', 'PLACEMENT_OFFICER'].includes(role)
+        ? '/admin/dashboard'
+        : role === 'STUDENT' ? '/student/dashboard' : '/';
       return <Navigate to={dashboardPath} replace />;
     }
   }

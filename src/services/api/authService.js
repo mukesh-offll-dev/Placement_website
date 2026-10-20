@@ -37,15 +37,39 @@ export const getUser = () => {
   }
 };
 
-export const isAuthenticated = () => {
+const getTokenDetails = () => {
   const token = getToken();
-  if (!token) return false;
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    return false;
+  const tokenParts = token?.split('.');
+  if (!tokenParts || tokenParts.length !== 2 || !tokenParts[0] || !tokenParts[1]) {
+    return null;
   }
+
+  try {
+    const base64Payload = tokenParts[0]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(tokenParts[0].length / 4) * 4, '=');
+    const [userId, email, role, expiresAt] = atob(base64Payload).split(':');
+    const expiry = Number(expiresAt);
+    if (!userId || !email || !role || !Number.isFinite(expiry) || expiry <= Date.now()) {
+      return null;
+    }
+    return { userId, email, role };
+  } catch {
+    return null;
+  }
+};
+
+export const isAuthenticated = () => {
+  const details = getTokenDetails();
+  const user = getUser();
+  return Boolean(
+    details &&
+    user &&
+    String(user.userId) === details.userId &&
+    user.email?.toLowerCase() === details.email.toLowerCase() &&
+    user.role === details.role
+  );
 };
 
 export const getRole = () => {
