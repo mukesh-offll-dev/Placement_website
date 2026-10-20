@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
     CONSTRAINT fk_job_applications_job FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE RESTRICT,
     CONSTRAINT fk_job_applications_student FOREIGN KEY (student_id) REFERENCES student_profiles(id) ON DELETE CASCADE,
     CONSTRAINT fk_job_applications_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
-    CONSTRAINT chk_job_applications_status CHECK (status IN ('APPLIED', 'UNDER_REVIEW', 'SHORTLISTED', 'REJECTED', 'SELECTED', 'WITHDRAWN'))
+    CONSTRAINT chk_job_applications_status CHECK (status IN ('APPLIED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'REJECTED', 'SELECTED', 'WITHDRAWN'))
 );
 
 -- 4. Create Application Timeline Table

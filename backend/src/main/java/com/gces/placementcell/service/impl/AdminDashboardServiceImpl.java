@@ -9,6 +9,7 @@ import com.gces.placementcell.entity.enums.JobStatus;
 import com.gces.placementcell.repository.JobApplicationRepository;
 import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
+import com.gces.placementcell.repository.StudentProjectRepository;
 import com.gces.placementcell.service.AdminDashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private final StudentProfileRepository studentProfileRepository;
+    private final StudentProjectRepository studentProjectRepository;
     private final JobRepository jobRepository;
     private final JobApplicationRepository jobApplicationRepository;
 
@@ -35,6 +37,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     @Transactional(readOnly = true)
     public DashboardStatsDto getDashboardStats() {
         long totalStudents = studentProfileRepository.countActiveStudents();
+        long totalProjects = studentProjectRepository.count();
         long totalPlaced = studentProfileRepository.countPlacedStudents();
         long totalUnplaced = Math.max(0, totalStudents - totalPlaced);
 
@@ -129,6 +132,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
         return DashboardStatsDto.builder()
                 .totalStudents(totalStudents)
+                .totalProjects(totalProjects)
                 .totalPlaced(totalPlaced)
                 .totalUnplaced(totalUnplaced)
                 .placementPercentage(placementPercentage)

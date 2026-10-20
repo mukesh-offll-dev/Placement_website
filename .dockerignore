@@ -1,0 +1,38 @@
+# Version Control
+.git
+.gitignore
+
+# Dependencies & Build Outputs
+node_modules
+dist
+build
+coverage
+
+# Backend and Non-Frontend Folders
+backend
+schema
+.sfdx
+
+# Environment and Secret Files
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor & IDE settings
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
+# Documentation & Misc
+README.md

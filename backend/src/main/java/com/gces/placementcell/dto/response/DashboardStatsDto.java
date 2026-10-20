@@ -15,6 +15,7 @@ import java.util.Map;
 public class DashboardStatsDto {
 
     private long totalStudents;
+    private long totalProjects;
     private long totalPlaced;
     private long totalUnplaced;
     private double placementPercentage;

@@ -98,14 +98,15 @@ const ALL_APPLICATIONS = [
 ];
 
 const STATUS_CONFIG = {
-  Shortlisted: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
+  Applied: { bg: 'bg-gray-100', text: 'text-gray-700', icon: FileText },
+  Shortlisted: { bg: 'bg-blue-100', text: 'text-blue-700', icon: CheckCircle },
+  Interview: { bg: 'bg-purple-100', text: 'text-purple-700', icon: Clock },
   'Under Review': { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
-  Applied: { bg: 'bg-blue-100', text: 'text-blue-700', icon: FileText },
-  Rejected: { bg: 'bg-red-100', text: 'text-red-600', icon: XCircle },
   Selected: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle },
+  Rejected: { bg: 'bg-red-100', text: 'text-red-600', icon: XCircle },
 };
 
-const FILTERS = ['All', 'Applied', 'Under Review', 'Shortlisted', 'Rejected'];
+const FILTERS = ['All', 'Applied', 'Shortlisted', 'Interview', 'Selected', 'Rejected'];
 
 export default function StudentApplicationsPage() {
   const [search, setSearch] = useState('');

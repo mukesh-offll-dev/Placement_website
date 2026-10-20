@@ -6,12 +6,14 @@ import {
   Bell,
   LogOut,
   ShieldCheck,
+  FileCheck,
   X,
 } from 'lucide-react';
 import { logout, getUser } from '../services/authService';
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/applications', icon: FileCheck, label: 'Applications' },
   { to: '/admin/students', icon: Users, label: 'Students' },
   { to: '/admin/jobs', icon: Briefcase, label: 'Job Drives' },
   { to: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },

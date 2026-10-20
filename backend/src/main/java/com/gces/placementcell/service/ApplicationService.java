@@ -11,6 +11,7 @@ import com.gces.placementcell.entity.JobSelectionRound;
 import com.gces.placementcell.entity.StudentProfile;
 import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.ApplicationStatus;
+import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.entity.enums.TimelineStatus;
 import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.DuplicateResourceException;
@@ -162,6 +163,21 @@ public class ApplicationService {
         application.setReviewedBy(reviewer);
         application.setRemarks(request.remarks());
         addTimeline(application, stage, LocalDate.now(), TimelineStatus.DONE, request.remarks(), reviewer);
+
+        // If the application is SELECTED, also update the student profile's placement details if not already placed
+        if (request.status() == ApplicationStatus.SELECTED && application.getStudentProfile() != null) {
+            StudentProfile profile = application.getStudentProfile();
+            if (profile.getPlacementStatus() != PlacementStatus.PLACED) {
+                profile.setPlacementStatus(PlacementStatus.PLACED);
+                if (application.getJob() != null) {
+                    profile.setPlacedCompany(application.getJob().getCompany());
+                    profile.setPlacedCtc(application.getJob().getCtcValue());
+                    profile.setPlacedOn(LocalDate.now());
+                }
+                studentProfileRepository.save(profile);
+            }
+        }
+
         return JobApplicationResponse.withTimeline(applicationRepository.save(application));
     }
 
@@ -218,6 +234,7 @@ public class ApplicationService {
         return switch (status) {
             case UNDER_REVIEW -> "Under Review";
             case SHORTLISTED -> "Shortlisted";
+            case INTERVIEW -> "Interview";
             case REJECTED -> "Rejected";
             case SELECTED -> "Selected";
             case WITHDRAWN -> "Withdrawn";

@@ -479,7 +479,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
     CONSTRAINT fk_job_app_student FOREIGN KEY (student_id) REFERENCES student_profiles(id) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_job_app_round FOREIGN KEY (current_round_id) REFERENCES job_selection_rounds(id) ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_job_app_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT chk_app_status CHECK (status IN ('APPLIED', 'UNDER_REVIEW', 'SHORTLISTED', 'REJECTED', 'SELECTED', 'WITHDRAWN'))
+    CONSTRAINT chk_app_status CHECK (status IN ('APPLIED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'REJECTED', 'SELECTED', 'WITHDRAWN'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_application_job_student ON job_applications (job_id, student_id);
