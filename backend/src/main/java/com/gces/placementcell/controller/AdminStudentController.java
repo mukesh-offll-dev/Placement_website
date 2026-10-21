@@ -61,7 +61,11 @@ public class AdminStudentController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
-        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"students_report.csv\"");
+        // Dated, so successive exports do not overwrite each other in Downloads.
+        String filename = "placement_report_" + java.time.LocalDate.now() + ".csv";
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+        // Lets the browser read the filename from a cross-origin response.
+        headers.set(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION);
         headers.setContentLength(csvBytes.length);
 
         return new ResponseEntity<>(csvBytes, headers, HttpStatus.OK);

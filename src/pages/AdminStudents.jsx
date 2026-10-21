@@ -12,7 +12,8 @@ import {
   RefreshCw,
   GraduationCap,
 } from 'lucide-react';
-import { getAllStudents } from '../services/api/adminService';
+import { getAllStudents, exportStudentsCsv } from '../services/api/adminService';
+import { downloadBlob } from '../utils/download';
 import EmptyState from '../components/EmptyState';
 import { toastSuccess, toastError } from '../utils/toast';
 
@@ -57,6 +58,27 @@ export default function AdminStudents() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [exporting, setExporting] = useState(false);
+
+  /**
+   * Downloads the placement report from the backend: every student matching the
+   * search and department filter, with placed company, CTC and placement date.
+   * Built server-side so it covers all matching rows, not just the loaded page,
+   * and so values are escaped against spreadsheet formula injection.
+   */
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await exportStudentsCsv({ search: search.trim(), department: deptFilter });
+      downloadBlob(blob, `placement_report_${new Date().toISOString().slice(0, 10)}.csv`);
+      toastSuccess('Placement report downloaded.');
+    } catch (err) {
+      toastError(err.message || 'Could not export the placement report.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -218,23 +240,13 @@ export default function AdminStudents() {
             />
           </div>
           <button
-            onClick={() => {
-              const csvContent =
-                'data:text/csv;charset=utf-8,' +
-                ['Name,Department,CGPA,Semester,Status']
-                  .concat(students.map((s) => `"${s.name}","${s.dept}",${s.cgpa},"${s.sem}","${s.status}"`))
-                  .join('\n');
-              const encodedUri = encodeURI(csvContent);
-              const link = document.createElement('a');
-              link.setAttribute('href', encodedUri);
-              link.setAttribute('download', 'students_directory.csv');
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }}
-            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm font-medium"
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4" /> Export CSV
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {exporting ? 'Exporting…' : 'Export Placement Report'}
           </button>
         </div>
       </div>

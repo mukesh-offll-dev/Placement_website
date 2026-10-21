@@ -285,7 +285,8 @@ class AdminStudentControllerTest {
         mockMvc.perform(get("/admin/students/export")
                         .header("Authorization", adminToken))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"students_report.csv\""))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"placement_report_" + java.time.LocalDate.now() + ".csv\""))
                 .andExpect(content().contentType("text/csv;charset=UTF-8"))
                 .andExpect(content().string(csvContent));
     }

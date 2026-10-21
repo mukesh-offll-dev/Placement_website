@@ -343,7 +343,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         csv.append('\uFEFF');
 
         // Headers
-        csv.append("ID,Register / Roll No,Full Name,Email,Phone,Department,Degree,Batch,Semester,CGPA,Placement Status,Placed Company,Placed CTC,Profile Completion %,Active Backlogs,Registered At\n");
+        csv.append("ID,Register / Roll No,Full Name,Email,Phone,Department,Degree,Batch,Semester,CGPA,Placement Status,Placed Company,Placed CTC,Placed On,Profile Completion %,Active Backlogs,Registered At\n");
 
         DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -364,6 +364,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                     .append(escapeCsv(s.getPlacementStatus() != null ? s.getPlacementStatus().name() : "")).append(",")
                     .append(escapeCsv(company)).append(",")
                     .append(s.getPlacedCtc() != null ? s.getPlacedCtc().toString() : "").append(",")
+                    .append(s.getPlacedOn() != null ? s.getPlacedOn().format(dateFmt) : "").append(",")
                     .append(s.getProfileCompletionPercent() != null ? s.getProfileCompletionPercent() : 0).append(",")
                     .append(s.getActiveBacklogs() != null ? s.getActiveBacklogs() : 0).append(",")
                     .append(registeredAt).append("\n");
@@ -611,12 +612,24 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         return (short) Math.min(100, score);
     }
 
-    private String escapeCsv(String value) {
+    /**
+     * Quotes a value for CSV and neutralises spreadsheet formulas.
+     *
+     * Students write their own name, phone and similar fields, and this report is
+     * opened in Excel. A value starting with = + - @ (or a tab/CR that Excel strips
+     * first) is evaluated as a formula, so "=HYPERLINK(...)" in a name would run
+     * on the officer's machine. Prefixing an apostrophe makes Excel show it as
+     * text (OWASP CSV injection guidance).
+     */
+    static String escapeCsv(String value) {
         if (value == null) {
             return "";
         }
         String clean = value.replace("\r", " ").replace("\n", " ");
-        if (clean.contains(",") || clean.contains("\"") || clean.contains(";")) {
+        if (!clean.isEmpty() && "=+-@\t".indexOf(clean.charAt(0)) >= 0) {
+            clean = "'" + clean;
+        }
+        if (clean.contains(",") || clean.contains("\"") || clean.contains(";") || clean.startsWith("'")) {
             return "\"" + clean.replace("\"", "\"\"") + "\"";
         }
         return clean;
