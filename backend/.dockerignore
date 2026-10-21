@@ -1,0 +1,17 @@
+# Built inside the image; a host target/ directory can carry classes compiled by
+# a different JDK and shadow the fresh build.
+target
+
+.git
+.idea
+.vscode
+.mvn/wrapper/maven-wrapper.jar
+
+# Secrets must never reach an image layer — compose passes these as environment
+# variables instead.
+.env
+.env.*
+!.env.example
+
+*.log
+uploads

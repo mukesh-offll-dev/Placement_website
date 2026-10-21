@@ -1,0 +1,114 @@
+# ============================================================
+# Placement Cell — full stack: PostgreSQL + Spring Boot + React
+# ============================================================
+# Start:  docker compose up --build
+# Open:   http://localhost:3000
+# Stop:   docker compose down          (add -v to also drop the database)
+#
+# Copy .env.docker.example to .env first — compose reads that file, and
+# JWT_SECRET has no default on purpose.
+#
+# Only the frontend publishes a port. The database and the API are reachable
+# from inside the compose network, not from the host, so the database is not
+# exposed to the LAN. Uncomment the ports below if you need to connect psql or
+# call the API directly while debugging.
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: placement-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-placement_cell}
+      POSTGRES_USER: ${POSTGRES_USER:-placement}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # The backend waits for this: Postgres accepts connections only after
+      # initdb finishes, and Spring Boot exits if the first connection fails.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-placement} -d ${POSTGRES_DB:-placement_cell}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # ports:
+    #   - "5432:5432"
+    networks: [placement]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: placement-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 'default' keeps the local-friendly fallbacks. 'prod' requires every
+      # value to come from the environment and fails fast if one is missing.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}
+
+      # 'postgres' is the service name above; compose resolves it on the network.
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-placement_cell}
+      DB_USERNAME: ${POSTGRES_USER:-placement}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+      # No default: a signing key committed to the repo would let anyone mint
+      # tokens for this deployment.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (openssl rand -base64 48)}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+      # The browser calls the frontend's own origin and nginx proxies onward, so
+      # requests are same-origin and this list only matters for direct API calls.
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+
+      # Seeds a default admin on an empty database. Turn off once real accounts
+      # exist, and change the password immediately either way.
+      APP_DATA_INIT_ENABLED: ${APP_DATA_INIT_ENABLED:-false}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@gces.edu}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-ChangeMeOnFirstLogin@2026!}
+
+      FILE_UPLOAD_DIR: /app/uploads
+    volumes:
+      # Uploads are files on disk, not database rows; without this they are lost
+      # whenever the container is replaced.
+      - backend-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    # ports:
+    #   - "8080:8080"
+    networks: [placement]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Baked into the bundle at build time. Relative, so the browser calls
+        # this nginx and the /api block forwards to the backend.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: placement-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_ORIGIN: http://backend:8080
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    networks: [placement]
+
+volumes:
+  postgres-data:
+  backend-uploads:
+
+networks:
+  placement:
+    driver: bridge

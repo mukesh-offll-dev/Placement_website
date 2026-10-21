@@ -14,8 +14,10 @@ RUN npm ci
 # Copy application source code
 COPY . .
 
-# Build argument to configure backend API endpoint if needed (defaults to standard Spring Boot endpoint)
-ARG VITE_API_BASE_URL=http://localhost:8080/api
+# Vite inlines VITE_* variables into the bundle at build time, so the API URL is
+# fixed when the image is built, not when the container starts. The default is a
+# relative path: the browser calls this same nginx, which proxies to the backend.
+ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Build production bundle into /app/dist
@@ -29,8 +31,18 @@ FROM nginx:alpine
 # Remove default Nginx static files
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy custom Nginx configuration for client-side React Router support
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Nginx config goes in as a TEMPLATE: the official image runs envsubst over
+# /etc/nginx/templates/*.template at startup and writes the result to conf.d.
+# That is what fills in ${BACKEND_ORIGIN} below.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+# Where to forward /api. Defaults to the docker-compose service name; override
+# with -e BACKEND_ORIGIN=... when the API runs elsewhere.
+ENV BACKEND_ORIGIN=http://backend:8080
+
+# Substitute ONLY BACKEND_* variables. Without this filter envsubst would also
+# eat nginx's own $uri, $host and $remote_addr and emit a broken config.
+ENV NGINX_ENVSUBST_FILTER=^BACKEND_
 
 # Copy production build artifacts from the build stage
 COPY --from=build /app/dist /usr/share/nginx/html

@@ -14,6 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminStudents from './pages/AdminStudents';
 import AdminStudentDetail from './pages/AdminStudentDetail';
 import AdminApplications from './pages/AdminApplications';
+import AdminJobDriveForm from './pages/AdminJobDriveForm';
 import NotificationsPage from './pages/NotificationsPage';
 import JobsPage from './pages/JobsPage';
 import JobDetailPage from './pages/JobDetailPage';
@@ -92,6 +93,9 @@ export default function App() {
           <Route path="/admin/students" element={<AdminStudents />} />
           <Route path="/admin/students/:id" element={<AdminStudentDetail />} />
           <Route path="/admin/jobs" element={<JobsPage isAdmin />} />
+          {/* Specific paths before the :id route, or "new" is read as an id. */}
+          <Route path="/admin/jobs/new" element={<AdminJobDriveForm />} />
+          <Route path="/admin/jobs/:id/edit" element={<AdminJobDriveForm />} />
           <Route path="/admin/notifications" element={<NotificationsPage />} />
         </Route>
 

@@ -22,9 +22,15 @@ dist-ssr
 backend/.env
 backend/.env*
 backend/*.local
-# Keep every .env.example tracked, at any depth
+# Keep the templates tracked, at any depth. The patterns above also matched
+# .env.production.example and .env.docker.example, so they were being ignored
+# silently; the *.example forms below cover any new template too.
 !.env.example
 !**/.env.example
+!*.env.example
+!**/*.env.example
+!.env.*.example
+!**/.env.*.example
 
 # Editor directories and files
 .vscode/*

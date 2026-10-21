@@ -14,7 +14,6 @@ import {
 import { jobService } from '../services/api';
 import EmptyState from '../components/EmptyState';
 import { JobCardSkeleton } from '../components/Skeleton';
-import { toastSuccess, toastError } from '../utils/toast';
 
 const PAGE_SIZE = 5;
 
@@ -60,11 +59,9 @@ const formatJobType = (type) => {
 export default function JobsPage({ isAdmin = false }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newJob, setNewJob] = useState({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
 
   const fetchJobs = useCallback(async (signal) => {
     setLoading(true);
@@ -151,37 +148,20 @@ export default function JobsPage({ isAdmin = false }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleAdd = (e) => {
-    e.preventDefault();
-    if (!newJob.company?.trim() || !newJob.role?.trim()) {
-      toastError('Please provide both Company Name and Job Role.');
-      return;
-    }
-    const created = {
-      ...newJob,
-      id: Date.now(),
-      companyShort: (newJob.company.slice(0, 2) || 'JB').toUpperCase(),
-      logoColor: 'bg-blue-100 text-blue-700',
-      status: 'Open',
-      type: 'Full Time',
-    };
-    setJobs((prev) => [created, ...prev]);
-    setNewJob({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
-    setShowAddModal(false);
-    toastSuccess(`Job drive for "${created.company}" posted successfully!`);
-  };
 
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-2xl font-bold">Job Drives</h2>
         {isAdmin && (
-          <button
-            onClick={() => setShowAddModal(true)}
+          // The old modal only added a row to local state; the real form posts to
+          // /admin/jobs and validates against the backend contract.
+          <Link
+            to="/admin/jobs/new"
             className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5"
           >
             <Briefcase className="w-4 h-4" /> Post New Job
-          </button>
+          </Link>
         )}
       </div>
       <p className="text-gray-500 text-sm mb-6">Browse active recruitment drives.</p>
@@ -254,7 +234,7 @@ export default function JobsPage({ isAdmin = false }) {
               isAdmin
                 ? {
                     label: 'Post New Job',
-                    onClick: () => setShowAddModal(true),
+                    to: '/admin/jobs/new',
                     icon: Briefcase,
                   }
                 : {
@@ -358,47 +338,6 @@ export default function JobsPage({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Add Job Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
-            <h3 className="font-bold text-lg mb-4">Post New Job Drive</h3>
-            <form onSubmit={handleAdd} className="space-y-3">
-              {[
-                { field: 'company', label: 'Company Name' },
-                { field: 'role', label: 'Job Role' },
-                { field: 'cgpa', label: 'Min CGPA (e.g. 7.5+)' },
-                { field: 'deadline', label: 'Deadline (e.g. Nov 30, 2026)' },
-                { field: 'location', label: 'Location' },
-                { field: 'ctc', label: 'CTC (e.g. 12 LPA)' },
-              ].map(({ field, label }) => (
-                <div key={field}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                  <input
-                    type="text"
-                    required
-                    value={newJob[field]}
-                    onChange={(e) => setNewJob((j) => ({ ...j, [field]: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              ))}
-              <div className="flex gap-3 pt-2">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 font-medium text-sm">
-                  Post Job
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 border border-gray-300 py-2.5 rounded-lg text-sm hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
