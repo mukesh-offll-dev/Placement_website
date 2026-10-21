@@ -551,7 +551,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
 
         long totalApps = apps.size();
         long shortlistedCount = apps.stream()
-                .filter(a -> ApplicationStatus.SHORTLISTED.equals(a.getStatus()) || ApplicationStatus.SELECTED.equals(a.getStatus()))
+                .filter(a -> ApplicationStatus.SHORTLISTED.equals(a.getStatus())
+                        || ApplicationStatus.INTERVIEW.equals(a.getStatus())
+                        || ApplicationStatus.SELECTED.equals(a.getStatus()))
                 .count();
 
         return StudentDetailDto.builder()

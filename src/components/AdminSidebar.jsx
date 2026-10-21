@@ -6,6 +6,7 @@ import {
   Bell,
   LogOut,
   ShieldCheck,
+  FileCheck,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,7 @@ import { toastInfo } from '../utils/toast';
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/applications', icon: FileCheck, label: 'Applications' },
   { to: '/admin/students', icon: Users, label: 'Students' },
   { to: '/admin/jobs', icon: Briefcase, label: 'Job Drives' },
   { to: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },

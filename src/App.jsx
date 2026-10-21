@@ -13,6 +13,7 @@ import StudentLayout from './layouts/StudentLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudents from './pages/AdminStudents';
 import AdminStudentDetail from './pages/AdminStudentDetail';
+import AdminApplications from './pages/AdminApplications';
 import NotificationsPage from './pages/NotificationsPage';
 import JobsPage from './pages/JobsPage';
 import JobDetailPage from './pages/JobDetailPage';
@@ -87,6 +88,7 @@ export default function App() {
           }
         >
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/applications" element={<AdminApplications />} />
           <Route path="/admin/students" element={<AdminStudents />} />
           <Route path="/admin/students/:id" element={<AdminStudentDetail />} />
           <Route path="/admin/jobs" element={<JobsPage isAdmin />} />
