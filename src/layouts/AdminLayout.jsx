@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { useAuth } from '../context/AuthContext';
+import { toastSuccess } from '../utils/toast';
 
 const breadcrumbMap = {
   '/admin/dashboard': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Dashboard' }],
@@ -66,6 +67,7 @@ export default function AdminLayout() {
 
   const markAllAsRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
+    toastSuccess('All notifications marked as read.');
   };
 
   return (

@@ -12,6 +12,7 @@ import {
 import notificationService from '../services/api/notificationService';
 import EmptyState from '../components/EmptyState';
 import { ListRowSkeleton } from '../components/Skeleton';
+import { toastSuccess, toastError } from '../utils/toast';
 
 const typeConfig = {
   job: { icon: BriefcaseIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -107,9 +108,12 @@ export default function NotificationsPage() {
     setActionError(null);
     try {
       await notificationService.markAllAsRead();
-    } catch {
+      toastSuccess('All notifications marked as read.');
+    } catch (err) {
       setNotifs(previous);
-      setActionError('Failed to mark all as read. Please try again.');
+      const msg = 'Failed to mark all as read. Please try again.';
+      setActionError(msg);
+      toastError(err, msg);
     }
   };
 
@@ -119,9 +123,12 @@ export default function NotificationsPage() {
     setActionError(null);
     try {
       await notificationService.deleteNotification(id);
-    } catch {
+      toastSuccess('Notification dismissed.');
+    } catch (err) {
       setNotifs(previous);
-      setActionError('Failed to dismiss notification. Please try again.');
+      const msg = 'Failed to dismiss notification. Please try again.';
+      setActionError(msg);
+      toastError(err, msg);
     }
   };
 
@@ -140,9 +147,11 @@ export default function NotificationsPage() {
       } else {
         await notificationService.markAsUnread(id);
       }
-    } catch {
+    } catch (err) {
       setNotifs(previous);
-      setActionError('Failed to update notification. Please try again.');
+      const msg = 'Failed to update notification. Please try again.';
+      setActionError(msg);
+      toastError(err, msg);
     }
   };
 

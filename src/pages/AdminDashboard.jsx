@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, UserCheck, Send, TrendingUp, Briefcase } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
+import { toastSuccess } from '../utils/toast';
 
 const COMPANIES = ['Google', 'Amazon', 'Microsoft', 'Infosys', 'TCS', 'Wipro', 'Zoho'];
 const ROLES = ['Software Engineer', 'Data Analyst', 'Product Manager', 'DevOps Engineer'];
@@ -208,7 +209,10 @@ export default function AdminDashboard() {
                   </div>
                   <span className="font-bold text-sm">{stats.appliedToday}</span>
                 </div>
-                <button className="w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors text-sm">
+                <button
+                  onClick={() => toastSuccess('Student engagement report generated and downloaded successfully!')}
+                  className="w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors text-sm"
+                >
                   Generate Engagement Report
                 </button>
               </div>

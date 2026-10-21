@@ -14,6 +14,7 @@ import {
 import { jobService } from '../services/api';
 import EmptyState from '../components/EmptyState';
 import { JobCardSkeleton } from '../components/Skeleton';
+import { toastSuccess, toastError } from '../utils/toast';
 
 const PAGE_SIZE = 5;
 
@@ -152,6 +153,10 @@ export default function JobsPage({ isAdmin = false }) {
 
   const handleAdd = (e) => {
     e.preventDefault();
+    if (!newJob.company?.trim() || !newJob.role?.trim()) {
+      toastError('Please provide both Company Name and Job Role.');
+      return;
+    }
     const created = {
       ...newJob,
       id: Date.now(),
@@ -163,6 +168,7 @@ export default function JobsPage({ isAdmin = false }) {
     setJobs((prev) => [created, ...prev]);
     setNewJob({ company: '', role: '', cgpa: '', deadline: '', location: '', ctc: '' });
     setShowAddModal(false);
+    toastSuccess(`Job drive for "${created.company}" posted successfully!`);
   };
 
   return (

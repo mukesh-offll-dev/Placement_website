@@ -43,6 +43,7 @@ import {
 import { getUser } from '../services/authService';
 import EmptyState from '../components/EmptyState';
 import { ProfileSkeleton } from '../components/Skeleton';
+import { toastSuccess, toastError } from '../utils/toast';
 
 export default function StudentProfile() {
   const resumeFileRef = useRef(null);
@@ -323,11 +324,13 @@ export default function StudentProfile() {
         type: 'success',
         text: 'About section updated successfully!',
       });
+      toastSuccess('About section updated successfully!');
     } catch (err) {
       setNotification({
         type: 'error',
         text: err.message || 'Failed to update About section.',
       });
+      toastError(err, 'Failed to update About section.');
     } finally {
       setSavingAbout(false);
     }
@@ -408,10 +411,12 @@ export default function StudentProfile() {
         type: 'success',
         text: 'Profile details saved successfully!',
       });
+      toastSuccess('Profile details saved successfully!');
     } catch (err) {
       setModalErrors({
         submit: err.message || 'Failed to save profile. Please check the values.',
       });
+      toastError(err, 'Failed to save profile. Please try again.');
     } finally {
       setSavingProfile(false);
     }
@@ -453,11 +458,14 @@ export default function StudentProfile() {
         type: 'success',
         text: 'Resume uploaded successfully to the backend!',
       });
+      toastSuccess('Resume uploaded successfully!');
     } else {
+      const errMsg = res.error || 'Failed to upload resume. Please verify the file and try again.';
       setResumeMessage({
         type: 'error',
-        text: res.error || 'Failed to upload resume. Please verify the file and try again.',
+        text: errMsg,
       });
+      toastError(errMsg);
     }
 
     if (resumeFileRef.current) {
@@ -481,11 +489,14 @@ export default function StudentProfile() {
         type: 'success',
         text: 'Resume deleted successfully.',
       });
+      toastSuccess('Resume deleted successfully.');
     } else {
+      const errMsg = res.error || 'Failed to delete resume.';
       setResumeMessage({
         type: 'error',
-        text: res.error || 'Failed to delete resume.',
+        text: errMsg,
       });
+      toastError(errMsg);
     }
   };
 
@@ -503,11 +514,13 @@ export default function StudentProfile() {
         type: 'success',
         text: 'Project deleted successfully.',
       });
+      toastSuccess('Project deleted from your profile.');
     } catch (err) {
       setNotification({
         type: 'error',
         text: err.message || 'Failed to delete project.',
       });
+      toastError(err, 'Failed to delete project. Please try again.');
     } finally {
       setDeletingProjectId(null);
     }

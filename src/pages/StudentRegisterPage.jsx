@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle, CheckCircle2, User, Mail, Hash, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { toastSuccess, toastError } from '../utils/toast';
 
 export default function StudentRegisterPage() {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ export default function StudentRegisterPage() {
     const validationError = validate();
     if (validationError) {
       setError(validationError);
+      toastError(validationError);
       return;
     }
 
@@ -61,12 +63,15 @@ export default function StudentRegisterPage() {
         password: form.password,
       });
 
+      toastSuccess('Account created successfully! Welcome to the Placement Portal.');
       setSuccess(true);
       setTimeout(() => {
         navigate('/student/dashboard');
       }, 1500);
     } catch (err) {
-      setError(err.message || 'Registration failed. Please try again.');
+      const errMsg = err.message || 'Registration failed. Please try again.';
+      setError(errMsg);
+      toastError(err, 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
