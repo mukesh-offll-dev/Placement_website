@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -94,6 +95,15 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
      */
     @EntityGraph(attributePaths = {"user"})
     Optional<StudentProfile> findWithDetailsByUserId(Long userId);
+
+    /**
+     * Students who can be sent job alerts: a live login, an email on file, open to
+     * opportunities and in one of the given placement statuses. Job-specific rules
+     * (CGPA, backlogs, batch, department) are applied afterwards by JobEligibility.
+     */
+    @Query("SELECT s FROM StudentProfile s JOIN s.user u WHERE u.isDeleted = false AND u.isActive = true " +
+           "AND s.email IS NOT NULL AND s.isOpenToOpportunities = true AND s.placementStatus IN :statuses")
+    List<StudentProfile> findNotifiableStudents(@Param("statuses") Collection<PlacementStatus> statuses);
 
     @Query("SELECT COUNT(s) FROM StudentProfile s WHERE (s.user.isDeleted = false OR s.user IS NULL)")
     long countActiveStudents();

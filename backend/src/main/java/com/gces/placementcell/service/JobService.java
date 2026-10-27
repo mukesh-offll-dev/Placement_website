@@ -13,6 +13,7 @@ import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.CompanyRepository;
 import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,13 +29,16 @@ public class JobService {
     private final JobRepository jobRepository;
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public JobService(JobRepository jobRepository,
                       CompanyRepository companyRepository,
-                      UserRepository userRepository) {
+                      UserRepository userRepository,
+                      ApplicationEventPublisher eventPublisher) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -73,14 +77,23 @@ public class JobService {
         job.setPostedBy(findAdmin(adminEmail));
         job.setPostedDate(LocalDate.now());
         applyRequest(job, request);
-        return JobResponse.from(jobRepository.save(job));
+        Job saved = jobRepository.save(job);
+        announceIfRequested(saved, request);
+        return JobResponse.from(saved);
     }
 
     @Transactional
     public JobResponse updateJob(Long id, JobRequest request) {
         Job job = findManagedJob(id);
+        boolean wasOpen = job.isOpen();
         applyRequest(job, request);
-        return JobResponse.from(jobRepository.save(job));
+        Job saved = jobRepository.save(job);
+        // Only the moment a draft/closed drive goes live is announced, so editing a live
+        // drive (typo fix, new deadline) never re-sends mail to everyone.
+        if (!wasOpen) {
+            announceIfRequested(saved, request);
+        }
+        return JobResponse.from(saved);
     }
 
     @Transactional
@@ -97,6 +110,16 @@ public class JobService {
         return jobRepository.findById(id)
                 .filter(job -> !Boolean.TRUE.equals(job.getIsDeleted()))
                 .orElseThrow(() -> new ResourceNotFoundException("Job", "id", id));
+    }
+
+    /**
+     * Publishes the alert event when the admin asked for it and the job is actually open to
+     * applications. The mail itself is sent by JobNotificationService after this transaction commits.
+     */
+    private void announceIfRequested(Job job, JobRequest request) {
+        if (Boolean.TRUE.equals(request.notifyEligibleStudents()) && job.isOpen()) {
+            eventPublisher.publishEvent(new JobPostedEvent(job.getId()));
+        }
     }
 
     private User findAdmin(String email) {

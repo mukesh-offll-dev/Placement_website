@@ -123,6 +123,14 @@ describe('Job drive payload', () => {
     assert.equal(payload.backlogsAllowed, false);
     assert.equal(payload.status, 'DRAFT');
   });
+
+  it('asks for eligible students to be emailed by default, and sends false when unticked', () => {
+    assert.equal(buildJobPayload(validForm()).notifyEligibleStudents, true);
+    assert.equal(
+      buildJobPayload(validForm({ notifyEligibleStudents: false })).notifyEligibleStudents,
+      false
+    );
+  });
 });
 
 describe('Loading a drive into the form', () => {

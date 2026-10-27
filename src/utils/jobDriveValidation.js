@@ -41,6 +41,8 @@ export const emptyJobDrive = () => ({
   status: 'DRAFT',
   skills: [],
   requirements: [],
+  // Ticked by default: students are emailed the moment the drive goes Active.
+  notifyEligibleStudents: true,
 });
 
 const isBlank = (value) => value == null || String(value).trim() === '';
@@ -218,6 +220,7 @@ export function buildJobPayload(form) {
     status: form.status || 'DRAFT',
     skills: (form.skills || []).map((s) => s.trim()).filter(Boolean),
     requirements: (form.requirements || []).map((r) => r.trim()).filter(Boolean),
+    notifyEligibleStudents: Boolean(form.notifyEligibleStudents),
   };
 }
 

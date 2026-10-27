@@ -211,12 +211,17 @@ export default function AdminJobDriveForm() {
     setSaving(true);
     try {
       const payload = buildJobPayload(form);
+      const alertsRequested = payload.notifyEligibleStudents && payload.status === 'ACTIVE';
       if (isEdit) {
         await jobService.updateJob(id, payload);
         toastSuccess('Job drive updated.');
       } else {
         await jobService.createJob(payload);
-        toastSuccess('Job drive posted.');
+        toastSuccess(
+          alertsRequested
+            ? 'Job drive posted. Eligible students are being emailed.'
+            : 'Job drive posted.'
+        );
       }
       navigate('/admin/jobs');
     } catch (err) {
@@ -538,6 +543,23 @@ export default function AdminJobDriveForm() {
               </select>
             </Field>
           </div>
+
+          <label className="flex items-start gap-2 text-sm text-gray-700">
+            <input
+              id="notifyEligibleStudents"
+              type="checkbox"
+              checked={form.notifyEligibleStudents}
+              onChange={setField('notifyEligibleStudents')}
+              className="w-4 h-4 mt-0.5 rounded border-gray-300"
+            />
+            <span>
+              Email eligible students when this drive goes live
+              <span className="block text-xs text-gray-400 mt-0.5">
+                Sent only while the status is Active, to students who meet the CGPA, backlog and batch criteria above.
+                A saved draft is emailed once, when you later set it to Active.
+              </span>
+            </span>
+          </label>
         </section>
 
         <div className="flex items-center gap-3">

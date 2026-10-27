@@ -279,7 +279,7 @@ class DtoContractTest {
         @DisplayName("A job needs a company, role and deadline")
         void testJobRequiredFields() {
             var empty = new JobRequest(null, "  ", null, null, null, null, null, null, null,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null);
             var violated = violatedProperties(empty);
 
             assertTrue(violated.containsAll(Set.of("companyId", "jobRole", "jobType", "applicationDeadline")),
@@ -292,7 +292,7 @@ class DtoContractTest {
             var withBlankSkill = new JobRequest(
                     1L, "SDE", null, EmploymentType.FULL_TIME, "Bangalore", "24 LPA",
                     new BigDecimal("2400000.00"), 10, null, new BigDecimal("8.00"), false,
-                    (short) 2026, LocalDate.now().plusMonths(1), null, List.of("Java", " "), null);
+                    (short) 2026, LocalDate.now().plusMonths(1), null, List.of("Java", " "), null, null);
 
             assertFalse(validator.validate(withBlankSkill).isEmpty(),
                     "A blank skill name must not pass validation");
