@@ -17,9 +17,10 @@ import {
   X,
 } from 'lucide-react';
 import { jobService } from '../services/api';
+import { submitApplication } from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
 import { JobDetailSkeleton } from '../components/Skeleton';
-import { toastSuccess, toastInfo } from '../utils/toast';
+import { toastSuccess, toastInfo, toastError } from '../utils/toast';
 
 const JOBS_DB = {
   1: {
@@ -183,19 +184,15 @@ export default function JobDetailPage() {
   const [applied, setApplied] = useState(false);
   const [applyStep, setApplyStep] = useState(1);
   const [applyForm, setApplyForm] = useState({ resume: null, coverLetter: '', consent: false });
+  const [submittingApplication, setSubmittingApplication] = useState(false);
+  const [applicationError, setApplicationError] = useState('');
 
   const initialJob = JOBS_DB[parseInt(id, 10)] || null;
   const [job, setJob] = useState(initialJob);
-  const [loading, setLoading] = useState(!initialJob);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (JOBS_DB[parseInt(id, 10)]) {
-      setJob(JOBS_DB[parseInt(id, 10)]);
-      setLoading(false);
-      return;
-    }
-
     let isMounted = true;
     const fetchJob = async () => {
       setLoading(true);
@@ -272,16 +269,33 @@ export default function JobDetailPage() {
     };
   }, [id]);
 
-  const handleApply = (e) => {
+  const handleApply = async (e) => {
     e.preventDefault();
     if (applyStep === 1) {
       setApplyStep(2);
       return;
     }
-    setApplied(true);
-    setShowApply(false);
-    setApplyStep(1);
-    toastSuccess(`Application submitted for ${job.role} at ${job.company}!`);
+
+    setSubmittingApplication(true);
+    setApplicationError('');
+    try {
+      await submitApplication({
+        jobId: Number(job.id),
+        coverLetter: applyForm.coverLetter.trim() || null,
+        resumeUrl: null,
+        consentGiven: applyForm.consent,
+      });
+      setApplied(true);
+      setShowApply(false);
+      setApplyStep(1);
+      toastSuccess(`Application submitted for ${job.role} at ${job.company}!`);
+    } catch (err) {
+      const message = err.message || 'Could not submit your application. Please try again.';
+      setApplicationError(message);
+      toastError(err, 'Could not submit your application. Please try again.');
+    } finally {
+      setSubmittingApplication(false);
+    }
   };
 
   if (loading) {
@@ -573,6 +587,11 @@ export default function JobDetailPage() {
             </div>
 
             <form onSubmit={handleApply} className="px-6 py-4 space-y-4">
+              {applicationError && (
+                <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3" role="alert">
+                  {applicationError}
+                </p>
+              )}
               {applyStep === 1 ? (
                 <>
                   <p className="text-sm text-gray-600">Review your profile before applying. Make sure it&apos;s up to date.</p>
@@ -635,9 +654,10 @@ export default function JobDetailPage() {
                 )}
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+                  disabled={submittingApplication}
+                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {applyStep === 1 ? 'Continue →' : 'Submit Application'}
+                  {submittingApplication ? 'Submitting…' : applyStep === 1 ? 'Continue →' : 'Submit Application'}
                 </button>
               </div>
             </form>
