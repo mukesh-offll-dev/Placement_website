@@ -1,8 +1,12 @@
 package com.gces.placementcell.service;
 
+import com.gces.placementcell.dto.request.StudentEducationRequest;
 import com.gces.placementcell.dto.request.StudentProfileRequest;
+import com.gces.placementcell.dto.request.StudentProjectRequest;
 import com.gces.placementcell.dto.response.StudentProfileResponse;
+import com.gces.placementcell.entity.StudentEducation;
 import com.gces.placementcell.entity.StudentProfile;
+import com.gces.placementcell.entity.StudentProject;
 import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.entity.enums.UserRole;
@@ -148,8 +152,68 @@ class StudentProfileServiceImplTest {
     }
 
     @Test
+    @DisplayName("createProfile with education and projects links parent student profile ID correctly")
+    void testCreateProfileWithEducationAndProjectsSuccess() {
+        when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.existsByUserId(1L)).thenReturn(false);
+        when(studentProfileRepository.existsByRollNo("811521104001")).thenReturn(false);
+        when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> {
+            StudentProfile p = i.getArgument(0);
+            p.setId(10L);
+            return p;
+        });
+        when(studentProjectRepository.existsByStudentIdAndTitle(eq(10L), eq("AI Chatbot"))).thenReturn(false);
+        when(studentSkillRepository.findByStudentProfileIdOrderBySkillNameAsc(10L)).thenReturn(List.of());
+        when(studentEducationRepository.findByStudentProfileId(10L)).thenReturn(List.of());
+        when(studentExperienceRepository.findByStudentProfileId(10L)).thenReturn(List.of());
+        when(studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
+
+        StudentEducationRequest eduReq = new StudentEducationRequest(
+                "GCE Srirangam", "B.E. CSE", "Anna University", (short) 2022, (short) 2026, "8.9 CGPA", true
+        );
+        StudentProjectRequest projReq = new StudentProjectRequest(
+                "AI Chatbot", "Intelligent chatbot portal", "https://chat.example.com", "https://github.com/test/chat", null, List.of("Java", "React")
+        );
+
+        StudentProfileRequest request = new StudentProfileRequest(
+                "Adithya Kumar",
+                "811521104001",
+                "student@gces.edu",
+                "9876543210",
+                "Trichy",
+                "Passionate developer",
+                null,
+                null,
+                "GCE Srirangam",
+                "B.E.",
+                "Computer Science",
+                "CSE",
+                "2021-2025",
+                (short) 7,
+                new BigDecimal("8.50"),
+                0,
+                0,
+                true,
+                List.of(eduReq),
+                List.of(projReq)
+        );
+
+        StudentProfileResponse response = studentProfileService.createProfile("student@gces.edu", request);
+
+        assertNotNull(response);
+        verify(studentEducationRepository).save(argThat(edu ->
+                edu.getStudentProfile() != null && edu.getStudentProfile().getId().equals(10L)
+                        && edu.getInstitutionName().equals("GCE Srirangam")
+        ));
+        verify(studentProjectRepository).save(argThat(proj ->
+                proj.getStudentProfile() != null && proj.getStudentProfile().getId().equals(10L)
+                        && proj.getTitle().equals("AI Chatbot")
+        ));
+    }
+
+    @Test
     @DisplayName("createProfile throws DuplicateResourceException if profile already exists")
-    void testCreateProfileDuplicateThrows() {
+    void testCreateProfileAlreadyExists() {
         when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
         when(studentProfileRepository.existsByUserId(1L)).thenReturn(true);
 
@@ -161,11 +225,12 @@ class StudentProfileServiceImplTest {
     }
 
     @Test
-    @DisplayName("updateProfile successfully updates profile fields")
+    @DisplayName("updateProfile updates profile fields successfully")
     void testUpdateProfileSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
         when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentProfile));
-        when(studentProfileRepository.save(any(StudentProfile.class))).thenReturn(studentProfile);
+        when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> i.getArgument(0));
+
         when(studentSkillRepository.findByStudentProfileIdOrderBySkillNameAsc(10L)).thenReturn(List.of());
         when(studentEducationRepository.findByStudentProfileId(10L)).thenReturn(List.of());
         when(studentExperienceRepository.findByStudentProfileId(10L)).thenReturn(List.of());
@@ -198,5 +263,53 @@ class StudentProfileServiceImplTest {
         assertEquals("Adithya K Updated", response.fullName());
         assertEquals("Chennai", studentProfile.getAddress());
         assertEquals("Updated bio", studentProfile.getAbout());
+    }
+
+    @Test
+    @DisplayName("updateProfile with education removes old records to avoid duplicates and saves with correct parent ID")
+    void testUpdateProfileWithEducationAvoidsDuplicates() {
+        when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentProfile));
+        when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> i.getArgument(0));
+
+        when(studentSkillRepository.findByStudentProfileIdOrderBySkillNameAsc(10L)).thenReturn(List.of());
+        when(studentEducationRepository.findByStudentProfileId(10L)).thenReturn(List.of());
+        when(studentExperienceRepository.findByStudentProfileId(10L)).thenReturn(List.of());
+        when(studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
+
+        StudentEducationRequest eduReq = new StudentEducationRequest(
+                "Anna University Campus", "M.Tech CSE", "Anna University", (short) 2026, (short) 2028, "9.0 CGPA", false
+        );
+
+        StudentProfileRequest request = new StudentProfileRequest(
+                "Adithya Kumar",
+                "811521104001",
+                "student@gces.edu",
+                "9876543210",
+                "Trichy",
+                "Bio",
+                null,
+                null,
+                "GCE Srirangam",
+                "B.E.",
+                "CSE",
+                "CSE",
+                "2021-2025",
+                (short) 7,
+                new BigDecimal("8.50"),
+                0,
+                0,
+                true,
+                List.of(eduReq),
+                null
+        );
+
+        studentProfileService.updateProfile("student@gces.edu", request);
+
+        verify(studentEducationRepository).deleteByStudentProfileId(10L);
+        verify(studentEducationRepository).save(argThat(edu ->
+                edu.getStudentProfile() != null && edu.getStudentProfile().getId().equals(10L)
+                        && edu.getInstitutionName().equals("Anna University Campus")
+        ));
     }
 }

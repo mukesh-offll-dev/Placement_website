@@ -72,6 +72,14 @@ public class StudentEducation {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    public StudentProfile getStudent() {
+        return this.studentProfile;
+    }
+
+    public void setStudent(StudentProfile student) {
+        this.studentProfile = student;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
