@@ -28,3 +28,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Local Database
+data/
+*.db
+*.mv.db

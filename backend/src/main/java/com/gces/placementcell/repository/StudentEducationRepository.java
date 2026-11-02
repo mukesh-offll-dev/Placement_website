@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Spring Data JPA Repository for StudentEducation entity.
@@ -19,6 +20,8 @@ public interface StudentEducationRepository extends JpaRepository<StudentEducati
     List<StudentEducation> findByStudentProfileIdOrderByEndYearDesc(Long studentProfileId);
 
     List<StudentEducation> findByStudentProfileIdAndIsCurrentTrue(Long studentProfileId);
+
+    Optional<StudentEducation> findByIdAndStudentProfileId(Long id, Long studentProfileId);
 
     void deleteByStudentProfileId(Long studentProfileId);
 }

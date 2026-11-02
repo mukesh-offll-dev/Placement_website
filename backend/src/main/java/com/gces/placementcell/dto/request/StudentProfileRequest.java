@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Fields a student may edit on their own profile.
@@ -79,8 +80,35 @@ public record StudentProfileRequest(
         @Min(value = 0, message = "Active backlogs cannot be negative")
         Integer activeBacklogs,
 
-        Boolean isOpenToOpportunities
+        Boolean isOpenToOpportunities,
+
+        List<StudentEducationRequest> education,
+
+        List<StudentProjectRequest> projects
 ) {
+    public StudentProfileRequest(
+            String fullName,
+            String rollNo,
+            String email,
+            String phone,
+            String address,
+            String about,
+            String avatarUrl,
+            String resumeUrl,
+            String college,
+            String degree,
+            String department,
+            String departmentCode,
+            String batch,
+            Short semester,
+            BigDecimal cgpa,
+            Integer totalBacklogs,
+            Integer activeBacklogs,
+            Boolean isOpenToOpportunities
+    ) {
+        this(fullName, rollNo, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null);
+    }
+
     public StudentProfileRequest(
             String fullName,
             String email,
@@ -100,6 +128,6 @@ public record StudentProfileRequest(
             Integer activeBacklogs,
             Boolean isOpenToOpportunities
     ) {
-        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities);
+        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null);
     }
 }
