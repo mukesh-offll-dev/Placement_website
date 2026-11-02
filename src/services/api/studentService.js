@@ -76,6 +76,15 @@ export const getMyApplication = async (applicationId, { signal } = {}) => {
 };
 
 /**
+ * Submit an application for the authenticated student.
+ * POST /api/student/applications
+ */
+export const submitApplication = async (applicationData) => {
+  const response = await axiosClient.post('/student/applications', applicationData);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
  * Get authenticated student's profile summary.
  * GET /api/student/me
  */
@@ -125,6 +134,7 @@ export const updateProfile = async (profileData) => {
 const studentService = {
   getMyApplications,
   getMyApplication,
+  submitApplication,
   getMyProfileSummary,
   getStudentDashboard,
   getProfile,

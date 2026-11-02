@@ -44,8 +44,35 @@ export const getStudents = async (params = {}) => {
  * GET /api/admin/students?size=100
  */
 export const getAllStudents = async () => {
-  const response = await axiosClient.get('/admin/students', { params: { size: 100 } });
-  return response.data;
+  const students = [];
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    const response = await axiosClient.get('/admin/students', {
+      params: { page, size: 100 },
+    });
+    const result = response?.data !== undefined ? response.data : response;
+
+    if (Array.isArray(result)) {
+      return result;
+    }
+
+    if (
+      !result ||
+      !Array.isArray(result.content) ||
+      !Number.isInteger(result.totalPages) ||
+      result.totalPages < 0
+    ) {
+      throw new Error('The students response has an unexpected format.');
+    }
+
+    students.push(...result.content);
+    totalPages = result.totalPages;
+    page += 1;
+  }
+
+  return students;
 };
 
 /**

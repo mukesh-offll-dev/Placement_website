@@ -459,42 +459,43 @@ In the Neon Dashboard under **Connection Details**:
 
 ## 14. Configuring Environment Variables
 
-The backend uses [application-prod.yml](file:///d:/placement/backend/src/main/resources/application-prod.yml) which dynamically reads standard environment variables:
+The backend uses `backend/src/main/resources/application-prod.properties`, which reads the database settings from environment variables:
 
 | Environment Variable | Description | Example Format |
 | :--- | :--- | :--- |
 | `DB_URL` | PostgreSQL JDBC Connection URL with SSL enabled | `jdbc:postgresql://<your-neon-host>/neondb?sslmode=require` |
-| `DB_USERNAME` | Neon PostgreSQL username | `neondb_owner` |
+| `DB_USERNAME` | Neon PostgreSQL username | `<your-neon-username>` |
 | `DB_PASSWORD` | Neon PostgreSQL password | `<your-neon-password>` |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile | `prod` |
 
-### Setting Environment Variables in PowerShell (Session-Based)
-Open PowerShell in `Placement_website\backend`:
+### Configure the Backend `.env` File (Recommended)
+The backend includes a dotenv loader. From the project root, copy the backend template and edit it with the connection details shown in your Neon dashboard:
 
 ```powershell
-# 1. Set environment variables for the current terminal session
-$env:DB_URL="jdbc:postgresql://<your-neon-host>/neondb?sslmode=require"
-$env:DB_USERNAME="neondb_owner"
-$env:DB_PASSWORD="<your-neon-password>"
-$env:SPRING_PROFILES_ACTIVE="prod"
-
-# 2. Start the Spring Boot backend
-mvn spring-boot:run
+Copy-Item backend\.env.example backend\.env
+notepad backend\.env
 ```
 
-### Setting Environment Variables in Command Prompt (CMD)
-```cmd
-set DB_URL=jdbc:postgresql://<your-neon-host>/neondb?sslmode=require
-set DB_USERNAME=neondb_owner
-set DB_PASSWORD=<your-neon-password>
-set SPRING_PROFILES_ACTIVE=prod
-mvn spring-boot:run
+Set `SPRING_PROFILES_ACTIVE=prod`, and replace `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `JWT_SECRET` with your own values. `DB_URL` must be the JDBC form `jdbc:postgresql://<your-neon-host>/neondb?sslmode=require`. Keep the `.env` file private; it is ignored by Git.
+
+Then start the backend from its folder:
+
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+### Alternatively: Set Environment Variables in PowerShell
+```powershell
+$env:DB_URL="jdbc:postgresql://<your-neon-host>/neondb?sslmode=require"
+$env:DB_USERNAME="<your-neon-username>"
+$env:DB_PASSWORD="<your-neon-password>"
+$env:SPRING_PROFILES_ACTIVE="prod"
+.\mvnw.cmd spring-boot:run
 ```
 
 > [!IMPORTANT]
-> **Understanding `.env` vs Environment Variables in Spring Boot:**  
-> Standard Spring Boot does not read `.env` files automatically without custom dotenv libraries.  
-> The included `.env.example` file serves as a reference template. To run the app, set environment variables directly in your terminal session as shown above, or pass them in your deployment environment (e.g. Render, Railway, AWS).
+> **The `.env.example` file is only a template; it is not loaded automatically.** Copy it to `.env` as shown above. The backend reads `.env` files, and operating-system environment variables take precedence over values in the file. The default `dev` profile uses in-memory H2; use `prod` to require PostgreSQL settings.
 
 ---
 

@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import axiosClient from './axiosClient.js';
-import { getMyApplication, getMyApplications } from './studentService.js';
+import { getMyApplication, getMyApplications, submitApplication } from './studentService.js';
 
 const originalGet = axiosClient.get;
+const originalPost = axiosClient.post;
 
 afterEach(() => {
   axiosClient.get = originalGet;
+  axiosClient.post = originalPost;
 });
 
 test('getMyApplications requests every page from the authenticated student endpoint', async () => {
@@ -63,4 +65,22 @@ test("getMyApplication requests the authenticated student's application detail",
   };
 
   assert.deepEqual(await getMyApplication(42), { id: 42, timeline });
+});
+
+test('submitApplication posts the student application to the backend', async () => {
+  const application = { id: 42, status: 'APPLIED' };
+  const payload = {
+    jobId: 7,
+    coverLetter: 'Interested in this role',
+    resumeUrl: null,
+    consentGiven: true,
+  };
+
+  axiosClient.post = async (url, requestBody) => {
+    assert.equal(url, '/student/applications');
+    assert.deepEqual(requestBody, payload);
+    return { data: application };
+  };
+
+  assert.deepEqual(await submitApplication(payload), application);
 });
