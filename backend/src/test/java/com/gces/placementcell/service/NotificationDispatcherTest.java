@@ -1,0 +1,167 @@
+package com.gces.placementcell.service;
+
+import com.gces.placementcell.entity.Notification;
+import com.gces.placementcell.entity.NotificationRecipient;
+import com.gces.placementcell.entity.User;
+import com.gces.placementcell.entity.enums.NotificationPriority;
+import com.gces.placementcell.entity.enums.NotificationStatus;
+import com.gces.placementcell.entity.enums.NotificationType;
+import com.gces.placementcell.repository.JobRepository;
+import com.gces.placementcell.repository.NotificationRepository;
+import com.gces.placementcell.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@DisplayName("In-app + email notification dispatch")
+class NotificationDispatcherTest {
+
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private JobRepository jobRepository;
+    @Mock private TransactionTemplate transactionTemplate;
+    @Mock private ObjectProvider<JavaMailSender> mailSenderProvider;
+    @Mock private JavaMailSender mailSender;
+
+    private final User admin = User.builder().id(1L).email("admin@gces.edu").build();
+    private final User asha = User.builder().id(2L).email("asha@example.com").build();
+    private final User ravi = User.builder().id(3L).email("ravi@example.com").build();
+
+    @BeforeEach
+    @SuppressWarnings("unchecked")
+    void setUp() {
+        when(transactionTemplate.execute(any())).thenAnswer(inv ->
+                ((TransactionCallback<Object>) inv.getArgument(0)).doInTransaction(null));
+        when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(userRepository.findAllById(any())).thenReturn(List.of(asha, ravi));
+    }
+
+    private NotificationDispatcher dispatcher(boolean mailEnabled, String from) {
+        return new NotificationDispatcher(notificationRepository, userRepository, jobRepository,
+                transactionTemplate, mailSenderProvider, mailEnabled, from, "", "http://localhost:5173/");
+    }
+
+    private static UserNotificationEvent event(boolean sendEmail) {
+        return new UserNotificationEvent(List.of(2L, 3L), 1L, "Application update: Shortlisted",
+                "You were shortlisted.", NotificationType.APPLICATION, NotificationPriority.NORMAL,
+                null, "/student/applications", sendEmail);
+    }
+
+    @Test
+    @DisplayName("Stores one published notification with an unread row per recipient")
+    void storesInApp() {
+        int stored = dispatcher(false, "").dispatch(event(true));
+
+        assertEquals(2, stored);
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        Notification saved = captor.getValue();
+        assertEquals(NotificationStatus.PUBLISHED, saved.getStatus());
+        assertEquals(admin, saved.getCreatedBy());
+        assertEquals(NotificationType.APPLICATION, saved.getNotificationType());
+        assertEquals(2, saved.getRecipients().size());
+        assertTrue(saved.getRecipients().stream().noneMatch(NotificationRecipient::getIsRead));
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("Emails every recipient separately with the same text and a portal link")
+    void emailsRecipients() {
+        dispatcher(true, "placement@gces.edu").dispatch(event(true));
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, times(2)).send(captor.capture());
+        SimpleMailMessage first = captor.getAllValues().get(0);
+        assertEquals("placement@gces.edu", first.getFrom());
+        assertEquals(1, first.getTo().length);
+        assertEquals("Application update: Shortlisted", first.getSubject());
+        assertTrue(first.getText().contains("You were shortlisted."));
+        assertTrue(first.getText().contains("http://localhost:5173/student/applications"));
+    }
+
+    @Test
+    @DisplayName("sendEmail=false stores in-app only")
+    void inAppOnly() {
+        dispatcher(true, "placement@gces.edu").dispatch(event(false));
+
+        verify(notificationRepository).save(any(Notification.class));
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("One failed email does not stop the others, and the in-app copy is kept")
+    void failureIsolated() {
+        doThrow(new MailSendException("rejected")).when(mailSender)
+                .send(org.mockito.ArgumentMatchers.<SimpleMailMessage>argThat(m -> m.getTo()[0].equals("asha@example.com")));
+
+        assertEquals(2, dispatcher(true, "placement@gces.edu").dispatch(event(true)));
+        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Deleted or inactive users get nothing")
+    void skipsInactiveUsers() {
+        User gone = User.builder().id(4L).email("gone@example.com").isDeleted(true).build();
+        when(userRepository.findAllById(any())).thenReturn(List.of(asha, gone));
+
+        assertEquals(1, dispatcher(false, "").dispatch(event(false)));
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        assertEquals(1, captor.getValue().getRecipients().size());
+    }
+
+    @Test
+    @DisplayName("Line breaks in the title cannot inject mail headers")
+    void subjectIsSingleLine() {
+        when(userRepository.findAllById(any())).thenReturn(List.of(asha));
+        UserNotificationEvent evil = new UserNotificationEvent(List.of(2L), 1L,
+                "New application\r\nBcc: attacker@example.com", "msg", NotificationType.APPLICATION,
+                NotificationPriority.NORMAL, null, null, true);
+
+        dispatcher(true, "placement@gces.edu").dispatch(evil);
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertFalse(captor.getValue().getSubject().contains("\n"));
+        assertFalse(captor.getValue().getSubject().contains("\r"));
+    }
+
+    @Test
+    @DisplayName("No recipients means nothing is stored")
+    void noRecipients() {
+        UserNotificationEvent empty = new UserNotificationEvent(List.of(), 1L, "t", "m",
+                NotificationType.GENERAL, NotificationPriority.NORMAL, null, null, true);
+
+        assertEquals(0, dispatcher(true, "placement@gces.edu").dispatch(empty));
+        verify(notificationRepository, never()).save(any(Notification.class));
+    }
+}

@@ -46,6 +46,7 @@ class ApplicationServiceTest {
     @Mock private JobSelectionRoundRepository roundRepository;
     @Mock private StudentProfileRepository studentProfileRepository;
     @Mock private UserRepository userRepository;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     private ApplicationService applicationService;
 
@@ -57,7 +58,8 @@ class ApplicationServiceTest {
                 jobRepository,
                 roundRepository,
                 studentProfileRepository,
-                userRepository);
+                userRepository,
+                eventPublisher);
     }
 
     @Test

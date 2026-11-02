@@ -2,6 +2,8 @@ package com.gces.placementcell.service;
 
 import com.gces.placementcell.entity.Job;
 import com.gces.placementcell.entity.StudentProfile;
+import com.gces.placementcell.entity.enums.NotificationPriority;
+import com.gces.placementcell.entity.enums.NotificationType;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
@@ -45,6 +47,7 @@ public class JobNotificationService {
     private final String configuredFrom;
     private final String smtpUsername;
     private final String frontendUrl;
+    private final NotificationDispatcher notificationDispatcher;
 
     public JobNotificationService(JobRepository jobRepository,
                                   StudentProfileRepository studentProfileRepository,
@@ -53,7 +56,9 @@ public class JobNotificationService {
                                   @Value("${app.mail.enabled:false}") boolean enabled,
                                   @Value("${app.mail.from:}") String configuredFrom,
                                   @Value("${spring.mail.username:}") String smtpUsername,
-                                  @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
+                                  @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl,
+                                  NotificationDispatcher notificationDispatcher) {
+        this.notificationDispatcher = notificationDispatcher;
         this.jobRepository = jobRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.transactionTemplate = transactionTemplate;
@@ -75,8 +80,51 @@ public class JobNotificationService {
         }
     }
 
-    /** Returns how many emails were sent. Package-private so tests can call it directly. */
+    /**
+     * Notifies the eligible students in-app (always) and by email (when mail is configured).
+     * Returns how many emails were sent. Package-private so tests can call it directly.
+     */
     int notifyEligibleStudents(Long jobId) {
+        Alert alert = transactionTemplate.execute(status -> buildAlert(jobId));
+        if (alert == null || alert.recipients().isEmpty()) {
+            log.info("Job {} posted; no eligible students to notify.", jobId);
+            return 0;
+        }
+        publishInApp(alert);
+        return sendEmails(alert);
+    }
+
+    private void publishInApp(Alert alert) {
+        if (alert.createdByUserId() == null) {
+            log.warn("Job {} has no poster; in-app notifications skipped.", alert.jobId());
+            return;
+        }
+        StringBuilder message = new StringBuilder(alert.company()).append(" is hiring for ").append(alert.role()).append('.');
+        if (alert.location() != null && !alert.location().isBlank()) {
+            message.append(" Location: ").append(alert.location()).append('.');
+        }
+        if (alert.ctc() != null && !alert.ctc().isBlank()) {
+            message.append(" Package: ").append(alert.ctc()).append('.');
+        }
+        if (alert.deadline() != null) {
+            message.append(" Apply before ").append(alert.deadline()).append('.');
+        }
+        message.append(" This drive matches your profile.");
+        // Email is sent below with the richer job template, so the dispatcher stores in-app only.
+        notificationDispatcher.dispatch(new UserNotificationEvent(
+                alert.recipients().stream().map(Recipient::userId).filter(java.util.Objects::nonNull).toList(),
+                alert.createdByUserId(),
+                "New job drive: " + alert.role() + " at " + alert.company(),
+                message.toString(),
+                NotificationType.JOB,
+                NotificationPriority.NORMAL,
+                alert.jobId(),
+                "/student/jobs/" + alert.jobId(),
+                false));
+    }
+
+    private int sendEmails(Alert alert) {
+        Long jobId = alert.jobId();
         if (!enabled) {
             log.info("Job {} posted; email alerts are disabled (app.mail.enabled=false).", jobId);
             return 0;
@@ -85,12 +133,6 @@ public class JobNotificationService {
         String from = (configuredFrom == null || configuredFrom.isBlank()) ? smtpUsername : configuredFrom;
         if (sender == null || from == null || from.isBlank()) {
             log.warn("Job {} posted but email alerts are on and the mail sender/from address is not configured.", jobId);
-            return 0;
-        }
-
-        Alert alert = transactionTemplate.execute(status -> buildAlert(jobId));
-        if (alert == null || alert.recipients().isEmpty()) {
-            log.info("Job {} posted; no eligible students to email.", jobId);
             return 0;
         }
 
@@ -121,6 +163,7 @@ public class JobNotificationService {
 
         return new Alert(
                 job.getId(),
+                job.getPostedBy() != null ? job.getPostedBy().getId() : null,
                 job.getCompany() != null ? job.getCompany().getName() : "a company",
                 job.getJobRole(),
                 job.getLocation(),
@@ -133,7 +176,7 @@ public class JobNotificationService {
     private static Recipient toRecipient(StudentProfile student) {
         String name = student.getFullName() == null || student.getFullName().isBlank()
                 ? "Student" : student.getFullName().trim().split("\\s+")[0];
-        return new Recipient(student.getEmail(), name);
+        return new Recipient(student.getUser() != null ? student.getUser().getId() : null, student.getEmail(), name);
     }
 
     private SimpleMailMessage buildMessage(String from, Alert alert, Recipient recipient) {
@@ -171,10 +214,10 @@ public class JobNotificationService {
         return value.replaceAll("[\\r\\n]+", " ").trim();
     }
 
-    private record Recipient(String email, String firstName) {
+    private record Recipient(Long userId, String email, String firstName) {
     }
 
-    private record Alert(Long jobId, String company, String role, String location, String ctc,
+    private record Alert(Long jobId, Long createdByUserId, String company, String role, String location, String ctc,
                          String minCgpa, String deadline, List<Recipient> recipients) {
     }
 }

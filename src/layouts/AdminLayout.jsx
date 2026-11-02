@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import AdminSidebar from '../components/AdminSidebar';
 import { useAuth } from '../context/AuthContext';
-import { toastSuccess } from '../utils/toast';
+import { toastSuccess, toastError } from '../utils/toast';
+import notificationService from '../services/api/notificationService';
+import useUnreadNotifications, { notifyNotificationsChanged } from '../hooks/useUnreadNotifications';
 
 const breadcrumbMap = {
   '/admin/dashboard': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Dashboard' }],
@@ -23,19 +25,49 @@ const breadcrumbMap = {
   '/admin/notifications': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Notifications' }],
 };
 
-const recentAdminNotifs = [
-  { id: 1, title: 'New Job Drive: Google India', time: '5m ago', unread: true },
-  { id: 2, title: 'Adithya K shortlisted for Amazon', time: '1h ago', unread: true },
-  { id: 3, title: 'TCS NQT registration deadline near', time: '3h ago', unread: false },
-];
+const timeAgo = (timestamp) => {
+  const date = new Date(timestamp);
+  if (!timestamp || isNaN(date.getTime())) return '';
+  const mins = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
 
 export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifs, setNotifs] = useState(recentAdminNotifs);
+  const [notifs, setNotifs] = useState([]);
+  const { count: unreadCount } = useUnreadNotifications();
   const location = useLocation();
   const notifRef = useRef(null);
   const { user } = useAuth();
+
+  // Load the latest few whenever the dropdown opens or the unread count changes.
+  useEffect(() => {
+    if (!notifOpen) return undefined;
+    let cancelled = false;
+    notificationService
+      .getNotifications({ page: 0, size: 5 })
+      .then((data) => {
+        if (cancelled) return;
+        const items = Array.isArray(data?.content) ? data.content : [];
+        setNotifs(
+          items.map((n) => ({
+            id: n.id,
+            title: n.title,
+            time: timeAgo(n.createdAt || n.publishedAt),
+            unread: !n.isRead,
+          }))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [notifOpen, unreadCount]);
 
   // Close notifications on outside click
   useEffect(() => {
@@ -64,17 +96,25 @@ export default function AdminLayout() {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const unreadCount = notifs.filter((n) => n.unread).length;
-
-  const markAllAsRead = () => {
-    setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
-    toastSuccess('All notifications marked as read.');
+  const markAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
+      notifyNotificationsChanged();
+      toastSuccess('All notifications marked as read.');
+    } catch (err) {
+      toastError(err, 'Failed to mark all as read. Please try again.');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row antialiased text-gray-900">
       {/* Unified Left Sidebar */}
-      <AdminSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+      <AdminSidebar
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
+        unreadCount={unreadCount}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -162,9 +202,12 @@ export default function AdminLayout() {
                   </div>
 
                   <div className="py-2 divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                    {notifs.length === 0 && (
+                      <p className="py-4 text-center text-xs text-gray-400">No notifications yet.</p>
+                    )}
                     {notifs.map((n) => (
                       <div key={n.id} className="py-2.5 px-1 flex items-start gap-2.5 hover:bg-gray-50 rounded-lg">
-                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-blue-600" />
+                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-blue-600' : 'bg-gray-300'}`} />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-gray-900 leading-tight">{n.title}</p>
                           <p className="text-[11px] text-gray-400 mt-0.5">{n.time}</p>

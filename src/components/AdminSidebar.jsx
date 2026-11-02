@@ -17,10 +17,10 @@ const navItems = [
   { to: '/admin/applications', icon: FileCheck, label: 'Applications' },
   { to: '/admin/students', icon: Users, label: 'Students' },
   { to: '/admin/jobs', icon: Briefcase, label: 'Job Drives' },
-  { to: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
+  { to: '/admin/notifications', icon: Bell, label: 'Notifications', showUnread: true },
 ];
 
-export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
+export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {}, unreadCount = 0 }) {
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
 
@@ -60,7 +60,7 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
         <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
           Management
         </p>
-        {navItems.map(({ to, icon: NavIcon, label, badge }) => (
+        {navItems.map(({ to, icon: NavIcon, label, showUnread }) => (
           <NavLink
             key={to}
             to={to}
@@ -79,13 +79,13 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
                   <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
                   <span>{label}</span>
                 </div>
-                {badge && (
+                {showUnread && unreadCount > 0 && (
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                       isActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {badge}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </>

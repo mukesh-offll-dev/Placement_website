@@ -4,19 +4,20 @@ import {
   Menu,
   ChevronRight,
   Briefcase,
-  User,
-  GraduationCap,
+  Bell,
   LogOut,
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
 import { useAuth } from '../context/AuthContext';
 import { toastInfo } from '../utils/toast';
+import useUnreadNotifications from '../hooks/useUnreadNotifications';
 
 const breadcrumbMap = {
   '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
   '/student/jobs': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Job Drives' }],
   '/student/applications': [{ label: 'Student', to: '/student/dashboard' }, { label: 'My Applications' }],
   '/student/profile': [{ label: 'Student', to: '/student/dashboard' }, { label: 'My Profile' }],
+  '/student/notifications': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Notifications' }],
   '/student/add-project': [
     { label: 'Student', to: '/student/dashboard' },
     { label: 'My Profile', to: '/student/profile' },
@@ -29,6 +30,7 @@ export default function StudentLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
+  const { count: unreadCount } = useUnreadNotifications();
 
   // Compute breadcrumbs
   const getBreadcrumbs = () => {
@@ -50,7 +52,11 @@ export default function StudentLayout() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row antialiased text-gray-900">
       {/* Unified Left Sidebar */}
-      <StudentSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+      <StudentSidebar
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
+        unreadCount={unreadCount}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -97,6 +103,24 @@ export default function StudentLayout() {
             >
               <Briefcase className="w-3.5 h-3.5" />
               Explore Jobs
+            </Link>
+
+            {/* Notification bell with unread badge */}
+            <Link
+              to="/student/notifications"
+              className={`relative p-2 rounded-xl transition-colors ${
+                location.pathname === '/student/notifications'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full ring-2 ring-white flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </Link>
 
             {/* Student Profile Pill */}

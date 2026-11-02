@@ -117,6 +117,7 @@ export default function App() {
           <Route path="/student/add-project" element={<AddProjectPage />} />
           <Route path="/student/jobs/:id" element={<JobDetailPage />} />
           <Route path="/student/applications" element={<StudentApplicationsPage />} />
+          <Route path="/student/notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Catch-all: 404 Not Found */}

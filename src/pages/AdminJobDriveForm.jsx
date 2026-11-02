@@ -219,7 +219,7 @@ export default function AdminJobDriveForm() {
         await jobService.createJob(payload);
         toastSuccess(
           alertsRequested
-            ? 'Job drive posted. Eligible students are being emailed.'
+            ? 'Job drive posted. Eligible students are being notified.'
             : 'Job drive posted.'
         );
       }
@@ -553,10 +553,10 @@ export default function AdminJobDriveForm() {
               className="w-4 h-4 mt-0.5 rounded border-gray-300"
             />
             <span>
-              Email eligible students when this drive goes live
+              Notify eligible students when this drive goes live (in-app and email)
               <span className="block text-xs text-gray-400 mt-0.5">
                 Sent only while the status is Active, to students who meet the CGPA, backlog and batch criteria above.
-                A saved draft is emailed once, when you later set it to Active.
+                A saved draft is announced once, when you later set it to Active.
               </span>
             </span>
           </label>

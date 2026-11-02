@@ -9,10 +9,13 @@ import {
   RefreshCw,
   AlertTriangle,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import notificationService from '../services/api/notificationService';
 import EmptyState from '../components/EmptyState';
 import { ListRowSkeleton } from '../components/Skeleton';
 import { toastSuccess, toastError } from '../utils/toast';
+import { useAuth } from '../context/AuthContext';
+import { notifyNotificationsChanged } from '../hooks/useUnreadNotifications';
 
 const typeConfig = {
   job: { icon: BriefcaseIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -29,6 +32,18 @@ const mapNotificationType = (rawType) => {
   if (type === 'APPLICATION' || type === 'INTERVIEW') return 'application';
   if (type === 'ANNOUNCEMENT' || type === 'GENERAL') return 'success';
   return 'alert';
+};
+
+/** Where "View details" should go. Students and admins have different pages for the same record. */
+const linkFor = (item, isAdmin) => {
+  const type = (item.rawType || '').toUpperCase();
+  if (type === 'APPLICATION' || type === 'INTERVIEW') {
+    return isAdmin ? '/admin/applications' : '/student/applications';
+  }
+  if (item.relatedJobId) {
+    return isAdmin ? `/admin/jobs/${item.relatedJobId}/edit` : `/student/jobs/${item.relatedJobId}`;
+  }
+  return null;
 };
 
 const formatRelativeTime = (timestamp) => {
@@ -58,6 +73,8 @@ const formatRelativeTime = (timestamp) => {
 };
 
 export default function NotificationsPage() {
+  const { role } = useAuth();
+  const isAdmin = role === 'ADMIN' || role === 'PLACEMENT_OFFICER';
   const [notifs, setNotifs] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -79,6 +96,7 @@ export default function NotificationsPage() {
           id: item.id,
           type: mapNotificationType(item.notificationType),
           rawType: item.notificationType,
+          relatedJobId: item.relatedJobId,
           title: item.title || 'Notification',
           message: item.message || '',
           time: formatRelativeTime(item.createdAt || item.publishedAt),
@@ -108,6 +126,7 @@ export default function NotificationsPage() {
     setActionError(null);
     try {
       await notificationService.markAllAsRead();
+      notifyNotificationsChanged();
       toastSuccess('All notifications marked as read.');
     } catch (err) {
       setNotifs(previous);
@@ -123,6 +142,7 @@ export default function NotificationsPage() {
     setActionError(null);
     try {
       await notificationService.deleteNotification(id);
+      notifyNotificationsChanged();
       toastSuccess('Notification dismissed.');
     } catch (err) {
       setNotifs(previous);
@@ -147,6 +167,7 @@ export default function NotificationsPage() {
       } else {
         await notificationService.markAsUnread(id);
       }
+      notifyNotificationsChanged();
     } catch (err) {
       setNotifs(previous);
       const msg = 'Failed to update notification. Please try again.';
@@ -303,7 +324,20 @@ export default function NotificationsPage() {
                     </div>
                   </div>
                   <p className="text-gray-500 text-xs mt-1 leading-relaxed">{n.message}</p>
-                  <p className="text-gray-400 text-xs mt-1.5">{n.time}</p>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <p className="text-gray-400 text-xs">{n.time}</p>
+                    {linkFor(n, isAdmin) && (
+                      <Link
+                        to={linkFor(n, isAdmin)}
+                        onClick={() => {
+                          if (!n.read) toggleRead(n.id);
+                        }}
+                        className="text-xs font-medium text-blue-600 hover:underline"
+                      >
+                        View details
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             );

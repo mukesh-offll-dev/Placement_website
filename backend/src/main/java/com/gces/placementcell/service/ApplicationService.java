@@ -22,6 +22,9 @@ import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.JobSelectionRoundRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.entity.enums.NotificationType;
+import com.gces.placementcell.entity.enums.UserRole;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Stream;
 
 @Service
 public class ApplicationService {
@@ -40,19 +45,22 @@ public class ApplicationService {
     private final JobSelectionRoundRepository roundRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ApplicationService(JobApplicationRepository applicationRepository,
                               ApplicationTimelineRepository timelineRepository,
                               JobRepository jobRepository,
                               JobSelectionRoundRepository roundRepository,
                               StudentProfileRepository studentProfileRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              ApplicationEventPublisher eventPublisher) {
         this.applicationRepository = applicationRepository;
         this.timelineRepository = timelineRepository;
         this.jobRepository = jobRepository;
         this.roundRepository = roundRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -81,6 +89,13 @@ public class ApplicationService {
         addTimeline(application, "Application Submitted", LocalDate.now(),
                 TimelineStatus.DONE, null, null);
         applicationRepository.save(application);
+
+        String studentName = displayName(student);
+        String role = describeJob(job);
+        notifyStudent(student, student.getUser(), "Application submitted: " + role,
+                "Your application for " + role + " has been submitted. We'll notify you as it moves through the selection stages.");
+        notifyAdmins(student.getUser(), "New application: " + studentName + " for " + role,
+                studentName + " applied for " + role + ".", job.getId());
 
         return JobApplicationResponse.withTimeline(findApplicationWithTimeline(application.getId()));
     }
@@ -119,7 +134,13 @@ public class ApplicationService {
         application.setCurrentStage("Application Withdrawn");
         addTimeline(application, application.getCurrentStage(), LocalDate.now(),
                 TimelineStatus.DONE, null, null);
-        return JobApplicationResponse.withTimeline(applicationRepository.save(application));
+        JobApplication saved = applicationRepository.save(application);
+
+        String role = describeJob(saved.getJob());
+        notifyAdmins(student.getUser(), "Application withdrawn: " + displayName(student) + " for " + role,
+                displayName(student) + " withdrew their application for " + role + ".",
+                saved.getJob() == null ? null : saved.getJob().getId());
+        return JobApplicationResponse.withTimeline(saved);
     }
 
     @Transactional(readOnly = true)
@@ -178,7 +199,17 @@ public class ApplicationService {
             }
         }
 
-        return JobApplicationResponse.withTimeline(applicationRepository.save(application));
+        JobApplication saved = applicationRepository.save(application);
+
+        String role = describeJob(saved.getJob());
+        StringBuilder message = new StringBuilder("Your application for ").append(role)
+                .append(" is now: ").append(stage).append('.');
+        if (request.remarks() != null && !request.remarks().isBlank()) {
+            message.append("\nNote from the placement cell: ").append(request.remarks().trim());
+        }
+        notifyStudent(saved.getStudentProfile(), reviewer, "Application update: " + stage + " - " + role,
+                message.toString());
+        return JobApplicationResponse.withTimeline(saved);
     }
 
     @Transactional
@@ -196,7 +227,59 @@ public class ApplicationService {
         String stage = request.stageLabel().trim();
         application.setCurrentStage(stage);
         addTimeline(application, stage, request.stageDate(), request.status(), request.remarks(), reviewer);
-        return JobApplicationResponse.withTimeline(applicationRepository.save(application));
+        JobApplication saved = applicationRepository.save(application);
+
+        String role = describeJob(saved.getJob());
+        StringBuilder message = new StringBuilder("A new stage was added to your application for ")
+                .append(role).append(": ").append(stage);
+        if (request.stageDate() != null) {
+            message.append(" (").append(request.stageDate()).append(')');
+        }
+        message.append('.');
+        if (request.remarks() != null && !request.remarks().isBlank()) {
+            message.append("\nNote from the placement cell: ").append(request.remarks().trim());
+        }
+        notifyStudent(saved.getStudentProfile(), reviewer, "New stage: " + stage + " - " + role, message.toString());
+        return JobApplicationResponse.withTimeline(saved);
+    }
+
+    /** In-app + email notice for the student who owns the application. */
+    private void notifyStudent(StudentProfile student, User createdBy, String title, String message) {
+        if (student == null || student.getUser() == null || createdBy == null) {
+            return;
+        }
+        eventPublisher.publishEvent(UserNotificationEvent.of(
+                List.of(student.getUser().getId()), createdBy.getId(), title, message,
+                NotificationType.APPLICATION, null, "/student/applications"));
+    }
+
+    /** In-app + email notice for every active admin and placement officer. */
+    private void notifyAdmins(User createdBy, String title, String message, Long jobId) {
+        if (createdBy == null) {
+            return;
+        }
+        List<Long> adminIds = Stream.of(UserRole.ADMIN, UserRole.PLACEMENT_OFFICER)
+                .flatMap(role -> userRepository.findByRoleAndIsActiveTrueAndIsDeletedFalse(role).stream())
+                .map(User::getId)
+                .toList();
+        if (adminIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publishEvent(UserNotificationEvent.of(
+                adminIds, createdBy.getId(), title, message, NotificationType.APPLICATION, jobId, "/admin/applications"));
+    }
+
+    private static String displayName(StudentProfile student) {
+        return student.getFullName() == null || student.getFullName().isBlank()
+                ? "A student" : student.getFullName().trim();
+    }
+
+    private static String describeJob(Job job) {
+        if (job == null) {
+            return "a job";
+        }
+        String company = job.getCompany() == null ? null : job.getCompany().getName();
+        return company == null || company.isBlank() ? job.getJobRole() : job.getJobRole() + " at " + company;
     }
 
     private StudentProfile findStudent(String email) {

@@ -3,6 +3,7 @@ package com.gces.placementcell.service;
 import com.gces.placementcell.entity.Company;
 import com.gces.placementcell.entity.Job;
 import com.gces.placementcell.entity.StudentProfile;
+import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
@@ -48,6 +49,7 @@ class JobNotificationServiceTest {
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private ObjectProvider<JavaMailSender> mailSenderProvider;
     @Mock private JavaMailSender mailSender;
+    @Mock private NotificationDispatcher dispatcher;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -60,7 +62,7 @@ class JobNotificationServiceTest {
 
     private JobNotificationService service(boolean enabled, String from) {
         return new JobNotificationService(jobRepository, studentRepository, transactionTemplate,
-                mailSenderProvider, enabled, from, "", "http://localhost:5173/");
+                mailSenderProvider, enabled, from, "", "http://localhost:5173/", dispatcher);
     }
 
     private static Job openJob() {
@@ -107,10 +109,26 @@ class JobNotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Does nothing while alerts are disabled")
+    @DisplayName("With email disabled, students still get the in-app notification but no mail")
     void disabled() {
+        Job job = openJob();
+        job.setPostedBy(User.builder().id(1L).build());
+        when(jobRepository.findWithDetailsByIdAndIsDeletedFalse(42L)).thenReturn(Optional.of(job));
+        StudentProfile asha = student("Asha Rao", "asha@example.com", "8.5");
+        asha.setUser(User.builder().id(7L).build());
+        when(studentRepository.findNotifiableStudents(any())).thenReturn(List.of(asha));
+
         assertEquals(0, service(false, "placement@gces.edu").notifyEligibleStudents(42L));
-        verifyNoInteractions(mailSender, jobRepository, studentRepository);
+
+        verifyNoInteractions(mailSender);
+        ArgumentCaptor<UserNotificationEvent> captor = ArgumentCaptor.forClass(UserNotificationEvent.class);
+        verify(dispatcher).dispatch(captor.capture());
+        UserNotificationEvent event = captor.getValue();
+        assertEquals(List.of(7L), List.copyOf(event.recipientUserIds()));
+        assertEquals(1L, event.createdByUserId());
+        assertEquals("New job drive: SDE at Zoho", event.title());
+        assertEquals("/student/jobs/42", event.linkPath());
+        assertFalse(event.sendEmail(), "the job email template is sent by JobNotificationService itself");
     }
 
     @Test

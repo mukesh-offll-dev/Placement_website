@@ -4,6 +4,7 @@ import {
   Briefcase,
   FileText,
   User,
+  Bell,
   LogOut,
   GraduationCap,
   X,
@@ -15,10 +16,11 @@ const navItems = [
   { to: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/student/jobs', icon: Briefcase, label: 'Job Drives' },
   { to: '/student/applications', icon: FileText, label: 'My Applications' },
+  { to: '/student/notifications', icon: Bell, label: 'Notifications', showUnread: true },
   { to: '/student/profile', icon: User, label: 'My Profile' },
 ];
 
-export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {} }) {
+export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {}, unreadCount = 0 }) {
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
 
@@ -58,7 +60,7 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
         <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
           Student Menu
         </p>
-        {navItems.map(({ to, icon: NavIcon, label }) => (
+        {navItems.map(({ to, icon: NavIcon, label, showUnread }) => (
           <NavLink
             key={to}
             to={to}
@@ -72,10 +74,22 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
             }
           >
             {({ isActive }) => (
-              <div className="flex items-center gap-3">
-                <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                <span>{label}</span>
-              </div>
+              <>
+                <div className="flex items-center gap-3">
+                  <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                  <span>{label}</span>
+                </div>
+                {showUnread && unreadCount > 0 && (
+                  <span
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                    }`}
+                    aria-label={`${unreadCount} unread notifications`}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </>
             )}
           </NavLink>
         ))}
