@@ -26,9 +26,8 @@ services:
         sync: false
       - key: JWT_SECRET            # 32+ random characters
         sync: false
-      - key: APP_CORS_ALLOWED_ORIGINS   # your Vercel URL, e.g. https://placement-cell.vercel.app
-        sync: false
-      - key: APP_FRONTEND_URL           # same Vercel URL (used in email links)
+      # No CORS setting: the browser calls /api on the Vercel domain and Vercel forwards it here (same origin).
+      - key: APP_FRONTEND_URL           # your Vercel URL, e.g. https://placement-cell.vercel.app (used in email links)
         sync: false
       - key: APP_MAIL_ENABLED
         value: "true"

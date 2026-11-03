@@ -2,12 +2,13 @@ import axios from 'axios';
 
 /**
  * API Base URL resolution:
- * 1. Environment variable: VITE_API_BASE_URL (configured in .env / .env.example)
- * 2. Fallback to default Spring Boot backend context: http://localhost:8080/api
+ * Same-origin by default: the relative path /api. Vite's dev proxy (vite.config.js) and the Vercel rewrite
+ * (vercel.json) forward it to the Spring Boot backend, so the browser never makes a cross-origin call and
+ * CORS never applies. VITE_API_BASE_URL can still override it (the Docker build does).
  */
 export const API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
-  'http://localhost:8080/api';
+  '/api';
 export const TOKEN_KEY = 'placement_jwt';
 export const USER_KEY = 'placement_user';
 export const LEGACY_TOKEN_KEY = 'token';
