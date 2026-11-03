@@ -27,7 +27,6 @@ import {
   Send,
 } from 'lucide-react';
 import { getApplications, updateApplicationStatus, getApplicationById } from '../services/api/adminService';
-import { notifyApplicationStatusChange } from '../services/emailService';
 
 // Standard stage definitions required by placement workflow
 const STAGES = [
@@ -194,18 +193,8 @@ export default function AdminApplicationManagement({
         remarks: remarks || undefined,
       };
 
-      const previous = applications.find((app) => app.id === applicationId);
       const result = await updateApplicationStatus(applicationId, payload);
       const updatedApp = result?.data || result;
-
-      // Email the student about the new status. Fire-and-forget: a failed email is logged
-      // and never affects the status update, and repeats within a minute are dropped.
-      notifyApplicationStatusChange({
-        student: updatedApp?.student || previous?.student,
-        job: updatedApp?.job || previous?.job,
-        status: newStatus,
-        remarks,
-      });
 
       // Update local state with returned updated record
       setApplications((prev) =>

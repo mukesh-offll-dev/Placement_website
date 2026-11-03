@@ -498,39 +498,24 @@ $env:SPRING_PROFILES_ACTIVE="prod"
 > [!IMPORTANT]
 > **The `.env.example` file is only a template; it is not loaded automatically.** Copy it to `.env` as shown above. The backend reads `.env` files, and operating-system environment variables take precedence over values in the file. The default `dev` profile uses in-memory H2; use `prod` to require PostgreSQL settings.
 
-### Email notifications with EmailJS (frontend)
+### Email notifications with EmailJS
 
-Besides the backend's EmailJS mail, the frontend can send emails through [EmailJS](https://www.emailjs.com/) using `@emailjs/browser`. It sends two emails, always as a quiet extra: a failure is logged to the browser console and never blocks the action or changes the screen.
+All email is sent by the backend through [EmailJS](https://www.emailjs.com/) (REST API). There is no SMTP and nothing is sent from the browser, so the frontend needs no EmailJS settings.
 
 | When | Who gets the email |
 |---|---|
-| A student submits an application | The student (confirmation) |
-| The placement cell changes an application's status | The student |
+| A student submits an application, or its status changes | The student |
+| A job is posted | Eligible students |
+| Admin-triggered notifications, profile reminders | The recipients |
 
-Job-posted alerts and the emails to admins are sent by the backend, also through EmailJS (REST API, `EMAILJS_*` in `backend/.env`; needs the private key and EmailJS's "Allow EmailJS API for non-browser applications" setting). There is no SMTP.
+**Setup** (`backend/.env`)
 
-**Setup**
+1. In the EmailJS dashboard, create an email service and a template. The template must use `{{to_email}}`, `{{to_name}}`, `{{subject}}`, `{{message}}`, and its **To Email** field must be `{{to_email}}`.
+2. In **Account > Security**, tick "Allow EmailJS API for non-browser applications" and "Use Private Key".
+3. Set `APP_MAIL_ENABLED=true`, `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY` and `EMAILJS_PRIVATE_KEY` (Account > API keys). Leave `APP_MAIL_ENABLED=false` to send no email; in-app notifications are unaffected.
+4. Restart the backend. Failures are logged as warnings and never block the action that triggered them.
 
-1. In the EmailJS dashboard, create an email service and a template. The template must use these variables, and its **To Email** field must be `{{to_email}}`:
-   `{{to_email}}`, `{{to_name}}`, `{{subject}}`, `{{message}}`
-2. In **Account â†’ Security**, add your site origin (for example `http://localhost:5173`) to the allowed origins if you restrict them.
-3. Copy `.env.example` to `.env` in the **project root** (the same folder as `package.json`; Vite does not read `backend/.env`) and fill in:
-   ```env
-   VITE_EMAILJS_SERVICE_ID=service_xxxxxxx
-   VITE_EMAILJS_TEMPLATE_ID=template_xxxxxxx
-   VITE_EMAILJS_PUBLIC_KEY=your_public_key
-   ```
-   Leave them blank to turn browser email off. The public key is meant to be visible in the browser, but `.env` is still git-ignored.
-4. Restart `npm run dev` (Vite reads `.env` only at startup).
-5. **Avoid duplicate emails.** The backend also emails students about their own applications when `APP_MAIL_ENABLED=true`. Set `APP_MAIL_STUDENT_APPLICATION_EMAILS=false` in `backend/.env` so each event is mailed once. Job alerts and admin emails are unaffected.
-
-**How to test it**
-
-- Run the unit tests: `npm test` (the EmailJS transport is faked, so nothing is sent).
-- Live check: sign in as a student whose account email is a mailbox you can open, apply to a job, and look for "Application submitted". Then, as admin, change that application's status and look for "Application update".
-- If nothing arrives, open the browser console. `[email] notification not sent: â€¦` shows the reason (for example a bad template or an origin that is not allowed). EmailJS's free plan has a monthly limit; when it is reached the message says so.
-
-The code is in `src/services/emailService.js`. Repeated sends of the same message to the same person within one minute, and double clicks while a send is in progress, are dropped.
+Code: `EmailJsMailer`, used by `NotificationDispatcher` and `JobNotificationService`. Tests: `mvnw test` (the mailer is mocked, so nothing is sent).
 
 ---
 
