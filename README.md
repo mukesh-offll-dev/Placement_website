@@ -531,6 +531,8 @@ Code: `EmailJsMailer`, used by `NotificationDispatcher` and `JobNotificationServ
 
 **File storage (Cloudinary).** With `FILE_STORAGE=cloudinary` (set in `render.yaml`) resumes and project media are uploaded to Cloudinary as private files; nothing is kept on the server disk, so redeploys lose nothing. Browsers never get a Cloudinary link: downloads go through the backend (`/files/...` and the resume/project endpoints), which checks the login and then fetches the file with a signed URL. Set `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>` (Cloudinary console > Settings > API Keys). In Cloudinary > Settings > Security, tick **Allow delivery of PDF and ZIP files**. The free plan limits file size (about 10 MB). For local development leave `FILE_STORAGE=local`. Code: `CloudinaryFileStorageService` (the local one is `FileStorageServiceImpl`).
 
+**Auto-deploy of the backend.** A GitHub Actions workflow (`.github/workflows/deploy-backend.yml`) calls the Render deploy hook on every push to `main` that touches `backend/`. Add the hook URL (Render > service > Settings > Deploy Hook) as a GitHub repository secret named `RENDER_DEPLOY_HOOK_URL` (Settings > Secrets and variables > Actions). The URL contains a key, so never commit it; if it leaks, regenerate it in Render. You can also run it by hand from the Actions tab.
+
 Notes: use a new `JWT_SECRET` and database password for production (never the ones used in development). `APP_DATA_INIT_ENABLED` stays `false` so no demo data is created. Every push to `main` redeploys both services.
 
 ---

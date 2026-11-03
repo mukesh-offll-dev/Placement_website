@@ -1,0 +1,36 @@
+name: Deploy backend to Render
+
+# Every push to main that changes the backend triggers a Render deploy through the service's deploy hook.
+# The hook URL is a secret: GitHub repo > Settings > Secrets and variables > Actions > New repository secret,
+# name RENDER_DEPLOY_HOOK_URL. It is never stored in the repository.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "render.yaml"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Add the RENDER_DEPLOY_HOOK_URL repository secret (see the comment at the top of this file)."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 30 -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+          echo "Render deploy triggered for ${GITHUB_SHA}."
