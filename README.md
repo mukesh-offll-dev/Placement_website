@@ -256,7 +256,7 @@ If `.\mvnw.cmd` fails or you prefer a global Maven installation:
    ```powershell
    dir
    ```
-   You should see `src`, `backend`, `public`, `package.json`, `vite.config.js`, and `README.md`.
+   You should see `frontend`, `backend`, `render.yaml`, `docker-compose.yml`, and `README.md`.
 
 ---
 
@@ -276,10 +276,10 @@ You can use any editor. An IDE is **not mandatory** since all build and run step
 
 ## 9. Frontend Setup & Run (React + Vite)
 
-### Step 1: Open Terminal in Project Root
-Make sure your terminal is in `Placement_website`:
+### Step 1: Open Terminal in the `frontend` folder
+The frontend lives in `frontend/` and the backend in `backend/`; each has its own tooling.
 ```powershell
-cd Placement_website
+cd Placement_website\frontend
 ```
 
 ### Step 2: Install Node Dependencies
@@ -523,7 +523,7 @@ Code: `EmailJsMailer`, used by `NotificationDispatcher` and `JobNotificationServ
 
 **1. Backend on Render.** Render > New > Blueprint > pick this repo. `render.yaml` creates a Docker web service in Singapore (same region as Neon) and a health check on `/api/actuator/health`. Fill in the secrets it asks for: `DB_URL` (`jdbc:postgresql://<neon-host>/neondb?sslmode=require`), `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` (32+ random characters), `EMAILJS_*`, `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`, `CLOUDINARY_URL` (uploads are stored in Cloudinary, see below), and leave `APP_FRONTEND_URL` for step 3. The plan is `starter` on purpose: the free plan sleeps after about 15 minutes idle (the first request then takes up to a minute, and the daily reminder job does not run) and has too little RAM for Spring Boot.
 
-**2. Frontend on Vercel.** Import the repo (Framework: Vite; `vercel.json` sets the build and the single-page-app rewrite). No environment variables are needed: the app calls `/api`, and `vercel.json` forwards `/api/*` to the Render backend, so the browser only talks to the Vercel domain (same origin, no CORS). **If your Render service is not named `placement-cell-api`, change the URL in the first rewrite of `vercel.json`** (`https://<your-render-service>.onrender.com/api/:path*`). Deploy.
+**2. Frontend on Vercel.** Import the repo and set **Root Directory** to `frontend` (Framework: Vite; `frontend/vercel.json` sets the build and the single-page-app rewrite). No environment variables are needed: the app calls `/api`, and `vercel.json` forwards `/api/*` to the Render backend, so the browser only talks to the Vercel domain (same origin, no CORS). **If your Render service is not named `placement-cell-api`, change the URL in the first rewrite of `frontend/vercel.json`** (`https://<your-render-service>.onrender.com/api/:path*`). Deploy.
 
 **3. Connect them.** In Render set `APP_FRONTEND_URL` to the Vercel URL (no trailing slash; used for links in emails) and redeploy. There is no CORS setting and no port setting: Render supplies `PORT` itself, and the API always lives under `/api`. (`APP_CORS_ALLOWED_ORIGINS` exists only for the rare case of a browser calling the backend directly from another origin.)
 
@@ -677,8 +677,8 @@ To run the full stack on your local machine, open **two separate terminal window
 
 ```text
 Placement_website/
-â”œâ”€â”€ public/                       # Static public assets (images, icons)
-â”œâ”€â”€ src/                          # React Frontend Source Code
+frontend/                       # React + Vite frontend (deployed on Vercel; Root Directory = frontend)
+    package.json, vite.config.js, vercel.json, Dockerfile, nginx.conf, public/, src/   (React source under src/)
 â”‚   â”œâ”€â”€ assets/                   # CSS and graphic assets
 â”‚   â”œâ”€â”€ components/               # Reusable UI components (Navbar, Cards, Modals)
 â”‚   â”œâ”€â”€ context/AuthContext.jsx   # Global authenticated session, token, and role
@@ -715,8 +715,8 @@ Placement_website/
 â”‚       â””â”€â”€ application-prod.yml  # Prod profile: PostgreSQL & HikariCP pool configuration
 â”‚
 â”œâ”€â”€ .gitignore                    # Prevents .env, node_modules, and target/ from being committed
-â”œâ”€â”€ package.json                  # Frontend scripts & NPM dependencies
-â”œâ”€â”€ vite.config.js                # Vite build and server settings
+render.yaml / docker-compose.yml   # Render blueprint (backend) and local Docker Compose
+schema/                        # SQL migrations
 â””â”€â”€ README.md                     # Complete project documentation
 ```
 
@@ -737,7 +737,7 @@ git clone https://github.com/mukesh-offll-dev/Placement_website.git
 cd Placement_website
 
 # Terminal 1: Frontend
-npm install && npm run dev
+cd frontend && npm install && npm run dev
 # âžœ http://localhost:5173
 
 # Terminal 2: Backend (Dev Mode - H2)
@@ -973,7 +973,7 @@ Reminder emails use the same mail settings as job alerts (`APP_MAIL_ENABLED`, `E
 
 ```powershell
 cd backend ; .\mvnw.cmd test      # includes StudentManagementFlowTest (end to end through the real security chain)
-cd .. ; npm test ; npm run lint
+cd ..\frontend ; npm test ; npm run lint
 ```
 
 `StudentManagementFlowTest` covers single and bulk creation (including duplicates and bad ranges), the
