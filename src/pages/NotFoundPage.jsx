@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import BrandLogo from '../components/BrandLogo';
 import {
-  Landmark,
   Home,
   ArrowLeft,
   Briefcase,
@@ -35,9 +35,7 @@ export default function NotFoundPage() {
       <header className="w-full bg-white/90 backdrop-blur-md border-b border-gray-200/80 px-4 md:px-10 py-3.5 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-200 group-hover:scale-105 transition-transform">
-              <Landmark className="w-5 h-5" />
-            </div>
+            <BrandLogo className="h-11 group-hover:scale-105 transition-transform" />
             <div>
               <h1 className="font-bold text-base text-gray-900 leading-tight">GCE Srirangam</h1>
               <p className="text-[11px] text-gray-500 font-medium">Placement & Training Cell</p>

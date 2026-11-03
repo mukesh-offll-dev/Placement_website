@@ -118,6 +118,53 @@ export const deleteStudent = async (id) => {
 };
 
 /**
+ * Add one student from a register number, department and graduation year. The register number
+ * becomes the initial password; the student sets their own details at first login.
+ * POST /api/admin/students/provision
+ * @param {{ registerNumber: string, department: string, year: number }} data
+ */
+export const provisionStudent = async (data) => {
+  const response = await axiosClient.post('/admin/students/provision', data);
+  return response.data;
+};
+
+/**
+ * Add every student in a register number range. Existing numbers are skipped.
+ * POST /api/admin/students/provision/bulk
+ * @param {{ registerNumberFrom: string, registerNumberTo: string, department: string, year: number }} data
+ * @returns {Promise<{ requested: number, created: number, skipped: number, createdRegisterNumbers: string[], skippedRegisterNumbers: string[] }>}
+ */
+export const provisionStudentsBulk = async (data) => {
+  // Each account is hashed on the server, so a large range takes longer than the usual timeout.
+  const response = await axiosClient.post('/admin/students/provision/bulk', data, { timeout: 120000 });
+  return response.data;
+};
+
+/** PATCH /api/admin/students/{id}/deactivate: blocks sign-in until reactivated. */
+export const deactivateStudent = async (id) => {
+  const response = await axiosClient.patch(`/admin/students/${id}/deactivate`);
+  return response.data;
+};
+
+/** PATCH /api/admin/students/{id}/reactivate */
+export const reactivateStudent = async (id) => {
+  const response = await axiosClient.patch(`/admin/students/${id}/reactivate`);
+  return response.data;
+};
+
+/** POST /api/admin/students/{id}/reset-password: back to the register number, change forced. */
+export const resetStudentPassword = async (id) => {
+  const response = await axiosClient.post(`/admin/students/${id}/reset-password`);
+  return response;
+};
+
+/** POST /api/admin/students/profile-reminders: sends the "complete your profile" reminder now. */
+export const sendProfileReminders = async () => {
+  const response = await axiosClient.post('/admin/students/profile-reminders');
+  return response.data;
+};
+
+/**
  * Export student records as CSV file.
  * GET /api/admin/students/export
  * @param {Object} params - { search, department, status }
@@ -226,6 +273,12 @@ const adminService = {
   getAllStudents,
   getStudentById,
   createStudent,
+  provisionStudent,
+  provisionStudentsBulk,
+  deactivateStudent,
+  reactivateStudent,
+  resetStudentPassword,
+  sendProfileReminders,
   updateStudent,
   deleteStudent,
   exportStudentsCsv,

@@ -22,8 +22,10 @@ import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.JobSelectionRoundRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.entity.enums.NotificationPriority;
 import com.gces.placementcell.entity.enums.NotificationType;
 import com.gces.placementcell.entity.enums.UserRole;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -46,6 +48,12 @@ public class ApplicationService {
     private final StudentProfileRepository studentProfileRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+    /**
+     * Whether students are also emailed by the backend about their own applications. Turn off
+     * when the frontend sends those emails itself (EmailJS), so each event is mailed once.
+     * The in-app notification is always created.
+     */
+    private final boolean emailStudentApplicationEvents;
 
     public ApplicationService(JobApplicationRepository applicationRepository,
                               ApplicationTimelineRepository timelineRepository,
@@ -53,7 +61,9 @@ public class ApplicationService {
                               JobSelectionRoundRepository roundRepository,
                               StudentProfileRepository studentProfileRepository,
                               UserRepository userRepository,
-                              ApplicationEventPublisher eventPublisher) {
+                              ApplicationEventPublisher eventPublisher,
+                              @Value("${app.mail.student-application-emails:true}") boolean emailStudentApplicationEvents) {
+        this.emailStudentApplicationEvents = emailStudentApplicationEvents;
         this.applicationRepository = applicationRepository;
         this.timelineRepository = timelineRepository;
         this.jobRepository = jobRepository;
@@ -248,9 +258,10 @@ public class ApplicationService {
         if (student == null || student.getUser() == null || createdBy == null) {
             return;
         }
-        eventPublisher.publishEvent(UserNotificationEvent.of(
+        eventPublisher.publishEvent(new UserNotificationEvent(
                 List.of(student.getUser().getId()), createdBy.getId(), title, message,
-                NotificationType.APPLICATION, null, "/student/applications"));
+                NotificationType.APPLICATION, NotificationPriority.NORMAL, null, "/student/applications",
+                emailStudentApplicationEvents));
     }
 
     /** In-app + email notice for every active admin and placement officer. */

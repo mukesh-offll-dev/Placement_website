@@ -21,8 +21,16 @@ public record UserResponse(
         Boolean isActive,
         Boolean isEmailVerified,
         LocalDateTime lastLoginAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** True while the user is still locked to first-login setup. */
+        Boolean setupRequired
 ) {
+
+    /** Without the first-login flag, which defaults to false. */
+    public UserResponse(Long id, String email, UserRole role, AccountStatus accountStatus, Boolean isActive,
+                        Boolean isEmailVerified, LocalDateTime lastLoginAt, LocalDateTime createdAt) {
+        this(id, email, role, accountStatus, isActive, isEmailVerified, lastLoginAt, createdAt, false);
+    }
 
     public static UserResponse from(User user) {
         if (user == null) {
@@ -30,13 +38,15 @@ public record UserResponse(
         }
         return new UserResponse(
                 user.getId(),
-                user.getEmail(),
+                // The stand-in address a student has before first-login setup is not real data.
+                com.gces.placementcell.service.StudentIdentity.visibleEmail(user.getEmail()),
                 user.getRole(),
                 user.getAccountStatus(),
                 user.getIsActive(),
                 user.getIsEmailVerified(),
                 user.getLastLoginAt(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                Boolean.TRUE.equals(user.getMustChangePassword())
         );
     }
 }

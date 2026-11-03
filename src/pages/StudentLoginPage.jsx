@@ -3,13 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import BrandLogo from '../components/BrandLogo';
 import { toastSuccess, toastError } from '../utils/toast';
+import { normalizeRegisterNumber } from '../utils/studentValidation';
 
 export default function StudentLoginPage() {
   const navigate = useNavigate();
   const { login, isAuthenticated, role } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ registerNumber: '', password: '' });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,14 +19,14 @@ export default function StudentLoginPage() {
   // If already authenticated as STUDENT, redirect straight to dashboard
   useEffect(() => {
     if (isAuthenticated && role === 'STUDENT') {
+      // ProtectedRoute sends a student who still has to finish setup on to /student/setup.
       navigate('/student/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate, role]);
 
   const validate = () => {
     const e = {};
-    if (!form.email.trim()) e.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(form.email.trim())) e.email = 'Invalid email address';
+    if (!form.registerNumber.trim()) e.registerNumber = 'Register number is required';
     if (!form.password) e.password = 'Password is required';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -39,7 +41,7 @@ export default function StudentLoginPage() {
     setLoading(true);
     try {
       const result = await login({
-        email: form.email.trim(),
+        registerNumber: normalizeRegisterNumber(form.registerNumber),
         password: form.password,
         expectedRole: 'STUDENT',
       });
@@ -50,6 +52,12 @@ export default function StudentLoginPage() {
           : result.error;
         setApiError(errMsg);
         toastError(errMsg);
+        return;
+      }
+      // First login: the account still has its initial password, so finish setup before anything else.
+      if (result.user?.setupRequired) {
+        toastSuccess('Welcome! Please set a new password and complete your details.');
+        navigate('/student/setup', { replace: true });
         return;
       }
       toastSuccess(`Welcome back, ${result.user?.fullName || 'Student'}!`);
@@ -72,9 +80,7 @@ export default function StudentLoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="flex items-center gap-3 px-6 py-4 bg-white shadow-sm">
-        <div className="bg-blue-100 p-2 rounded-xl">
-          <GraduationCap className="w-7 h-7 text-blue-700" />
-        </div>
+        <BrandLogo className="h-12" />
         <div>
           <h1 className="font-bold text-lg leading-none">GCE Srirangam</h1>
           <p className="text-xs text-gray-500">Placement Cell</p>
@@ -104,27 +110,30 @@ export default function StudentLoginPage() {
 
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Register Number</label>
               <input
-                id="student-email"
-                type="email"
-                placeholder="student@gce.edu.in"
-                value={form.email}
-                onChange={handleChange('email')}
+                id="student-register-number"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="characters"
+                placeholder="e.g. 811521104001"
+                value={form.registerNumber}
+                onChange={handleChange('registerNumber')}
                 disabled={loading}
                 className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.email ? 'border-red-400' : 'border-gray-300'
+                  errors.registerNumber ? 'border-red-400' : 'border-gray-300'
                 } disabled:opacity-60`}
               />
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+              {errors.registerNumber && <p className="text-red-500 text-xs mt-1">{errors.registerNumber}</p>}
+              <p className="text-gray-400 text-xs mt-1">
+                First time? Your initial password is your register number.
+              </p>
             </div>
 
             <div>
               <div className="flex justify-between mb-1">
                 <label className="text-sm font-medium text-gray-700">Password</label>
-                <button type="button" className="text-blue-600 text-xs hover:underline">
-                  Forgot password?
-                </button>
+                <span className="text-gray-400 text-xs">Forgot it? Ask the placement cell to reset it.</span>
               </div>
               <div className="relative">
                 <input
@@ -166,10 +175,7 @@ export default function StudentLoginPage() {
 
           <div className="mt-5 space-y-2 text-center text-sm">
             <p className="text-gray-500">
-              Don't have an account?{' '}
-              <Link to="/student/register" className="text-blue-600 hover:underline font-semibold">
-                Register here
-              </Link>
+              Accounts are created by the placement cell. Contact them if you cannot sign in.
             </p>
             <p className="text-gray-500">
               Not a student?{' '}

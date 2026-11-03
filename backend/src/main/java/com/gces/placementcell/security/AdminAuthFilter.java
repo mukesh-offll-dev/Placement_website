@@ -45,6 +45,9 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                         .withUsername(user.getEmail())
                         .password("")
                         .authorities(authorities)
+                        // Expired credentials = initial password not yet replaced; see
+                        // PasswordChangeRequiredFilter, which locks such a user to first-login setup.
+                        .credentialsExpired(Boolean.TRUE.equals(user.getMustChangePassword()))
                         .build();
 
                 UsernamePasswordAuthenticationToken authentication =

@@ -100,27 +100,40 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("POST /auth/register/student returns 201 Created and AuthResponse")
-    void testRegisterStudentSuccess() throws Exception {
+    @DisplayName("There is no public student registration endpoint any more")
+    void testStudentRegistrationEndpointIsGone() throws Exception {
         RegisterRequest request = new RegisterRequest(
                 "student@gces.edu", "Password123", "Test Student", "20CS001", UserRole.STUDENT);
-        AuthResponse response = AuthResponse.builder()
-                .token("jwt-token-xyz")
-                .userId(1L)
-                .email("student@gces.edu")
-                .role(UserRole.STUDENT)
-                .fullName("Test Student")
-                .build();
-
-        when(authService.registerStudent(any(RegisterRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/auth/register/student")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success", is(true)))
-                .andExpect(jsonPath("$.data.token", is("jwt-token-xyz")))
-                .andExpect(jsonPath("$.data.email", is("student@gces.edu")));
+                // Standalone MockMvc has no security chain, so an unmapped path is a 404 or 500 here; the
+                // real 401/403 for this path is asserted in StudentManagementFlowTest. What matters is
+                // that nothing succeeds.
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertTrue(
+                        result.getResponse().getStatus() >= 400, "student registration must not succeed"));
+    }
+
+    @Test
+    @DisplayName("POST /auth/login accepts a register number for a student login")
+    void testStudentLoginByRegisterNumber() throws Exception {
+        AuthResponse response = AuthResponse.builder()
+                .token("jwt-token-xyz")
+                .userId(1L)
+                .role(UserRole.STUDENT)
+                .fullName("811521104001")
+                .setupRequired(true)
+                .build();
+
+        when(authService.login(any(LoginRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"registerNumber\":\"811521104001\",\"password\":\"811521104001\",\"expectedRole\":\"STUDENT\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.setupRequired", is(true)))
+                .andExpect(jsonPath("$.data.password").doesNotExist());
     }
 
     @Test

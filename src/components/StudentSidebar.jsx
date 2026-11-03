@@ -6,10 +6,10 @@ import {
   User,
   Bell,
   LogOut,
-  GraduationCap,
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import BrandLogo from './BrandLogo';
 import { toastInfo } from '../utils/toast';
 
 const navItems = [
@@ -35,9 +35,7 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
       {/* Brand Header */}
       <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-200">
-            <GraduationCap className="w-5 h-5" />
-          </div>
+          <BrandLogo className="h-11 shrink-0" />
           <div>
             <h1 className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</h1>
             <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 mt-0.5">

@@ -81,7 +81,7 @@ class NotificationServiceImplTest {
     @DisplayName("getMyNotifications returns paged notifications for logged-in user")
     void testGetMyNotificationsSuccess() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByUserIdOrderByCreatedAtDesc(1L, pageable))
                 .thenReturn(new PageImpl<>(List.of(recipient), pageable, 1));
 
@@ -99,7 +99,7 @@ class NotificationServiceImplTest {
     @DisplayName("getMyNotifications returns unread only when requested")
     void testGetMyNotificationsUnreadOnly() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(1L, pageable))
                 .thenReturn(new PageImpl<>(List.of(recipient), pageable, 1));
 
@@ -113,7 +113,7 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("getUnreadCount returns correct unread count")
     void testGetUnreadCountSuccess() {
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.countByUserIdAndIsReadFalse(1L)).thenReturn(5L);
 
         long count = notificationService.getUnreadCount("user@gces.edu");
@@ -124,7 +124,7 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("markAsRead updates notification read state and timestamp")
     void testMarkAsReadSuccess() {
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByNotificationIdAndUserId(100L, 1L)).thenReturn(Optional.of(recipient));
         when(recipientRepository.save(any(NotificationRecipient.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -140,7 +140,7 @@ class NotificationServiceImplTest {
     @DisplayName("markAsUnread resets notification read state")
     void testMarkAsUnreadSuccess() {
         recipient.markAsRead();
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByNotificationIdAndUserId(100L, 1L)).thenReturn(Optional.of(recipient));
         when(recipientRepository.save(any(NotificationRecipient.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -154,7 +154,7 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("markAllAsRead invokes repository bulk update")
     void testMarkAllAsReadSuccess() {
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
 
         notificationService.markAllAsRead("user@gces.edu");
 
@@ -164,7 +164,7 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("deleteNotification removes recipient record for logged-in user")
     void testDeleteNotificationSuccess() {
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByNotificationIdAndUserId(100L, 1L)).thenReturn(Optional.of(recipient));
 
         notificationService.deleteNotification("user@gces.edu", 100L);
@@ -175,7 +175,7 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("markAsRead throws ResourceNotFoundException when notification not found for user")
     void testMarkAsReadNotFoundThrows() {
-        when(userRepository.findByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser));
+        when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByNotificationIdAndUserId(999L, 1L)).thenReturn(Optional.empty());
         when(recipientRepository.findByIdAndUserId(999L, 1L)).thenReturn(Optional.empty());
 
@@ -185,7 +185,7 @@ class NotificationServiceImplTest {
     @Test
     @DisplayName("operations throw ResourceNotFoundException when user not found")
     void testUserNotFoundThrows() {
-        when(userRepository.findByEmailAndIsDeletedFalse("absent@gces.edu")).thenReturn(Optional.empty());
+        when(userRepository.findIdByEmailAndIsDeletedFalse("absent@gces.edu")).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> notificationService.getUnreadCount("absent@gces.edu"));
     }

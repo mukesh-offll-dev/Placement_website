@@ -16,6 +16,7 @@ public class AuthResponse {
     @Builder.Default
     private String type = "Bearer";
     private Long userId;
+    /** Null for a student who has not yet set a real email (the stand-in address is never exposed). */
     private String email;
     /** Display name; the frontend stores and renders this field. */
     private String fullName;
@@ -23,4 +24,9 @@ public class AuthResponse {
     private String name;
     private UserRole role;
     private String message;
+    /**
+     * The user must finish first-login setup (replace the initial credentials, add name, email and
+     * phone) before anything else. The API refuses other requests until they do.
+     */
+    private boolean setupRequired;
 }

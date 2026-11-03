@@ -165,6 +165,18 @@ public class StudentProfile {
     @Column(name = "profile_completion_percent", nullable = false)
     private Short profileCompletionPercent = 0;
 
+    /**
+     * False for a student the placement cell created who has not yet done the first-login setup
+     * (new password, name, email, phone). Students that existed before this flag count as set up.
+     */
+    @Builder.Default
+    @Column(name = "profile_setup_completed", nullable = false)
+    private Boolean profileSetupCompleted = true;
+
+    /** When the "complete your profile" reminder was last sent; drives the reminder interval. */
+    @Column(name = "profile_reminder_sent_at")
+    private LocalDateTime profileReminderSentAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

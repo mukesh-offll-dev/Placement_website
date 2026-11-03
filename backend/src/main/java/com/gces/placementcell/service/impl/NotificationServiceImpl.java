@@ -3,7 +3,6 @@ package com.gces.placementcell.service.impl;
 import com.gces.placementcell.dto.response.NotificationResponse;
 import com.gces.placementcell.dto.response.PagedResponse;
 import com.gces.placementcell.entity.NotificationRecipient;
-import com.gces.placementcell.entity.User;
 import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.NotificationRecipientRepository;
 import com.gces.placementcell.repository.UserRepository;
@@ -34,24 +33,22 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public PagedResponse<NotificationResponse> getMyNotifications(String userEmail, boolean unreadOnly, Pageable pageable) {
-        User user = findUserByEmail(userEmail);
+        Long userId = findUserId(userEmail);
         Page<NotificationRecipient> page = unreadOnly
-                ? recipientRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(user.getId(), pageable)
-                : recipientRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
+                ? recipientRepository.findByUserIdAndIsReadFalseOrderByCreatedAtDesc(userId, pageable)
+                : recipientRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.of(page, NotificationResponse::forRecipient);
     }
 
     @Override
     public long getUnreadCount(String userEmail) {
-        User user = findUserByEmail(userEmail);
-        return recipientRepository.countByUserIdAndIsReadFalse(user.getId());
+        return recipientRepository.countByUserIdAndIsReadFalse(findUserId(userEmail));
     }
 
     @Override
     @Transactional
     public NotificationResponse markAsRead(String userEmail, Long id) {
-        User user = findUserByEmail(userEmail);
-        NotificationRecipient recipient = findRecipientForUser(id, user.getId());
+        NotificationRecipient recipient = findRecipientForUser(id, findUserId(userEmail));
         recipient.markAsRead();
         NotificationRecipient saved = recipientRepository.save(recipient);
         return NotificationResponse.forRecipient(saved);
@@ -60,8 +57,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public NotificationResponse markAsUnread(String userEmail, Long id) {
-        User user = findUserByEmail(userEmail);
-        NotificationRecipient recipient = findRecipientForUser(id, user.getId());
+        NotificationRecipient recipient = findRecipientForUser(id, findUserId(userEmail));
         recipient.setIsRead(false);
         recipient.setReadAt(null);
         NotificationRecipient saved = recipientRepository.save(recipient);
@@ -71,20 +67,18 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void markAllAsRead(String userEmail) {
-        User user = findUserByEmail(userEmail);
-        recipientRepository.markAllAsReadForUser(user.getId(), LocalDateTime.now());
+        recipientRepository.markAllAsReadForUser(findUserId(userEmail), LocalDateTime.now());
     }
 
     @Override
     @Transactional
     public void deleteNotification(String userEmail, Long id) {
-        User user = findUserByEmail(userEmail);
-        NotificationRecipient recipient = findRecipientForUser(id, user.getId());
+        NotificationRecipient recipient = findRecipientForUser(id, findUserId(userEmail));
         recipientRepository.delete(recipient);
     }
 
-    private User findUserByEmail(String email) {
-        return userRepository.findByEmailAndIsDeletedFalse(email)
+    private Long findUserId(String email) {
+        return userRepository.findIdByEmailAndIsDeletedFalse(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
 

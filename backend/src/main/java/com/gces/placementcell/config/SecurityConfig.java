@@ -4,6 +4,7 @@ import com.gces.placementcell.security.AdminAuthFilter;
 import com.gces.placementcell.security.CustomAccessDeniedHandler;
 import com.gces.placementcell.security.CustomAuthenticationEntryPoint;
 import com.gces.placementcell.security.CustomUserDetailsService;
+import com.gces.placementcell.security.PasswordChangeRequiredFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,7 @@ public class SecurityConfig {
 
     private final CorsConfig corsConfig;
     private final AdminAuthFilter adminAuthFilter;
+    private final PasswordChangeRequiredFilter passwordChangeRequiredFilter;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
     private final CustomAccessDeniedHandler accessDeniedHandler;
     private final CustomUserDetailsService customUserDetailsService;
@@ -65,6 +67,8 @@ public class SecurityConfig {
                 .requestMatchers("/health").permitAll()
                 // Must precede the /auth/** permitAll: only an existing admin may create another.
                 .requestMatchers("/auth/register/admin").hasRole("ADMIN")
+                // Students cannot register themselves; the placement cell creates their accounts.
+                .requestMatchers("/auth/register/student", "/auth/register").denyAll()
                 .requestMatchers("/auth/**").permitAll()
                 // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
                 // AdminStudentController and AdminDashboardController are mapped at both
@@ -97,6 +101,7 @@ public class SecurityConfig {
             // API clients and tooling (covered by RoleBasedAccessControlTest).
             .httpBasic(Customizer.withDefaults())
             .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(passwordChangeRequiredFilter, AdminAuthFilter.class)
             // Allow H2 console frames in dev
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 

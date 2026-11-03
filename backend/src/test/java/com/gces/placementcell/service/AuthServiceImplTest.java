@@ -58,7 +58,8 @@ class AuthServiceImplTest {
                 studentProfileRepository,
                 adminProfileRepository,
                 passwordEncoder,
-                tokenProvider
+                tokenProvider,
+                new com.gces.placementcell.security.LoginAttemptLimiter(5, 15)
         );
     }
 
@@ -150,7 +151,7 @@ class AuthServiceImplTest {
                 .id(2L)
                 .email(email)
                 .passwordHash("$2a$10$realHashedPassword")
-                .role(UserRole.STUDENT)
+                .role(UserRole.PLACEMENT_OFFICER)
                 .accountStatus(AccountStatus.PENDING)
                 .isActive(false)
                 .isDeleted(false)
@@ -167,13 +168,13 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("login throws AccessDeniedException when expected role does not match")
     void testLoginRoleMismatchThrowsException() {
-        String email = "student@gces.edu";
+        String email = "officer@gces.edu";
         LoginRequest request = new LoginRequest(email, "Password123", "ADMIN");
         User user = User.builder()
                 .id(1L)
                 .email(email)
                 .passwordHash("$2a$10$realHashedPassword")
-                .role(UserRole.STUDENT)
+                .role(UserRole.PLACEMENT_OFFICER)
                 .accountStatus(AccountStatus.ACTIVE)
                 .isActive(true)
                 .isDeleted(false)

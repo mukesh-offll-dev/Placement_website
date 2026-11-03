@@ -73,6 +73,11 @@ public class User {
     @Column(name = "is_email_verified", nullable = false)
     private Boolean isEmailVerified = false;
 
+    /** True until the user replaces the initial password; the API is locked to setup until then. */
+    @Builder.Default
+    @Column(name = "must_change_password", nullable = false)
+    private Boolean mustChangePassword = false;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

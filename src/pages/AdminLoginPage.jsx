@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Landmark, Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import BrandLogo from '../components/BrandLogo';
 import { toastSuccess, toastError } from '../utils/toast';
 
 function generateCaptcha() {
@@ -91,10 +92,8 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-4 bg-white shadow">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="text-blue-700">
-            <Landmark className="w-6 h-6" />
-          </div>
+        <Link to="/" className="flex items-center gap-3">
+          <BrandLogo className="h-10" />
           <div>
             <h1 className="font-bold text-base leading-none">GCE Srirangam</h1>
             <p className="text-xs text-gray-500">Placement Cell</p>

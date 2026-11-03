@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom';
 import { GraduationCap, ShieldCheck, ArrowRight } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo';
 
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="flex items-center gap-3 px-6 py-4 bg-white shadow-sm">
-        <div className="bg-blue-100 p-2 rounded-xl">
-          <GraduationCap className="w-7 h-7 text-blue-700" />
-        </div>
+        <BrandLogo className="h-12" />
         <div>
           <h1 className="font-bold text-lg leading-none">GCE Srirangam</h1>
           <p className="text-xs text-gray-500">Placement Cell</p>

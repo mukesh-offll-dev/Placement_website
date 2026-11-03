@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -19,7 +19,8 @@ export default function ProtectedRoute({
 }) {
   // Values come from the auth context, not the storage helpers, so the guard
   // re-renders when a session ends instead of reading a stale snapshot.
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, role, user } = useAuth();
+  const location = useLocation();
   const targetRoles = allowedRoles || [allowedRole || requiredRole].filter(Boolean);
 
   if (!isAuthenticated) {
@@ -36,6 +37,18 @@ export default function ProtectedRoute({
         ? '/admin/dashboard'
         : role === 'STUDENT' ? '/student/dashboard' : '/';
       return <Navigate to={dashboardPath} replace />;
+    }
+  }
+
+  // A new student must finish first-login setup (new password, name, email, phone) before using
+  // anything else. The backend refuses every other request until then; this just routes them there.
+  if (role === 'STUDENT') {
+    const onSetupPage = location.pathname === '/student/setup';
+    if (user?.setupRequired && !onSetupPage) {
+      return <Navigate to="/student/setup" replace />;
+    }
+    if (!user?.setupRequired && onSetupPage) {
+      return <Navigate to="/student/dashboard" replace />;
     }
   }
 

@@ -6,7 +6,6 @@ import {
   clearAuth,
   isAuthenticated as hasStoredSession,
   login as authServiceLogin,
-  registerStudent as authServiceRegisterStudent,
   getCurrentUser as authServiceGetCurrentUser,
 } from '../services/authService.js';
 
@@ -19,6 +18,8 @@ const getSessionUser = (authData) => ({
   email: authData.email,
   role: authData.role,
   fullName: authData.fullName,
+  // A new student is held on the first-login setup page until this clears.
+  setupRequired: Boolean(authData.setupRequired),
 });
 
 const getStoredSession = () => {
@@ -47,10 +48,23 @@ export function AuthProvider({ children }) {
       setSession(getStoredSession());
     };
 
+    // The server refused a request because setup is pending (a stale tab, a reset password):
+    // mark the session so the route guard sends the student to the setup page.
+    const handleSetupRequired = () => {
+      setSession((prev) => {
+        if (!prev.user || prev.user.setupRequired) return prev;
+        const user = { ...prev.user, setupRequired: true };
+        storeAuth({ token: prev.token, userId: user.id, email: user.email, role: user.role, fullName: user.fullName, setupRequired: true });
+        return { ...prev, user };
+      });
+    };
+
     window.addEventListener('auth:unauthorized', handleUnauthorized);
+    window.addEventListener('auth:setup-required', handleSetupRequired);
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
+      window.removeEventListener('auth:setup-required', handleSetupRequired);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -92,13 +106,16 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const registerStudent = async (studentData) => {
-    const authData = await authServiceRegisterStudent(studentData);
+  /**
+   * Adopts an AuthResponse the service layer has already stored (first-login setup and password
+   * change both return a fresh token), so the context and the route guard see the new session.
+   */
+  const applyAuthData = useCallback((authData) => {
     if (authData?.token) {
       setSession({ token: authData.token, user: getSessionUser(authData) });
     }
     return authData;
-  };
+  }, []);
 
   /**
    * Re-reads the signed-in user from GET /auth/me and merges the result into the
@@ -123,6 +140,7 @@ export function AuthProvider({ children }) {
           email: merged.email,
           role: merged.role,
           fullName: merged.fullName,
+          setupRequired: merged.setupRequired,
         });
         return { token: currentToken, user: merged };
       });
@@ -153,9 +171,7 @@ export function AuthProvider({ children }) {
         isAuthenticated,
         hasRole,
         login,
-        registerStudent,
-        // Alias: some pages call register() instead of registerStudent().
-        register: registerStudent,
+        applyAuthData,
         refreshUser,
         logout,
       }}

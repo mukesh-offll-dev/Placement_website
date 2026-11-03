@@ -53,6 +53,11 @@ public class UpdateStudentRequest {
     @Size(max = 20, message = "Batch cannot exceed 20 characters")
     private String batch;
 
+    /** Graduation year (2026 means batch 2022-2026). Used for the batch when none is given. */
+    @Min(value = 2000, message = "Year must be between 2000 and 2100")
+    @Max(value = 2100, message = "Year must be between 2000 and 2100")
+    private Integer year;
+
     @Min(value = 1, message = "Semester must be between 1 and 10")
     @Max(value = 10, message = "Semester must be between 1 and 10")
     private Short semester;

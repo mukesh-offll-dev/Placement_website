@@ -10,8 +10,7 @@ import com.gces.placementcell.dto.response.UserResponse;
  */
 public interface AuthService {
 
-    AuthResponse registerStudent(RegisterRequest request);
-
+    /** Staff only. Students have no self-registration: the placement cell creates their accounts. */
     AuthResponse registerAdmin(RegisterRequest request);
 
     AuthResponse login(LoginRequest request);

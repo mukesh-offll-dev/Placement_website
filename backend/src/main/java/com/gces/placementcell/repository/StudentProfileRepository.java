@@ -105,6 +105,34 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
            "AND s.email IS NOT NULL AND s.isOpenToOpportunities = true AND s.placementStatus IN :statuses")
     List<StudentProfile> findNotifiableStudents(@Param("statuses") Collection<PlacementStatus> statuses);
 
+    /** Students per department code (current students only), for the Departments screen. */
+    @Query("SELECT UPPER(s.departmentCode), COUNT(s) FROM StudentProfile s " +
+           "WHERE s.departmentCode IS NOT NULL AND s.user.isDeleted = false GROUP BY UPPER(s.departmentCode)")
+    List<Object[]> countStudentsByDepartmentCode();
+
+    /** The department names students use for a code, so a missing department row can be named after them. */
+    @Query("SELECT DISTINCT s.department FROM StudentProfile s " +
+           "WHERE UPPER(s.departmentCode) = UPPER(:code) AND s.department IS NOT NULL")
+    List<String> findDepartmentNamesByCode(@Param("code") String code);
+
+    /** Whether any student, deleted ones included, carries this department code. */
+    boolean existsByDepartmentCodeIgnoreCase(String departmentCode);
+
+    /** Which of these register numbers already exist, deleted students included (they stay reserved). */
+    @Query("SELECT s.rollNo FROM StudentProfile s WHERE s.rollNo IN :rollNos")
+    List<String> findExistingRollNos(@Param("rollNos") Collection<String> rollNos);
+
+    /**
+     * Students who finished first-login setup but whose profile is still incomplete and who have not
+     * been reminded since {@code cutoff}. Students still on the stand-in email are excluded: there
+     * is no address to send to until they complete setup.
+     */
+    @Query("SELECT s FROM StudentProfile s JOIN FETCH s.user u WHERE u.isDeleted = false AND u.isActive = true " +
+           "AND s.profileSetupCompleted = true AND s.profileCompletionPercent < 100 " +
+           "AND LOWER(s.email) NOT LIKE '%@pending.gces.local' " +
+           "AND (s.profileReminderSentAt IS NULL OR s.profileReminderSentAt < :cutoff)")
+    List<StudentProfile> findNeedingProfileReminder(@Param("cutoff") java.time.LocalDateTime cutoff);
+
     @Query("SELECT COUNT(s) FROM StudentProfile s WHERE (s.user.isDeleted = false OR s.user IS NULL)")
     long countActiveStudents();
 

@@ -13,6 +13,8 @@ export const USER_KEY = 'placement_user';
 export const LEGACY_TOKEN_KEY = 'token';
 export const LEGACY_USER_KEY = 'user';
 
+const RETRY_DELAY_MS = 800;
+
 /**
  * Unauthorized redirect guard to prevent multiple simultaneous 401 responses
  * from triggering repeated redirects or event storms.
@@ -93,6 +95,13 @@ axiosClient.interceptors.response.use(
     return response.data ?? null;
   },
   (error) => {
+    // 0. Deliberately aborted request (AbortController, e.g. a component unmounting or React
+    // StrictMode re-running an effect). Pass it through untouched so callers can recognise
+    // code === 'ERR_CANCELED' and ignore it instead of showing an error.
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     // 1. HTTP Response received with 4xx or 5xx status
     if (error.response) {
       const { status, data } = error.response;
@@ -172,6 +181,12 @@ axiosClient.interceptors.response.use(
 
         case 403: {
           message = getSafeServerMessage(data, 'You do not have permission to perform this action.');
+          // The backend locks a new student to first-login setup. If a request hits that lock
+          // (an old tab, a stale session), send them to the setup page instead of showing an error.
+          if (data && typeof data === 'object' && data.code === 'PASSWORD_CHANGE_REQUIRED'
+              && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:setup-required'));
+          }
           break;
         }
 
@@ -220,6 +235,15 @@ axiosClient.interceptors.response.use(
 
     // 2. Request was made but no response was received (network failure or timeout)
     if (error.request) {
+      // A read that never got an answer is retried once. This covers the common causes of a
+      // single failure, such as the database waking from sleep or a connection dropped in the
+      // pool. Only GETs are retried: repeating a POST or PUT could apply the change twice.
+      const config = error.config;
+      if (config && !config.__retried && String(config.method || 'get').toLowerCase() === 'get') {
+        config.__retried = true;
+        return new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS)).then(() => axiosClient(config));
+      }
+
       const isTimeout =
         error.code === 'ECONNABORTED' ||
         (typeof error.message === 'string' && error.message.toLowerCase().includes('timeout'));

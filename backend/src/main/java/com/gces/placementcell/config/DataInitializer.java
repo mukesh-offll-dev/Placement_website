@@ -37,7 +37,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (userRepository.count() > 0) {
+        if (studentProfileRepository.count() > 0) {
             log.info("Database already contains data, skipping initialization.");
             return;
         }
@@ -45,23 +45,25 @@ public class DataInitializer implements CommandLineRunner {
         log.info("Bootstrapping initial admin, placement officer, jobs, and student data...");
 
         // 1. Admin & Placement Officer Users
-        User adminUser = userRepository.save(User.builder()
-                .email("admin@gces.edu")
-                .passwordHash(passwordEncoder.encode("Admin@123"))
-                .role(UserRole.ADMIN)
-                .accountStatus(AccountStatus.ACTIVE)
-                .isActive(true)
-                .isEmailVerified(true)
-                .build());
+        User adminUser = userRepository.findByEmailAndIsDeletedFalse("admin@gces.edu")
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .email("admin@gces.edu")
+                        .passwordHash(passwordEncoder.encode("Admin@1234"))
+                        .role(UserRole.ADMIN)
+                        .accountStatus(AccountStatus.ACTIVE)
+                        .isActive(true)
+                        .isEmailVerified(true)
+                        .build()));
 
-        User officerUser = userRepository.save(User.builder()
-                .email("officer@gces.edu")
-                .passwordHash(passwordEncoder.encode("Officer@123"))
-                .role(UserRole.PLACEMENT_OFFICER)
-                .accountStatus(AccountStatus.ACTIVE)
-                .isActive(true)
-                .isEmailVerified(true)
-                .build());
+        User officerUser = userRepository.findByEmailAndIsDeletedFalse("officer@gces.edu")
+                .orElseGet(() -> userRepository.save(User.builder()
+                        .email("officer@gces.edu")
+                        .passwordHash(passwordEncoder.encode("Officer@123"))
+                        .role(UserRole.PLACEMENT_OFFICER)
+                        .accountStatus(AccountStatus.ACTIVE)
+                        .isActive(true)
+                        .isEmailVerified(true)
+                        .build()));
 
         // 2. Jobs
         Job googleJob = seedJob(officerUser, "Google", "Technology", "Software Engineer", "Bangalore",

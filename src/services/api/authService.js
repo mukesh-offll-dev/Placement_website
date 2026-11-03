@@ -26,6 +26,8 @@ export const storeAuth = (authResponse) => {
       email: authResponse.email,
       role: authResponse.role,
       fullName: authResponse.fullName,
+      // True while a student must finish first-login setup; the route guard reads it.
+      setupRequired: Boolean(authResponse.setupRequired),
     })
   );
   localStorage.removeItem(LEGACY_TOKEN_KEY);
@@ -107,12 +109,12 @@ export const getRole = () => {
 };
 
 /**
- * Login user (Student or Admin).
- * Supports both login(email, password) and login({ email, password }).
+ * Login user. Staff sign in with { email, password }; students with { registerNumber, password }.
+ * Supports both login(email, password) and login({ email | registerNumber, password }).
  * POST /api/auth/login
  * @param {string|Object} emailOrCredentials
  * @param {string} [password]
- * @returns {Promise<Object>} AuthResponse data { token, type, userId, email, role, fullName }
+ * @returns {Promise<Object>} AuthResponse data { token, type, userId, email, role, fullName, setupRequired }
  */
 export const login = async (emailOrCredentials, password) => {
   const payload =
@@ -140,19 +142,31 @@ export const login = async (emailOrCredentials, password) => {
   }
 };
 
+// There is no student registration: the placement cell creates student accounts, and the student
+// finishes setting up at first login with completeFirstLogin below.
+
 /**
- * Register a student account.
- * Supports both registerStudent(data) and registerStudent({ email, password, fullName, rollNo }).
- * POST /api/auth/register/student
- * @param {Object} studentData - { email, password, fullName, rollNo }
+ * First login: replace the initial password and supply name, email and phone. The server returns a
+ * fresh token (the account's email changes), which is stored here.
+ * POST /api/student/account/setup
+ * @param {{ newPassword: string, fullName: string, email: string, phone: string }} data
  * @returns {Promise<Object>} AuthResponse data
  */
-export const registerStudent = async (studentData) => {
-  const payload = {
-    ...studentData,
-    role: 'STUDENT',
-  };
-  const response = await axiosClient.post('/auth/register/student', payload);
+export const completeFirstLogin = async (data) => {
+  const response = await axiosClient.post('/student/account/setup', data);
+  const authData = response.data;
+  storeAuth(authData);
+  resetAuthRedirectGuard();
+  return authData;
+};
+
+/**
+ * Change the signed-in student's password.
+ * POST /api/student/account/change-password
+ * @param {{ currentPassword: string, newPassword: string }} data
+ */
+export const changePassword = async (data) => {
+  const response = await axiosClient.post('/student/account/change-password', data);
   const authData = response.data;
   storeAuth(authData);
   resetAuthRedirectGuard();
@@ -229,7 +243,8 @@ export const logout = (redirectTo = '/login') => {
 
 const authService = {
   login,
-  registerStudent,
+  completeFirstLogin,
+  changePassword,
   registerAdmin,
   getCurrentUser,
   authFetch,

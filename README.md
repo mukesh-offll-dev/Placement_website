@@ -1,10 +1,10 @@
-# 🎓 Placement Management System (College Placement Portal)
+# ðŸŽ“ Placement Management System (College Placement Portal)
 
 A modern, full-stack web platform built for colleges to streamline the student placement process, manage student profiles, handle job notifications, track project submissions, and provide administrative control.
 
 ---
 
-## 📑 Table of Contents
+## ðŸ“‘ Table of Contents
 
 1. [Project Overview](#1-project-overview)
 2. [System Requirements](#2-system-requirements)
@@ -15,7 +15,7 @@ A modern, full-stack web platform built for colleges to streamline the student p
 7. [Clone the Project](#7-clone-the-project)
 8. [Open the Project in Your Editor / IDE](#8-open-the-project-in-your-editor--ide)
 9. [Frontend Setup & Run (React + Vite)](#9-frontend-setup--run-react--vite)
-10. [Backend Setup — H2 Development Mode (Zero Database Setup)](#10-backend-setup--h2-development-mode-zero-database-setup)
+10. [Backend Setup â€” H2 Development Mode (Zero Database Setup)](#10-backend-setup--h2-development-mode-zero-database-setup)
 11. [Verify Backend Health](#11-verify-backend-health)
 12. [Port 8080 Troubleshooting](#12-port-8080-troubleshooting)
 13. [Neon Cloud PostgreSQL Setup (Production Profile)](#13-neon-cloud-postgresql-setup-production-profile)
@@ -31,6 +31,7 @@ A modern, full-stack web platform built for colleges to streamline the student p
 23. [First-Time User Setup Checklist](#23-first-time-user-setup-checklist)
 24. [Git Workflow & Contributing](#24-git-workflow--contributing)
 25. [Applications & Interview API](#25-applications--interview-api)
+26. [Student Accounts & Management](#26-student-accounts--management)
 
 ---
 
@@ -76,7 +77,7 @@ Ensure your machine meets these requirements before starting:
 Git allows you to clone the project repository and manage versions.
 
 ### Installation Steps
-1. Download the official 64-bit Windows installer: 👉 [git-scm.com/download/win](https://git-scm.com/download/win)
+1. Download the official 64-bit Windows installer: ðŸ‘‰ [git-scm.com/download/win](https://git-scm.com/download/win)
 2. Run the downloaded installer file (e.g. `Git-2.xx.x-64-bit.exe`).
 3. Follow the installation wizard (default options are recommended). Ensure **"Git from the command line and also from 3rd-party software"** is selected.
 4. Complete the installation and click **Finish**.
@@ -104,16 +105,16 @@ git version 2.4x.x.windows.1
 This Spring Boot backend is compiled with **Java 21**. You must install Java 21 JDK (Java Development Kit), not an older version (like Java 8, 11, or 17) and not just a JRE.
 
 ### Recommended Download: Eclipse Temurin JDK 21
-1. Visit the Eclipse Adoptium download page: 👉 [adoptium.net/temurin/releases/?version=21](https://adoptium.net/temurin/releases/?version=21)
+1. Visit the Eclipse Adoptium download page: ðŸ‘‰ [adoptium.net/temurin/releases/?version=21](https://adoptium.net/temurin/releases/?version=21)
 2. Select **Operating System: Windows** and **Architecture: x64**.
 3. Choose the **.msi installer** (`OpenJDK21U-jdk_x64_windows_hotspot_...msi`).
 4. Run the `.msi` installer.
 
 ### Critical Installer Options
 During the setup wizard, on the **Custom Setup** screen:
-- 🟢 Set **"Add to PATH"** to **"Will be installed on local hard drive"**.
-- 🟢 Set **"Set JAVA_HOME variable"** to **"Will be installed on local hard drive"**.
-- 🟢 Set **"JavaSoft (Oracle) registry keys"** to **"Will be installed on local hard drive"**.
+- ðŸŸ¢ Set **"Add to PATH"** to **"Will be installed on local hard drive"**.
+- ðŸŸ¢ Set **"Set JAVA_HOME variable"** to **"Will be installed on local hard drive"**.
+- ðŸŸ¢ Set **"JavaSoft (Oracle) registry keys"** to **"Will be installed on local hard drive"**.
 - Click **Next** and complete installation.
 
 ### Verification
@@ -150,7 +151,7 @@ If you see `'java' is not recognized`:
 Node.js and npm are required to build and run the React frontend.
 
 ### Installation Steps
-1. Download the LTS version (Long Term Support): 👉 [nodejs.org](https://nodejs.org/)
+1. Download the LTS version (Long Term Support): ðŸ‘‰ [nodejs.org](https://nodejs.org/)
 2. Run the downloaded `.msi` installer (e.g. `node-v20.x.x-x64.msi`).
 3. Follow the prompts and accept the license agreement. Ensure **"Add to PATH"** is selected.
 4. Click **Install** and then **Finish**.
@@ -175,7 +176,7 @@ v20.x.x (or v18.x.x)
 
 Maven is used to compile, manage dependencies, and run the Spring Boot backend. You have two ways to run Maven:
 
-### METHOD A — Use the Included Maven Wrapper (Recommended)
+### METHOD A â€” Use the Included Maven Wrapper (Recommended)
 This repository includes the Maven Wrapper scripts:
 - `backend/mvnw.cmd` (for Windows Command Prompt and PowerShell)
 - `backend/mvnw` (for Linux and macOS)
@@ -191,12 +192,12 @@ cd backend
 
 ---
 
-### METHOD B — Manual Maven Installation on Windows
+### METHOD B â€” Manual Maven Installation on Windows
 
 If `.\mvnw.cmd` fails or you prefer a global Maven installation:
 
 1. **Download Maven Binary Zip:**
-   - Go to 👉 [maven.apache.org/download.cgi](https://maven.apache.org/download.cgi)
+   - Go to ðŸ‘‰ [maven.apache.org/download.cgi](https://maven.apache.org/download.cgi)
    - Download the Binary zip archive: `apache-maven-3.9.9-bin.zip`.
 
 2. **Extract to `C:\maven`:**
@@ -296,20 +297,20 @@ npm run dev
 ```text
   VITE v6.x.x  ready in 320 ms
 
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-  ➜  press h + enter to show help
+  âžœ  Local:   http://localhost:5173/
+  âžœ  Network: use --host to expose
+  âžœ  press h + enter to show help
 ```
 
 ### Step 4: Open in Browser
-Open your browser and navigate to: 👉 **`http://localhost:5173`**
+Open your browser and navigate to: ðŸ‘‰ **`http://localhost:5173`**
 
 ### Step 5: How to Stop the Frontend
 Press `Ctrl + C` in the terminal and type `y` to terminate.
 
 ---
 
-## 10. Backend Setup — H2 Development Mode (Zero Database Setup)
+## 10. Backend Setup â€” H2 Development Mode (Zero Database Setup)
 
 The backend comes pre-configured with a **`dev` profile** that uses an in-memory **H2 database**.  
 You **do not need** to install PostgreSQL, Docker, or configure passwords to start developing immediately.
@@ -366,7 +367,7 @@ With the backend running, verify the endpoints:
 
 ### 1. API Health Check
 Open in your browser or run in PowerShell:
-👉 **`http://localhost:8080/api/health`**
+ðŸ‘‰ **`http://localhost:8080/api/health`**
 
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8080/api/health" | ConvertTo-Json
@@ -388,7 +389,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/health" | ConvertTo-Json
 
 ### 2. H2 Database Web Console
 In dev mode, H2 provides a built-in web management interface at:
-👉 **`http://localhost:8080/api/h2-console`**
+ðŸ‘‰ **`http://localhost:8080/api/h2-console`**
 
 **Connection Credentials (from `application-dev.yml`):**
 - **Saved Settings:** Generic H2 (Embedded)
@@ -443,7 +444,7 @@ Now rerun `mvn spring-boot:run`.
 When deploying or testing persistent data, the project connects to **Neon Serverless PostgreSQL** via the `prod` profile.
 
 ### Step 1: Create a Neon Database
-1. Go to 👉 [neon.tech](https://neon.tech/) and sign up for a free account.
+1. Go to ðŸ‘‰ [neon.tech](https://neon.tech/) and sign up for a free account.
 2. Click **Create Project** (e.g. name it `placement-cell`).
 3. Neon will display your project dashboard with connection details.
 
@@ -497,6 +498,40 @@ $env:SPRING_PROFILES_ACTIVE="prod"
 > [!IMPORTANT]
 > **The `.env.example` file is only a template; it is not loaded automatically.** Copy it to `.env` as shown above. The backend reads `.env` files, and operating-system environment variables take precedence over values in the file. The default `dev` profile uses in-memory H2; use `prod` to require PostgreSQL settings.
 
+### Email notifications with EmailJS (frontend)
+
+Besides the backend's SMTP mail, the frontend can send emails through [EmailJS](https://www.emailjs.com/) using `@emailjs/browser`. It sends two emails, always as a quiet extra: a failure is logged to the browser console and never blocks the action or changes the screen.
+
+| When | Who gets the email |
+|---|---|
+| A student submits an application | The student (confirmation) |
+| The placement cell changes an application's status | The student |
+
+Job-posted alerts and the emails to admins are still sent by the backend (SMTP), because the browser does not know those recipients.
+
+**Setup**
+
+1. In the EmailJS dashboard, create an email service and a template. The template must use these variables, and its **To Email** field must be `{{to_email}}`:
+   `{{to_email}}`, `{{to_name}}`, `{{subject}}`, `{{message}}`
+2. In **Account â†’ Security**, add your site origin (for example `http://localhost:5173`) to the allowed origins if you restrict them.
+3. Copy `.env.example` to `.env` in the **project root** (the same folder as `package.json`; Vite does not read `backend/.env`) and fill in:
+   ```env
+   VITE_EMAILJS_SERVICE_ID=service_xxxxxxx
+   VITE_EMAILJS_TEMPLATE_ID=template_xxxxxxx
+   VITE_EMAILJS_PUBLIC_KEY=your_public_key
+   ```
+   Leave them blank to turn browser email off. The public key is meant to be visible in the browser, but `.env` is still git-ignored.
+4. Restart `npm run dev` (Vite reads `.env` only at startup).
+5. **Avoid duplicate emails.** The backend also emails students about their own applications when `APP_MAIL_ENABLED=true`. Set `APP_MAIL_STUDENT_APPLICATION_EMAILS=false` in `backend/.env` so each event is mailed once. Job alerts and admin emails are unaffected.
+
+**How to test it**
+
+- Run the unit tests: `npm test` (the EmailJS transport is faked, so nothing is sent).
+- Live check: sign in as a student whose account email is a mailbox you can open, apply to a job, and look for "Application submitted". Then, as admin, change that application's status and look for "Application update".
+- If nothing arrives, open the browser console. `[email] notification not sent: â€¦` shows the reason (for example a bad template or an origin that is not allowed). EmailJS's free plan has a monthly limit; when it is reached the message says so.
+
+The code is in `src/services/emailService.js`. Repeated sends of the same message to the same person within one minute, and double clicks while a send is in progress, are dropped.
+
 ---
 
 ## 15. Verify Production / Neon Connection
@@ -515,7 +550,7 @@ j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory 
 
 ### 2. Actuator Component Health Check
 Open in your browser or run:
-👉 **`http://localhost:8080/api/actuator/health`**
+ðŸ‘‰ **`http://localhost:8080/api/actuator/health`**
 
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8080/api/actuator/health" | ConvertTo-Json -Depth 4
@@ -574,31 +609,31 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/actuator/health" | ConvertTo-J
 To run the full stack on your local machine, open **two separate terminal windows**:
 
 ```text
-┌────────────────────────────────────────────────────────┐
-│ TERMINAL 1: Frontend (React + Vite)                    │
-├────────────────────────────────────────────────────────┤
-│ cd Placement_website                                   │
-│ npm install                                            │
-│ npm run dev                                            │
-│                                                        │
-│ ➜ App running at: http://localhost:5173                │
-└────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ TERMINAL 1: Frontend (React + Vite)                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ cd Placement_website                                   â”‚
+â”‚ npm install                                            â”‚
+â”‚ npm run dev                                            â”‚
+â”‚                                                        â”‚
+â”‚ âžœ App running at: http://localhost:5173                â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
-┌────────────────────────────────────────────────────────┐
-│ TERMINAL 2: Backend (Spring Boot)                      │
-├────────────────────────────────────────────────────────┤
-│ cd Placement_website\backend                           │
-│ .\mvnw.cmd spring-boot:run                             │
-│ (or: mvn spring-boot:run)                              │
-│                                                        │
-│ ➜ API running at: http://localhost:8080/api            │
-└────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ TERMINAL 2: Backend (Spring Boot)                      â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ cd Placement_website\backend                           â”‚
+â”‚ .\mvnw.cmd spring-boot:run                             â”‚
+â”‚ (or: mvn spring-boot:run)                              â”‚
+â”‚                                                        â”‚
+â”‚ âžœ API running at: http://localhost:8080/api            â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### URLs to Open:
-1. 🌐 **Frontend Application:** [http://localhost:5173](http://localhost:5173)
-2. 🔌 **Backend Health API:** [http://localhost:8080/api/health](http://localhost:8080/api/health)
-3. 🗄️ **H2 Web Database Console (Dev):** [http://localhost:8080/api/h2-console](http://localhost:8080/api/h2-console)
+1. ðŸŒ **Frontend Application:** [http://localhost:5173](http://localhost:5173)
+2. ðŸ”Œ **Backend Health API:** [http://localhost:8080/api/health](http://localhost:8080/api/health)
+3. ðŸ—„ï¸ **H2 Web Database Console (Dev):** [http://localhost:8080/api/h2-console](http://localhost:8080/api/h2-console)
 
 ---
 
@@ -641,52 +676,53 @@ To run the full stack on your local machine, open **two separate terminal window
 
 ```text
 Placement_website/
-├── public/                       # Static public assets (images, icons)
-├── src/                          # React Frontend Source Code
-│   ├── assets/                   # CSS and graphic assets
-│   ├── components/               # Reusable UI components (Navbar, Cards, Modals)
-│   ├── context/AuthContext.jsx   # Global authenticated session, token, and role
-│   ├── layouts/                  # Layout wrappers (AdminLayout, StudentLayout)
-│   ├── pages/                    # React page views
-│   │   ├── LandingPage.jsx       # Public landing page
-│   │   ├── LoginPage.jsx         # Authentication view
-│   │   ├── StudentDashboard.jsx  # Student portal
-│   │   ├── AdminDashboard.jsx    # Placement officer portal
-│   │   ├── NotificationPage.jsx  # Placement notices & announcements
-│   │   ├── StudentProfile.jsx    # Student profile management
-│   │   └── AddProjectPage.jsx    # Student project showcase submission
-│   ├── App.jsx                   # React Router v7 route declarations
-│   ├── main.jsx                  # React application bootstrap
-│   └── index.css                 # Tailwind CSS v4 styling rules
-│
-├── backend/                      # Spring Boot Java Backend Source Code
-│   ├── .mvn/wrapper/             # Maven wrapper binary & config
-│   ├── mvnw / mvnw.cmd           # Maven wrapper CLI scripts
-│   ├── pom.xml                   # Maven project dependencies & build configuration
-│   ├── .env.example              # Template environment variables (Safe for git)
-│   ├── src/main/java/com/gces/placementcell/
-│   │   ├── PlacementCellApplication.java  # Spring Boot Main Entrypoint
-│   │   ├── config/               # SecurityConfig, CorsConfig
-│   │   ├── controller/           # REST Controllers (HealthController)
-│   │   ├── dto/                  # ApiResponse, request/response models
-│   │   ├── entity/               # JPA Database Entities
-│   │   ├── repository/           # Spring Data JPA Repository interfaces
-│   │   ├── service/              # Service Layer business logic interfaces
-│   │   └── exception/            # GlobalExceptionHandler, Custom exceptions
-│   └── src/main/resources/
-│       ├── application.yml       # Base Spring Boot properties (port 8080, context-path /api)
-│       ├── application-dev.yml   # Dev profile: H2 in-memory configuration
-│       └── application-prod.yml  # Prod profile: PostgreSQL & HikariCP pool configuration
-│
-├── .gitignore                    # Prevents .env, node_modules, and target/ from being committed
-├── package.json                  # Frontend scripts & NPM dependencies
-├── vite.config.js                # Vite build and server settings
-└── README.md                     # Complete project documentation
+â”œâ”€â”€ public/                       # Static public assets (images, icons)
+â”œâ”€â”€ src/                          # React Frontend Source Code
+â”‚   â”œâ”€â”€ assets/                   # CSS and graphic assets
+â”‚   â”œâ”€â”€ components/               # Reusable UI components (Navbar, Cards, Modals)
+â”‚   â”œâ”€â”€ context/AuthContext.jsx   # Global authenticated session, token, and role
+â”‚   â”œâ”€â”€ layouts/                  # Layout wrappers (AdminLayout, StudentLayout)
+â”‚   â”œâ”€â”€ pages/                    # React page views
+â”‚   â”‚   â”œâ”€â”€ LandingPage.jsx       # Public landing page
+â”‚   â”‚   â”œâ”€â”€ LoginPage.jsx         # Authentication view
+â”‚   â”‚   â”œâ”€â”€ StudentDashboard.jsx  # Student portal
+â”‚   â”‚   â”œâ”€â”€ AdminDashboard.jsx    # Placement officer portal
+â”‚   â”‚   â”œâ”€â”€ NotificationPage.jsx  # Placement notices & announcements
+â”‚   â”‚   â”œâ”€â”€ StudentProfile.jsx    # Student profile management
+â”‚   â”‚   â””â”€â”€ AddProjectPage.jsx    # Student project showcase submission
+â”‚   â”œâ”€â”€ App.jsx                   # React Router v7 route declarations
+â”‚   â”œâ”€â”€ main.jsx                  # React application bootstrap
+â”‚   â””â”€â”€ index.css                 # Tailwind CSS v4 styling rules
+â”‚
+â”œâ”€â”€ backend/                      # Spring Boot Java Backend Source Code
+â”‚   â”œâ”€â”€ .mvn/wrapper/             # Maven wrapper binary & config
+â”‚   â”œâ”€â”€ mvnw / mvnw.cmd           # Maven wrapper CLI scripts
+â”‚   â”œâ”€â”€ pom.xml                   # Maven project dependencies & build configuration
+â”‚   â”œâ”€â”€ .env.example              # Template environment variables (Safe for git)
+â”‚   â”œâ”€â”€ src/main/java/com/gces/placementcell/
+â”‚   â”‚   â”œâ”€â”€ PlacementCellApplication.java  # Spring Boot Main Entrypoint
+â”‚   â”‚   â”œâ”€â”€ config/               # SecurityConfig, CorsConfig
+â”‚   â”‚   â”œâ”€â”€ controller/           # REST Controllers (HealthController)
+â”‚   â”‚   â”œâ”€â”€ dto/                  # ApiResponse, request/response models
+â”‚   â”‚   â”œâ”€â”€ entity/               # JPA Database Entities
+â”‚   â”‚   â”œâ”€â”€ repository/           # Spring Data JPA Repository interfaces
+â”‚   â”‚   â”œâ”€â”€ service/              # Service Layer business logic interfaces
+â”‚   â”‚   â””â”€â”€ exception/            # GlobalExceptionHandler, Custom exceptions
+â”‚   â””â”€â”€ src/main/resources/
+â”‚       â”œâ”€â”€ application.yml       # Base Spring Boot properties (port 8080, context-path /api)
+â”‚       â”œâ”€â”€ application-dev.yml   # Dev profile: H2 in-memory configuration
+â”‚       â””â”€â”€ application-prod.yml  # Prod profile: PostgreSQL & HikariCP pool configuration
+â”‚
+â”œâ”€â”€ .gitignore                    # Prevents .env, node_modules, and target/ from being committed
+â”œâ”€â”€ package.json                  # Frontend scripts & NPM dependencies
+â”œâ”€â”€ vite.config.js                # Vite build and server settings
+â””â”€â”€ README.md                     # Complete project documentation
 ```
 
 The frontend wraps the application in `AuthProvider`. Components can use `useAuth()` to access
-the current `session`, `token`, `user`, and `role`, or call the shared `login`, `registerStudent`,
-and `logout` actions. Protected routes and portal navigation use this same state; the session is
+the current `session`, `token`, `user`, and `role`, or call the shared `login`, `applyAuthData`,
+and `logout` actions. (Students no longer register themselves; see
+[section 26](#26-student-accounts--management).) Protected routes and portal navigation use this same state; the session is
 restored from browser storage after reload and cleared when the token expires or an API request
 returns an unauthorized response.
 
@@ -701,11 +737,11 @@ cd Placement_website
 
 # Terminal 1: Frontend
 npm install && npm run dev
-# ➜ http://localhost:5173
+# âžœ http://localhost:5173
 
 # Terminal 2: Backend (Dev Mode - H2)
 cd backend && mvn spring-boot:run
-# ➜ http://localhost:8080/api/health
+# âžœ http://localhost:8080/api/health
 ```
 
 ---
@@ -815,3 +851,130 @@ Add a stage with a `TimelineStatus` of `DONE`, `UPCOMING`, `PENDING`, `FAILED`, 
 ```
 
 Stages are appended in display order, and the current application stage is updated. A selection round supplied during a status change must belong to the same job. Only the student can withdraw their own application.
+
+
+---
+
+## 26. Student Accounts & Management
+
+Students do **not** register themselves. The placement cell creates every student account, and the
+student finishes setting it up the first time they sign in.
+
+### The workflow
+
+1. **Admin adds students.** Admin â†’ Students â†’ **Manage Students**.
+   - *Add a student*: Register Number, Department, Year.
+   - *Add many students*: Register Number **From** / **To**, Department, Year. The range is generated
+     for you (for example `811521104001` to `811521104060`) and any register number that already
+     exists is skipped. A range must share its prefix and digit length, run forwards, and be at most
+     100 numbers per request.
+   - **Year of passing** is the year the batch graduates (2026 means batch 2022-2026).
+   - **Department** is chosen by its code (CSE, ECE, EEE, CIVIL, MECH, MCT, and any you add). See *Departments* below.
+2. **Student signs in** at `/student/login` with their **Register Number** and **Password**. The
+   initial password is the register number (case does not matter for this first sign-in).
+3. **First login is a forced setup.** The student is sent to `/student/setup` and cannot use anything
+   else until they set a **new password** and give their **name, email and phone**. The server
+   enforces this too: until setup is done every API call except setup, `/auth/me` and logout is refused.
+4. They land on the **Student Dashboard** and complete the rest (CGPA, skills, resume, projects) later.
+5. **Reminder.** A daily job (10:00) emails and notifies students who finished setup but whose profile
+   is still incomplete, at most once a week each. Admins can also press **Remind incomplete profiles**.
+
+### What admins can do (Manage Students)
+
+| Action | Effect |
+|---|---|
+| Add / Add many | Creates the account; the register number is the first password. |
+| Search and filter | By register number, name, email, department; All / Active / Deactivated / Setup pending. |
+| Edit | Name, email, department, year, CGPA, total and active backlogs, skills, placement status, placed company, package. Validated in the form and again on the server. |
+| Deactivate / Reactivate | Blocks or restores sign-in; ends any active session at once. Data is kept. |
+| Reset password | Sets the password back to the register number and forces a change at next login. |
+| Delete | Removes the student from lists and blocks sign-in. Applications are kept and the register number stays reserved. Asks you to type the register number to confirm. |
+
+### Departments
+
+Departments are data, not code, so a new department never needs a release. In **Manage Students → Departments**:
+
+| Action | Effect |
+|---|---|
+| Add department | A short unique **code** (2 to 10 letters or digits, saved in capitals, for example `AIDS`) and a **name**. It appears in every student form and filter at once. |
+| Rename | Changes the name. The **code is fixed**, because students and job drives refer to it. |
+| Deactivate / Activate | A deactivated department cannot be chosen for new students; students already in it stay in it. |
+| Delete | Only while no student or job drive uses it. Otherwise deactivate it. |
+
+The starting set is CSE, ECE, EEE, CIVIL, MECH and MCT (added on the first start of an empty database). Any
+department code that students already carry (for example `IT`) gets a row automatically, so existing students stay valid.
+API: `GET/POST /api/admin/departments`, `PUT/DELETE /api/admin/departments/{id}`.
+
+### Security rules
+
+- All permissions are enforced on the backend (`/admin/**` needs ADMIN or PLACEMENT_OFFICER; `/student/**` needs STUDENT).
+- Passwords are stored as bcrypt hashes and never appear in a response or log. New passwords need 8+
+  characters with upper case, lower case and a digit, and cannot be the register number.
+- Register numbers must be **exactly 12 digits** (for example `830123104032`), enforced when an admin
+  adds, bulk-adds or changes one (`StudentIdentity`, and the Manage Students forms accept digits only).
+  Numbers created before this rule (such as `DEMO0001`) keep working and can be edited without
+  changing their number; no database constraint was added, so existing rows are untouched.
+  They are stored trimmed with a database `UNIQUE` constraint plus an uppercase `CHECK`.
+- Students cannot sign in with an email, only with a register number. Deactivated and deleted students cannot sign in.
+- Because the first password is guessable, **5 wrong passwords lock that account for 15 minutes**
+  (`APP_LOGIN_MAX_FAILURES`, `APP_LOGIN_LOCKOUT_MINUTES`). An admin password reset lifts the lock.
+- Until a student sets a real email, an internal stand-in address (`...@pending.gces.local`) is used.
+  It is never shown and never emailed.
+
+### Database migration
+
+The change is applied automatically at startup (`backend/src/main/resources/schema.sql`, *In-place
+migrations*) and mirrored in `schema/05_student_management_migration.sql`. It adds
+`users.must_change_password`, `student_profiles.profile_setup_completed` and
+`student_profiles.profile_reminder_sent_at`, uppercases existing register numbers, and adds the
+uppercase `CHECK`. It is safe to run repeatedly. Existing students count as already set up and keep
+their current passwords; they now sign in with their register number. A student with **no** register
+number cannot sign in until an admin edits one in.
+
+Before running it by hand on a database with existing students, check for register numbers that differ
+only by case:
+
+```sql
+SELECT UPPER(TRIM(roll_no)), COUNT(*) FROM student_profiles
+WHERE roll_no IS NOT NULL GROUP BY 1 HAVING COUNT(*) > 1;
+```
+
+### API
+
+| Method and path | Who | Purpose |
+|---|---|---|
+| `POST /api/auth/login` | public | `{ registerNumber, password }` for students, `{ email, password }` for staff. |
+| `POST /api/student/account/setup` | student | First-login setup. Returns a fresh token. |
+| `POST /api/student/account/change-password` | student | Change password (needs the current one). |
+| `POST /api/admin/students/provision` | admin | Add one student. |
+| `POST /api/admin/students/provision/bulk` | admin | Add a register number range. |
+| `PUT /api/admin/students/{id}` | admin | Edit a profile. |
+| `PATCH /api/admin/students/{id}/deactivate` and `/reactivate` | admin | Block or restore sign-in. |
+| `POST /api/admin/students/{id}/reset-password` | admin | Back to the register number. |
+| `DELETE /api/admin/students/{id}` | admin | Delete (soft). |
+| `POST /api/admin/students/profile-reminders` | admin | Send the incomplete-profile reminders now. |
+
+`POST /api/auth/register/student` no longer exists.
+
+### Configuration (all optional, in `backend/.env`)
+
+```env
+APP_LOGIN_MAX_FAILURES=5               # wrong passwords before a lockout
+APP_LOGIN_LOCKOUT_MINUTES=15
+APP_PROFILE_REMINDER_ENABLED=true      # daily incomplete-profile reminder
+APP_PROFILE_REMINDER_INTERVAL_DAYS=7   # at most one reminder per student per interval
+APP_PROFILE_REMINDER_CRON=0 0 10 * * * # when it runs
+```
+
+Reminder emails use the same mail settings as job alerts (`APP_MAIL_ENABLED`, `MAIL_*`). With mail off, the in-app notification is still created.
+
+### Testing it
+
+```powershell
+cd backend ; .\mvnw.cmd test      # includes StudentManagementFlowTest (end to end through the real security chain)
+cd .. ; npm test ; npm run lint
+```
+
+`StudentManagementFlowTest` covers single and bulk creation (including duplicates and bad ranges), the
+first-login lock, setup, profile editing, deactivate, reactivate, password reset, delete, the login
+throttle, and refusal of anonymous and student callers on every admin endpoint.

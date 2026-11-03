@@ -1,6 +1,8 @@
 package com.gces.placementcell.service.impl;
 
+import com.gces.placementcell.dto.request.BulkProvisionStudentsRequest;
 import com.gces.placementcell.dto.request.CreateStudentRequest;
+import com.gces.placementcell.dto.request.ProvisionStudentRequest;
 import com.gces.placementcell.dto.request.UpdateStudentRequest;
 import com.gces.placementcell.dto.response.*;
 import com.gces.placementcell.entity.*;
@@ -11,7 +13,14 @@ import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.*;
+import com.gces.placementcell.exception.DuplicateResourceException;
+import com.gces.placementcell.security.CustomUserDetailsService;
+import com.gces.placementcell.security.LoginAttemptLimiter;
+import com.gces.placementcell.security.TokenProvider;
 import com.gces.placementcell.service.AdminStudentService;
+import com.gces.placementcell.service.DepartmentService;
+import com.gces.placementcell.service.StudentIdentity;
+import jakarta.persistence.criteria.Fetch;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -49,6 +58,10 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     private final JobRepository jobRepository;
     private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TokenProvider tokenProvider;
+    private final CustomUserDetailsService userDetailsService;
+    private final LoginAttemptLimiter loginAttemptLimiter;
+    private final DepartmentService departmentService;
 
     @Override
     @Transactional(readOnly = true)
@@ -106,7 +119,11 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     @Transactional
     public StudentDetailDto createStudent(CreateStudentRequest request) {
         String email = request.getEmail().trim().toLowerCase();
-        String rollNo = request.getRollNo() != null ? request.getRollNo().trim().toUpperCase() : null;
+        String rollNo = StudentIdentity.requireValid(request.getRollNo());
+
+        if (StudentIdentity.isPlaceholderEmail(email)) {
+            throw new BadRequestException("Enter the student's real email address");
+        }
 
         // Check duplicate email
         if (userRepository.existsByEmail(email) || studentProfileRepository.existsByEmail(email)) {
@@ -118,8 +135,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
             throw new BadRequestException("Student with register/roll number '" + rollNo + "' already exists");
         }
 
-        // 1. Create User
-        String rawPassword = StringUtils.hasText(request.getPassword()) ? request.getPassword() : "Student@123";
+        // 1. Create User. The initial password is the register number unless the admin set one;
+        // either way the student must replace it (and confirm their details) at first login.
+        String rawPassword = StringUtils.hasText(request.getPassword()) ? request.getPassword() : rollNo;
         User user = User.builder()
                 .email(email)
                 .passwordHash(passwordEncoder.encode(rawPassword))
@@ -127,6 +145,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .accountStatus(AccountStatus.ACTIVE)
                 .isActive(true)
                 .isEmailVerified(true)
+                .mustChangePassword(true)
                 .build();
         User savedUser = userRepository.save(user);
 
@@ -165,6 +184,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .placedCtc(request.getPlacedCtc())
                 .placedOn(request.getPlacedOn())
                 .profileCompletionPercent(completion)
+                .profileSetupCompleted(false)
                 .build();
 
         StudentProfile savedProfile = studentProfileRepository.save(profile);
@@ -192,9 +212,14 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         StudentProfile profile = studentProfileRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + id));
 
+        String oldEmail = profile.getEmail();
+
         // Check roll number uniqueness if updated
         if (StringUtils.hasText(request.getRollNo())) {
-            String newRollNo = request.getRollNo().trim().toUpperCase();
+            // A legacy (non 12-digit) number may stay as it is; any change must be a valid one.
+            String submitted = StudentIdentity.normalize(request.getRollNo());
+            String newRollNo = submitted.equalsIgnoreCase(profile.getRollNo())
+                    ? submitted : StudentIdentity.requireValid(submitted);
             if (!newRollNo.equalsIgnoreCase(profile.getRollNo())) {
                 if (studentProfileRepository.existsByRollNo(newRollNo)) {
                     throw new BadRequestException("Student with roll number '" + newRollNo + "' already exists");
@@ -206,6 +231,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         // Check email uniqueness if updated
         if (StringUtils.hasText(request.getEmail())) {
             String newEmail = request.getEmail().trim().toLowerCase();
+            if (StudentIdentity.isPlaceholderEmail(newEmail)) {
+                throw new BadRequestException("Enter the student's real email address");
+            }
             if (!newEmail.equalsIgnoreCase(profile.getEmail())) {
                 if (studentProfileRepository.existsByEmail(newEmail) || userRepository.existsByEmail(newEmail)) {
                     throw new BadRequestException("Student with email '" + newEmail + "' already exists");
@@ -242,14 +270,23 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         if (request.getDegree() != null) {
             profile.setDegree(request.getDegree());
         }
-        if (request.getDepartment() != null) {
-            profile.setDepartment(request.getDepartment());
-        }
-        if (request.getDepartmentCode() != null) {
+        if (StringUtils.hasText(request.getDepartment())) {
+            Department department = departmentService.resolve(request.getDepartment());
+            boolean changed = !department.getCode().equalsIgnoreCase(profile.getDepartmentCode());
+            // A student may stay in a department that was later switched off, but cannot be moved into one.
+            if (changed && !Boolean.TRUE.equals(department.getIsActive())) {
+                throw new BadRequestException("Department " + department.getCode()
+                        + " is inactive. Reactivate it under Departments first.");
+            }
+            profile.setDepartment(department.getName());
+            profile.setDepartmentCode(department.getCode());
+        } else if (request.getDepartmentCode() != null) {
             profile.setDepartmentCode(request.getDepartmentCode());
         }
         if (request.getBatch() != null) {
             profile.setBatch(request.getBatch());
+        } else if (request.getYear() != null) {
+            profile.setBatch(StudentIdentity.batchForYear(request.getYear()));
         }
         if (request.getSemester() != null) {
             profile.setSemester(request.getSemester());
@@ -282,6 +319,12 @@ public class AdminStudentServiceImpl implements AdminStudentService {
             profile.setProfileCompletionPercent(request.getProfileCompletionPercent());
         }
 
+        // The database rejects active > total backlogs with an opaque error; say it plainly instead.
+        if (profile.getActiveBacklogs() != null && profile.getTotalBacklogs() != null
+                && profile.getActiveBacklogs() > profile.getTotalBacklogs()) {
+            throw new BadRequestException("Active backlogs cannot be more than total backlogs");
+        }
+
         // Account status updates
         if (profile.getUser() != null) {
             if (request.getIsActive() != null) {
@@ -308,6 +351,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         }
 
         StudentProfile updated = studentProfileRepository.save(profile);
+        if (updated.getUser() != null) {
+            forgetCachedUser(updated.getUser(), oldEmail);
+        }
         return buildStudentDetailDto(updated);
     }
 
@@ -324,10 +370,123 @@ public class AdminStudentServiceImpl implements AdminStudentService {
             user.setIsActive(false);
             user.setAccountStatus(AccountStatus.INACTIVE);
             userRepository.save(user);
+            forgetCachedUser(user, user.getEmail());
         }
 
         profile.setPlacementStatus(PlacementStatus.BLOCKED);
         studentProfileRepository.save(profile);
+    }
+
+    @Override
+    @Transactional
+    public StudentSummaryDto provisionStudent(ProvisionStudentRequest request) {
+        String registerNumber = StudentIdentity.requireValid(request.registerNumber());
+        Department department = departmentService.requireActive(request.department());
+        if (studentProfileRepository.existsByRollNo(registerNumber)) {
+            throw new DuplicateResourceException("A student with register number " + registerNumber + " already exists");
+        }
+        StudentProfile created = createProvisionedStudent(registerNumber, department, request.year());
+        log.info("Student provisioned: registerNumber={}", registerNumber);
+        return mapToSummaryDto(created, null);
+    }
+
+    @Override
+    @Transactional
+    public BulkProvisionResult provisionStudents(BulkProvisionStudentsRequest request) {
+        List<String> numbers = StudentIdentity.expandRange(request.registerNumberFrom(), request.registerNumberTo());
+        Department department = departmentService.requireActive(request.department());
+        // One query for the whole range instead of one per number.
+        Set<String> existing = new HashSet<>(studentProfileRepository.findExistingRollNos(numbers));
+
+        List<String> created = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        for (String registerNumber : numbers) {
+            if (existing.contains(registerNumber)) {
+                skipped.add(registerNumber);
+                continue;
+            }
+            createProvisionedStudent(registerNumber, department, request.year());
+            created.add(registerNumber);
+        }
+        log.info("Bulk student provisioning: requested={} created={} skipped={}",
+                numbers.size(), created.size(), skipped.size());
+        return new BulkProvisionResult(numbers.size(), created.size(), skipped.size(), created, skipped);
+    }
+
+    @Override
+    @Transactional
+    public StudentSummaryDto setStudentActive(Long id, boolean active) {
+        StudentProfile profile = findLiveStudent(id);
+        User user = profile.getUser();
+        if (user == null) {
+            throw new BadRequestException("This student has no login account to change");
+        }
+        user.setIsActive(active);
+        user.setAccountStatus(active ? AccountStatus.ACTIVE : AccountStatus.INACTIVE);
+        userRepository.save(user);
+        // Takes effect on the next request rather than after the auth cache window.
+        forgetCachedUser(user, user.getEmail());
+        log.info("Student {}: id={}", active ? "reactivated" : "deactivated", id);
+        return mapToSummaryDto(profile, null);
+    }
+
+    @Override
+    @Transactional
+    public void resetStudentPassword(Long id) {
+        StudentProfile profile = findLiveStudent(id);
+        User user = profile.getUser();
+        if (user == null || !StringUtils.hasText(profile.getRollNo())) {
+            throw new BadRequestException("This student needs a register number before the password can be reset");
+        }
+        user.setPasswordHash(passwordEncoder.encode(profile.getRollNo()));
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+        loginAttemptLimiter.recordSuccess("rn:" + profile.getRollNo());
+        forgetCachedUser(user, user.getEmail());
+        log.info("Student password reset: id={}", id);
+    }
+
+    /** A new student: login account (password = register number) plus an empty profile awaiting setup. */
+    private StudentProfile createProvisionedStudent(String registerNumber, Department department, Integer year) {
+        String placeholderEmail = StudentIdentity.placeholderEmail(registerNumber);
+        User user = userRepository.save(User.builder()
+                .email(placeholderEmail)
+                .passwordHash(passwordEncoder.encode(registerNumber))
+                .role(UserRole.STUDENT)
+                .accountStatus(AccountStatus.ACTIVE)
+                .isActive(true)
+                .isEmailVerified(false)
+                .mustChangePassword(true)
+                .build());
+
+        return studentProfileRepository.save(StudentProfile.builder()
+                .user(user)
+                .rollNo(registerNumber)
+                // The student replaces both of these at first login.
+                .fullName(registerNumber)
+                .email(placeholderEmail)
+                .college("GCE Srirangam")
+                .department(department.getName())
+                .departmentCode(department.getCode())
+                .batch(StudentIdentity.batchForYear(year))
+                .profileSetupCompleted(false)
+                .build());
+    }
+
+    private StudentProfile findLiveStudent(Long id) {
+        StudentProfile profile = studentProfileRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + id));
+        if (profile.getUser() != null && Boolean.TRUE.equals(profile.getUser().getIsDeleted())) {
+            throw new ResourceNotFoundException("Student with ID " + id + " has been deleted");
+        }
+        return profile;
+    }
+
+    private void forgetCachedUser(User user, String oldEmail) {
+        userDetailsService.evict(oldEmail);
+        userDetailsService.evict(user.getEmail());
+        tokenProvider.evictUser(user.getId(), oldEmail);
+        tokenProvider.evictUser(user.getId(), user.getEmail());
     }
 
     @Override
@@ -354,7 +513,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
             csv.append(s.getId()).append(",")
                     .append(escapeCsv(s.getRollNo())).append(",")
                     .append(escapeCsv(s.getFullName())).append(",")
-                    .append(escapeCsv(s.getEmail())).append(",")
+                    .append(escapeCsv(StudentIdentity.visibleEmail(s.getEmail()))).append(",")
                     .append(escapeCsv(s.getPhone())).append(",")
                     .append(escapeCsv(s.getDepartment())).append(",")
                     .append(escapeCsv(s.getDegree())).append(",")
@@ -380,8 +539,23 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            // The list reads each student's user account (status, active flag). Fetching it, and the
+            // two inverse profile links Hibernate would otherwise load one query at a time per user,
+            // turns ~3 queries per student into none. The count query only needs a plain join.
+            boolean countQuery = Long.class.equals(query.getResultType()) || long.class.equals(query.getResultType());
+            Join<StudentProfile, User> userJoin;
+            if (countQuery) {
+                userJoin = root.join("user", JoinType.LEFT);
+            } else {
+                Fetch<StudentProfile, User> userFetch = root.fetch("user", JoinType.LEFT);
+                userFetch.fetch("adminProfile", JoinType.LEFT);
+                userFetch.fetch("studentProfile", JoinType.LEFT);
+                @SuppressWarnings("unchecked")
+                Join<StudentProfile, User> fetched = (Join<StudentProfile, User>) userFetch;
+                userJoin = fetched;
+            }
+
             // Exclude soft-deleted users
-            Join<StudentProfile, User> userJoin = root.join("user", JoinType.LEFT);
             predicates.add(cb.or(
                     cb.isNull(userJoin.get("id")),
                     cb.equal(userJoin.get("isDeleted"), false)
@@ -443,7 +617,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .userId(u != null ? u.getId() : null)
                 .rollNo(p.getRollNo())
                 .fullName(p.getFullName())
-                .email(p.getEmail())
+                .email(StudentIdentity.visibleEmail(p.getEmail()))
                 .phone(p.getPhone())
                 .department(p.getDepartment())
                 .departmentCode(p.getDepartmentCode())
@@ -460,6 +634,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .placedCtc(p.getPlacedCtc())
                 .placedOn(p.getPlacedOn())
                 .profileCompletionPercent(p.getProfileCompletionPercent())
+                .profileSetupCompleted(p.getProfileSetupCompleted())
                 .accountStatus(u != null ? u.getAccountStatus() : null)
                 .isActive(u != null ? u.getIsActive() : true)
                 .isDeleted(u != null ? u.getIsDeleted() : false)
@@ -562,7 +737,7 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .userId(user != null ? user.getId() : null)
                 .rollNo(profile.getRollNo())
                 .fullName(profile.getFullName())
-                .email(profile.getEmail())
+                .email(StudentIdentity.visibleEmail(profile.getEmail()))
                 .phone(profile.getPhone())
                 .address(profile.getAddress())
                 .about(profile.getAbout())

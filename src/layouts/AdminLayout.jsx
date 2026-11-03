@@ -21,6 +21,11 @@ const breadcrumbMap = {
   '/admin/dashboard': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Dashboard' }],
   '/admin/applications': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Applications' }],
   '/admin/students': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Students' }],
+  '/admin/students/manage': [
+    { label: 'Admin', to: '/admin/dashboard' },
+    { label: 'Students', to: '/admin/students' },
+    { label: 'Manage Students' },
+  ],
   '/admin/jobs': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Job Drives' }],
   '/admin/notifications': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Notifications' }],
 };

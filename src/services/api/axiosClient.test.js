@@ -136,4 +136,64 @@ describe('axiosClient response interceptor', () => {
       }
     );
   });
+
+  describe('retrying reads that got no answer', () => {
+    const okAdapter = (counter) => async (config) => {
+      counter.calls += 1;
+      return { data: { success: true }, status: 200, statusText: 'OK', headers: {}, config };
+    };
+    const failure = (config) => {
+      const error = new Error('timeout of 15000ms exceeded');
+      error.code = 'ECONNABORTED';
+      error.request = {};
+      error.config = config;
+      return error;
+    };
+
+    it('retries a GET once and returns the result of the retry', async () => {
+      const counter = { calls: 0 };
+      const handler = axiosClient.interceptors.response.handlers[0].rejected;
+
+      const result = await handler(failure({ method: 'get', url: '/jobs', adapter: okAdapter(counter) }));
+
+      assert.equal(counter.calls, 1);
+      assert.deepEqual(result, { success: true });
+    });
+
+    it('does not retry twice: a second failure is reported', async () => {
+      const handler = axiosClient.interceptors.response.handlers[0].rejected;
+
+      await assert.rejects(
+        () => handler(failure({ method: 'get', url: '/jobs', __retried: true })),
+        (err) => {
+          assert.equal(err.isTimeout, true);
+          return true;
+        }
+      );
+    });
+
+    it('never retries a write, which could be applied twice', async () => {
+      const counter = { calls: 0 };
+      const handler = axiosClient.interceptors.response.handlers[0].rejected;
+
+      await assert.rejects(() => handler(failure({ method: 'post', url: '/applications', adapter: okAdapter(counter) })));
+
+      assert.equal(counter.calls, 0);
+    });
+  });
+
+  it('passes an aborted request through untouched so pages can ignore it', async () => {
+    const { CanceledError } = await import('axios');
+    const handler = axiosClient.interceptors.response.handlers[0].rejected;
+    const canceled = new CanceledError('canceled');
+
+    await assert.rejects(
+      () => handler(canceled),
+      (err) => {
+        assert.equal(err, canceled, 'the original error is rethrown, not rewrapped');
+        assert.equal(err.code, 'ERR_CANCELED');
+        return true;
+      }
+    );
+  });
 });

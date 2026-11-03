@@ -1,15 +1,13 @@
 import { Link } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300 pt-12 pb-6 px-6 md:px-16">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-10">
         <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="bg-blue-900 p-1.5 rounded-lg">
-              <GraduationCap className="w-5 h-5 text-blue-300" />
-            </div>
+          <div className="flex items-center gap-3 mb-4">
+            <BrandLogo className="h-11" />
             <span className="font-bold text-white">Placement Cell</span>
           </div>
           <p className="text-sm leading-relaxed">

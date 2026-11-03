@@ -5,7 +5,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import StudentLoginPage from './pages/StudentLoginPage';
-import StudentRegisterPage from './pages/StudentRegisterPage';
+import StudentSetupPage from './pages/StudentSetupPage';
 
 import AdminLayout from './layouts/AdminLayout';
 import StudentLayout from './layouts/StudentLayout';
@@ -13,6 +13,7 @@ import StudentLayout from './layouts/StudentLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudents from './pages/AdminStudents';
 import AdminStudentDetail from './pages/AdminStudentDetail';
+import AdminManageStudents from './pages/AdminManageStudents';
 import AdminApplications from './pages/AdminApplications';
 import AdminJobDriveForm from './pages/AdminJobDriveForm';
 import NotificationsPage from './pages/NotificationsPage';
@@ -27,7 +28,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 
-const AUTH_PAGES = ['/login', '/admin/login', '/student/login', '/student/register'];
+const AUTH_PAGES = ['/login', '/admin/login', '/student/login'];
 
 /**
  * Listens for centralized 401 unauthorized events inside the React Router context.
@@ -91,6 +92,8 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/applications" element={<AdminApplications />} />
           <Route path="/admin/students" element={<AdminStudents />} />
+          {/* Specific path before :id, or "manage" is read as a student id. */}
+          <Route path="/admin/students/manage" element={<AdminManageStudents />} />
           <Route path="/admin/students/:id" element={<AdminStudentDetail />} />
           <Route path="/admin/jobs" element={<JobsPage isAdmin />} />
           {/* Specific paths before the :id route, or "new" is read as an id. */}
@@ -101,7 +104,12 @@ export default function App() {
 
         {/* Student Auth */}
         <Route path="/student/login" element={<StudentLoginPage />} />
-        <Route path="/student/register" element={<StudentRegisterPage />} />
+        {/* No public registration: the placement cell creates student accounts. */}
+
+        {/* First-login setup: outside the student layout, because nothing else is usable yet. */}
+        <Route element={<ProtectedRoute allowedRole="STUDENT" redirectTo="/student/login" />}>
+          <Route path="/student/setup" element={<StudentSetupPage />} />
+        </Route>
 
         {/* Student Routes — protected, require STUDENT role */}
         <Route

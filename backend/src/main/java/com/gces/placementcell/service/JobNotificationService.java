@@ -139,6 +139,10 @@ public class JobNotificationService {
         int sent = 0;
         int failed = 0;
         for (Recipient recipient : alert.recipients()) {
+            // A student who has not done first-login setup has only a stand-in address.
+            if (StudentIdentity.isPlaceholderEmail(recipient.email())) {
+                continue;
+            }
             try {
                 sender.send(buildMessage(from, alert, recipient));
                 sent++;

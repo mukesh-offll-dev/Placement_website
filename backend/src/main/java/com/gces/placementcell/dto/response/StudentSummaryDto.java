@@ -38,6 +38,8 @@ public class StudentSummaryDto {
     private BigDecimal placedCtc;
     private LocalDate placedOn;
     private Short profileCompletionPercent;
+    /** False until the student has done the first-login setup (new password, name, email, phone). */
+    private Boolean profileSetupCompleted;
     private AccountStatus accountStatus;
     private Boolean isActive;
     private Boolean isDeleted;

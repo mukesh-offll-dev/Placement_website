@@ -21,6 +21,8 @@ import { submitApplication } from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
 import { JobDetailSkeleton } from '../components/Skeleton';
 import { toastSuccess, toastInfo, toastError } from '../utils/toast';
+import { useAuth } from '../context/AuthContext';
+import { notifyApplicationSubmitted } from '../services/emailService';
 
 const JOBS_DB = {
   1: {
@@ -185,6 +187,7 @@ export default function JobDetailPage() {
   const [applyStep, setApplyStep] = useState(1);
   const [applyForm, setApplyForm] = useState({ resume: null, coverLetter: '', consent: false });
   const [submittingApplication, setSubmittingApplication] = useState(false);
+  const { user } = useAuth();
   const [applicationError, setApplicationError] = useState('');
 
   const initialJob = JOBS_DB[parseInt(id, 10)] || null;
@@ -289,6 +292,8 @@ export default function JobDetailPage() {
       setShowApply(false);
       setApplyStep(1);
       toastSuccess(`Application submitted for ${job.role} at ${job.company}!`);
+      // Confirmation email; best effort, never blocks or changes the screen.
+      notifyApplicationSubmitted({ user, job: { jobRole: job.role, company: job.company } });
     } catch (err) {
       const message = err.message || 'Could not submit your application. Please try again.';
       setApplicationError(message);

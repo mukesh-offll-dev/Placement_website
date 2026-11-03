@@ -123,6 +123,7 @@ public class NotificationDispatcher {
         recipients.forEach(notification::addRecipient);
         notificationRepository.save(notification);
 
+        // Everyone gets the in-app notification; the emails skip a student's stand-in address.
         return recipients.stream().map(User::getEmail).filter(Objects::nonNull).toList();
     }
 
@@ -141,6 +142,9 @@ public class NotificationDispatcher {
         int sent = 0;
         int failed = 0;
         for (String email : emails) {
+            if (StudentIdentity.isPlaceholderEmail(email)) {
+                continue;
+            }
             try {
                 sender.send(buildMessage(from, email, event));
                 sent++;

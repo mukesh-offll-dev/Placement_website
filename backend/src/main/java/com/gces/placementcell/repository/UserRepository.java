@@ -23,6 +23,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmailAndIsDeletedFalse(String email);
 
+    /**
+     * Just the id. Loading the whole User also pulls in its admin and student profiles, which
+     * costs two extra queries; callers that only need the id (feeds, counters) should use this.
+     */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT u.id FROM User u WHERE u.email = :email AND u.isDeleted = false")
+    Optional<Long> findIdByEmailAndIsDeletedFalse(
+            @org.springframework.data.repository.query.Param("email") String email);
+
     Optional<User> findByIdAndIsDeletedFalse(Long id);
 
     boolean existsByEmail(String email);

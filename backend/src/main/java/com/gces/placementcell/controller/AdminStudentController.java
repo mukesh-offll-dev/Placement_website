@@ -1,13 +1,17 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.dto.request.BulkProvisionStudentsRequest;
 import com.gces.placementcell.dto.request.CreateStudentRequest;
+import com.gces.placementcell.dto.request.ProvisionStudentRequest;
 import com.gces.placementcell.dto.request.UpdateStudentRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
+import com.gces.placementcell.dto.response.BulkProvisionResult;
 import com.gces.placementcell.dto.response.PageResponse;
 import com.gces.placementcell.dto.response.StudentDetailDto;
 import com.gces.placementcell.dto.response.StudentSummaryDto;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.service.AdminStudentService;
+import com.gces.placementcell.service.ProfileReminderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +28,7 @@ import java.math.BigDecimal;
 public class AdminStudentController {
 
     private final AdminStudentService adminStudentService;
+    private final ProfileReminderService profileReminderService;
 
     /**
      * GET /api/admin/students
@@ -108,8 +113,60 @@ public class AdminStudentController {
     }
 
     /**
+     * POST /api/admin/students/provision
+     * Adds one student from a register number, department and year. The initial password is the
+     * register number; the student sets their own details at first login.
+     */
+    @PostMapping("/provision")
+    public ResponseEntity<ApiResponse<StudentSummaryDto>> provisionStudent(
+            @Valid @RequestBody ProvisionStudentRequest request) {
+        StudentSummaryDto created = adminStudentService.provisionStudent(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Student added. Their initial password is their register number.", created));
+    }
+
+    /**
+     * POST /api/admin/students/provision/bulk
+     * Adds a register number range; numbers that already exist are skipped.
+     */
+    @PostMapping("/provision/bulk")
+    public ResponseEntity<ApiResponse<BulkProvisionResult>> provisionStudents(
+            @Valid @RequestBody BulkProvisionStudentsRequest request) {
+        BulkProvisionResult result = adminStudentService.provisionStudents(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(result.created() + " student(s) added, " + result.skipped() + " skipped.", result));
+    }
+
+    /** PATCH /api/admin/students/{id}/deactivate: blocks login until reactivated. */
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<ApiResponse<StudentSummaryDto>> deactivateStudent(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Student deactivated", adminStudentService.setStudentActive(id, false)));
+    }
+
+    /** PATCH /api/admin/students/{id}/reactivate */
+    @PatchMapping("/{id}/reactivate")
+    public ResponseEntity<ApiResponse<StudentSummaryDto>> reactivateStudent(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Student reactivated", adminStudentService.setStudentActive(id, true)));
+    }
+
+    /** POST /api/admin/students/{id}/reset-password: back to the register number, change forced at next login. */
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@PathVariable Long id) {
+        adminStudentService.resetStudentPassword(id);
+        return ResponseEntity.ok(ApiResponse.success("Password reset to the register number. The student must change it at next login."));
+    }
+
+    /** POST /api/admin/students/profile-reminders: sends the "complete your profile" reminder now. */
+    @PostMapping("/profile-reminders")
+    public ResponseEntity<ApiResponse<Integer>> sendProfileReminders() {
+        int reminded = profileReminderService.sendReminders();
+        return ResponseEntity.ok(ApiResponse.success(reminded + " student(s) reminded", reminded));
+    }
+
+    /**
      * DELETE /api/admin/students/{id}
-     * Soft-delete/deactivate student according to project design.
+     * Soft-delete the student: the account is removed from lists and can no longer sign in, but
+     * their applications and history are kept.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteStudent(@PathVariable Long id) {

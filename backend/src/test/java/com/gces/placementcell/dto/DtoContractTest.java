@@ -170,7 +170,7 @@ class DtoContractTest {
         @Test
         @DisplayName("Login rejects a blank email and a blank password")
         void testLoginValidation() {
-            var invalid = new LoginRequest("", "");
+            var invalid = new LoginRequest("not-an-email", "");
             assertEquals(Set.of("email", "password"), violatedProperties(invalid));
 
             assertTrue(validator.validate(new LoginRequest("officer@gces.edu", "Str0ngPass")).isEmpty());

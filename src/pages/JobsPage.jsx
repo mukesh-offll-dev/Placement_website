@@ -56,15 +56,21 @@ const formatJobType = (type) => {
   }
 };
 
+// Last list seen per portal. Revisiting the page shows it instantly while a fresh copy loads
+// in the background, which hides most of the database latency.
+const jobsCache = new Map();
+
 export default function JobsPage({ isAdmin = false }) {
+  const cacheKey = isAdmin ? 'admin' : 'student';
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState(() => jobsCache.get(cacheKey) || []);
+  const [loading, setLoading] = useState(() => !jobsCache.has(cacheKey));
   const [error, setError] = useState(null);
 
   const fetchJobs = useCallback(async (signal) => {
-    setLoading(true);
+    // Only show the skeleton when there is nothing to show yet.
+    if (!jobsCache.has(cacheKey)) setLoading(true);
     setError(null);
     try {
       const fetcher = isAdmin ? jobService.getAdminJobs : jobService.getJobs;
@@ -119,16 +125,21 @@ export default function JobsPage({ isAdmin = false }) {
         };
       });
 
+      jobsCache.set(cacheKey, normalized);
       setJobs(normalized);
     } catch (err) {
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') {
+        // A newer request has taken over (unmount or StrictMode re-run); it owns the UI state.
         return;
       }
-      setError(err?.message || 'Failed to load job drives. Please try again.');
+      // Keep a cached list on screen if the refresh fails; only show the error when empty.
+      if (!jobsCache.has(cacheKey)) {
+        setError(err?.message || 'Failed to load job drives. Please try again.');
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, cacheKey]);
 
   useEffect(() => {
     const controller = new AbortController();

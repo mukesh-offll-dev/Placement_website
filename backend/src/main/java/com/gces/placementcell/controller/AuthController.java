@@ -30,12 +30,8 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/register/student")
-    public ResponseEntity<ApiResponse<AuthResponse>> registerStudent(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.registerStudent(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Student registered successfully", response));
-    }
+    // There is deliberately no student registration endpoint: the placement cell creates student
+    // accounts (see AdminStudentController), and SecurityConfig denies the old path outright.
 
     @PostMapping("/register/admin")
     public ResponseEntity<ApiResponse<AuthResponse>> registerAdmin(@Valid @RequestBody RegisterRequest request) {

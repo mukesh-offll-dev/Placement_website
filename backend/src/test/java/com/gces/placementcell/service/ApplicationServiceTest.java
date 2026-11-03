@@ -59,7 +59,37 @@ class ApplicationServiceTest {
                 roundRepository,
                 studentProfileRepository,
                 userRepository,
-                eventPublisher);
+                eventPublisher,
+                true);
+    }
+
+    @Test
+    void studentEmailFollowsTheConfiguredSwitchButAdminEmailsDoNot() {
+        ApplicationService emailsOff = new ApplicationService(
+                applicationRepository, timelineRepository, jobRepository, roundRepository,
+                studentProfileRepository, userRepository, eventPublisher, false);
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        User reviewer = User.builder().id(1L).email("admin@example.com").build();
+        StudentProfile student = StudentProfile.builder().id(5L).user(studentUser).fullName("Asha").build();
+        Job job = openJob();
+        JobApplication application = JobApplication.builder()
+                .id(12L).job(job).studentProfile(student).status(ApplicationStatus.APPLIED).build();
+
+        when(userRepository.findByEmailAndIsDeletedFalse("admin@example.com")).thenReturn(Optional.of(reviewer));
+        when(applicationRepository.findWithTimelineById(12L)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(JobApplication.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(timelineRepository.findByJobApplicationIdOrderByDisplayOrderAsc(12L)).thenReturn(List.of());
+        when(timelineRepository.save(any(ApplicationTimeline.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        emailsOff.updateStatus("admin@example.com", 12L,
+                new com.gces.placementcell.dto.request.ApplicationStatusUpdateRequest(
+                        ApplicationStatus.SHORTLISTED, null, null, null));
+
+        org.mockito.ArgumentCaptor<UserNotificationEvent> captor =
+                org.mockito.ArgumentCaptor.forClass(UserNotificationEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertEquals(false, captor.getValue().sendEmail(), "student email is left to the frontend when switched off");
+        assertEquals("/student/applications", captor.getValue().linkPath());
     }
 
     @Test

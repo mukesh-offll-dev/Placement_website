@@ -44,3 +44,6 @@ backend/*.local
 *.sw?
 
 .env
+
+# Local demo logins
+credentials.md

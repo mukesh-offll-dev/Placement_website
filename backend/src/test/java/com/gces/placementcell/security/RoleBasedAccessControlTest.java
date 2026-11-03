@@ -61,6 +61,7 @@ class RoleBasedAccessControlTest {
     private TokenProvider tokenProvider;
 
     private static final String STUDENT_EMAIL = "student.test@gces.edu.np";
+    private static final String STUDENT_REGISTER_NUMBER = "GCES-2022-CS-01";
     private static final String ADMIN_EMAIL = "admin.test@gces.edu.np";
     private static final String PLACEMENT_OFFICER_EMAIL = "officer.test@gces.edu.np";
     private static final String INACTIVE_EMAIL = "inactive.test@gces.edu.np";
@@ -160,7 +161,7 @@ class RoleBasedAccessControlTest {
 
         // Obtain Student Token via Auth API
         LoginRequestDTO studentReq = new LoginRequestDTO();
-        studentReq.setEmail(STUDENT_EMAIL);
+        studentReq.setRegisterNumber(STUDENT_REGISTER_NUMBER);
         studentReq.setPassword(RAW_PASSWORD);
         studentReq.setExpectedRole("STUDENT");
 
@@ -347,7 +348,7 @@ class RoleBasedAccessControlTest {
     @DisplayName("Login with invalid password returns 401 Unauthorized")
     void loginWithBadPasswordFails() throws Exception {
         LoginRequestDTO req = new LoginRequestDTO();
-        req.setEmail(STUDENT_EMAIL);
+        req.setRegisterNumber(STUDENT_REGISTER_NUMBER);
         req.setPassword("WrongPassword!");
 
         mockMvc.perform(post("/auth/login")
@@ -361,7 +362,7 @@ class RoleBasedAccessControlTest {
     @DisplayName("Login with mismatched expected role returns 403 Forbidden")
     void loginWithMismatchedRoleFails() throws Exception {
         LoginRequestDTO req = new LoginRequestDTO();
-        req.setEmail(STUDENT_EMAIL);
+        req.setRegisterNumber(STUDENT_REGISTER_NUMBER);
         req.setPassword(RAW_PASSWORD);
         req.setExpectedRole("ADMIN"); // Student attempting to login through Admin portal
 
@@ -405,7 +406,7 @@ class RoleBasedAccessControlTest {
     @DisplayName("Login with incorrect password returns 401 Unauthorized and error message")
     void loginWithIncorrectPasswordReturns401() throws Exception {
         LoginRequestDTO req = new LoginRequestDTO();
-        req.setEmail(STUDENT_EMAIL);
+        req.setRegisterNumber(STUDENT_REGISTER_NUMBER);
         req.setPassword("WrongPassword@999");
 
         mockMvc.perform(post("/auth/login")
@@ -413,7 +414,7 @@ class RoleBasedAccessControlTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.message", is("Invalid email or password")))
+                .andExpect(jsonPath("$.message", is("Invalid register number or password")))
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
 

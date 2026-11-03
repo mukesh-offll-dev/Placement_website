@@ -16,7 +16,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequestDTO {
 
-    @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
 
@@ -24,4 +23,7 @@ public class LoginRequestDTO {
     private String password;
 
     private String expectedRole;
+
+    /** Students sign in with this instead of an email. */
+    private String registerNumber;
 }

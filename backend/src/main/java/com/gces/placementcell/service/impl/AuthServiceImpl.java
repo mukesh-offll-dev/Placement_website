@@ -14,8 +14,10 @@ import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.AdminProfileRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.security.LoginAttemptLimiter;
 import com.gces.placementcell.security.TokenProvider;
 import com.gces.placementcell.service.AuthService;
+import com.gces.placementcell.service.StudentIdentity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -37,29 +40,7 @@ public class AuthServiceImpl implements AuthService {
     private final AdminProfileRepository adminProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
-
-    @Override
-    @Transactional
-    public AuthResponse registerStudent(RegisterRequest request) {
-        validateUniqueEmail(request.email());
-
-        if (request.rollNo() != null && !request.rollNo().isBlank()
-                && studentProfileRepository.existsByRollNo(request.rollNo())) {
-            throw new BadRequestException("Roll number already registered: " + request.rollNo());
-        }
-
-        User user = userRepository.save(newUser(request, UserRole.STUDENT));
-
-        studentProfileRepository.save(StudentProfile.builder()
-                .user(user)
-                .email(user.getEmail())
-                .fullName(request.fullName())
-                .rollNo(blankToNull(request.rollNo()))
-                .build());
-
-        log.info("Student registered: {}", user.getEmail());
-        return buildAuthResponse(user, request.fullName(), "Student registered successfully");
-    }
+    private final LoginAttemptLimiter loginAttemptLimiter;
 
     @Override
     @Transactional
@@ -81,13 +62,43 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        String email = request.email().trim();
+        String registerNumber = StudentIdentity.normalize(request.registerNumber());
+        boolean byRegisterNumber = registerNumber != null && !registerNumber.isEmpty();
+        String email = request.email() == null ? "" : request.email().trim();
+        if (!byRegisterNumber && email.isEmpty()) {
+            throw new BadRequestException("Register number or email is required");
+        }
+        String identifier = byRegisterNumber ? "rn:" + registerNumber : "em:" + email.toLowerCase(Locale.ROOT);
 
-        // One message for unknown email and wrong password, so the response does not
+        // The initial password is the register number, which is not secret, so guessing
+        // is throttled per account before any password is checked.
+        long lockedMinutes = loginAttemptLimiter.minutesLockedFor(identifier);
+        if (lockedMinutes > 0) {
+            throw new AccessDeniedException(
+                    "Too many failed sign-in attempts. Try again in " + lockedMinutes + " minute(s).");
+        }
+
+        // One message for unknown account and wrong password, so the response does not
         // reveal which accounts exist.
-        User user = userRepository.findByEmailAndIsDeletedFalse(email)
-                .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+        Optional<User> candidate = byRegisterNumber
+                ? studentProfileRepository.findByRollNo(registerNumber)
+                        .map(StudentProfile::getUser)
+                        .filter(u -> !Boolean.TRUE.equals(u.getIsDeleted()))
+                : userRepository.findByEmailAndIsDeletedFalse(email);
+        User user = candidate
+                .filter(u -> passwordMatches(u, request.password(), byRegisterNumber ? registerNumber : null))
+                .orElse(null);
+        if (user == null) {
+            loginAttemptLimiter.recordFailure(identifier);
+            throw new BadCredentialsException(byRegisterNumber
+                    ? "Invalid register number or password" : "Invalid email or password");
+        }
+
+        // Students are identified by register number only. Checked after the password so this
+        // message cannot be used to discover which emails belong to students.
+        if (!byRegisterNumber && user.isStudent()) {
+            throw new AccessDeniedException("Students sign in with their register number, not an email.");
+        }
 
         if (!Boolean.TRUE.equals(user.getIsActive()) || !user.isAccountActive()) {
             throw new AccessDeniedException("Account is inactive. Please contact administrator.");
@@ -100,11 +111,12 @@ public class AuthServiceImpl implements AuthService {
             throw new AccessDeniedException("Unauthorized role for this login portal");
         }
 
+        loginAttemptLimiter.recordSuccess(identifier);
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        log.info("User logged in: {} (role={})", user.getEmail(), user.getRole());
-        return buildAuthResponse(user, resolveDisplayName(user), "Login successful");
+        log.info("User logged in: id={} role={}", user.getId(), user.getRole());
+        return buildLoginResponse(user, "Login successful");
     }
 
     @Override
@@ -148,16 +160,44 @@ public class AuthServiceImpl implements AuthService {
         return UserRole.PLACEMENT_OFFICER.equals(user.getRole()) ? "Placement Officer" : "Administrator";
     }
 
+    /**
+     * A normal password check, with one allowance: until a student replaces their initial password
+     * (their register number, stored uppercase) it is accepted in any letter case, because students
+     * naturally type "cs2022001" for "CS2022001". Once they set their own password it is exact.
+     */
+    private boolean passwordMatches(User user, String rawPassword, String registerNumber) {
+        if (passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+            return true;
+        }
+        return registerNumber != null
+                && Boolean.TRUE.equals(user.getMustChangePassword())
+                && rawPassword.trim().equalsIgnoreCase(registerNumber)
+                && passwordEncoder.matches(registerNumber, user.getPasswordHash());
+    }
+
     private AuthResponse buildAuthResponse(User user, String displayName, String message) {
         return AuthResponse.builder()
                 .token(tokenProvider.generateToken(user))
                 .userId(user.getId())
-                .email(user.getEmail())
+                .email(StudentIdentity.visibleEmail(user.getEmail()))
                 .fullName(displayName)
                 .name(displayName)
                 .role(user.getRole())
                 .message(message)
+                .setupRequired(Boolean.TRUE.equals(user.getMustChangePassword()))
                 .build();
+    }
+
+    /** Login response, including whether the student still has to do the first-login setup. */
+    private AuthResponse buildLoginResponse(User user, String message) {
+        AuthResponse response = buildAuthResponse(user, resolveDisplayName(user), message);
+        if (user.isStudent()) {
+            boolean setupPending = studentProfileRepository.findByUserId(user.getId())
+                    .map(profile -> !Boolean.TRUE.equals(profile.getProfileSetupCompleted()))
+                    .orElse(false);
+            response.setSetupRequired(setupPending || response.isSetupRequired());
+        }
+        return response;
     }
 
     private static String blankToNull(String value) {

@@ -4,7 +4,7 @@ import {
   Search,
   Download,
   Eye,
-  Trash2,
+  UserCog,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -15,17 +15,8 @@ import {
 import { getAllStudents, exportStudentsCsv } from '../services/api/adminService';
 import { downloadBlob } from '../utils/download';
 import EmptyState from '../components/EmptyState';
+import useDepartments from '../hooks/useDepartments';
 import { toastSuccess, toastError } from '../utils/toast';
-
-const DEPTS = [
-  'All',
-  'Computer Science (CSE)',
-  'Electronics (ECE)',
-  'Mechanical (MECH)',
-  'Civil Engineering',
-  'Electrical (EEE)',
-  'Information Technology',
-];
 
 const profileBarColor = (p) => {
   if (p >= 90) return 'bg-green-500';
@@ -51,6 +42,8 @@ const PAGE_SIZE = 5;
 
 export default function AdminStudents() {
   const navigate = useNavigate();
+  // The filter lists the college's departments (by code), so one added later shows up here too.
+  const { departments } = useDepartments();
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
   const [cgpaFilter, setCgpaFilter] = useState('All');
@@ -88,7 +81,7 @@ export default function AdminStudents() {
       const mapped = (Array.isArray(data) ? data : []).map((s) => ({
         id: s.id,
         name: s.fullName || 'Student',
-        dept: s.department || (s.departmentCode ? `${s.departmentCode} Dept` : 'General'),
+        dept: s.departmentCode || s.department || 'General',
         cgpa: s.cgpa ? Number(s.cgpa) : 0,
         sem: s.semester ? `Sem ${s.semester}` : 'N/A',
         profile: s.profileCompletionPercent ?? 75,
@@ -115,20 +108,13 @@ export default function AdminStudents() {
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.dept.toLowerCase().includes(search.toLowerCase()) ||
       (s.rollNo && s.rollNo.toLowerCase().includes(search.toLowerCase()));
-    const matchDept = deptFilter === 'All' || s.dept.toLowerCase().includes(deptFilter.toLowerCase());
+    const matchDept = deptFilter === 'All' || s.dept.toLowerCase() === deptFilter.toLowerCase();
     const matchCgpa = cgpaFilter === 'All' || s.cgpa >= parseFloat(cgpaFilter);
     return matchSearch && matchDept && matchCgpa;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const handleDelete = (id) => {
-    if (window.confirm('Remove this student from the current view?')) {
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-      toastSuccess('Student removed from the list.');
-    }
-  };
 
   const clearFilters = () => {
     setSearch('');
@@ -144,10 +130,22 @@ export default function AdminStudents() {
 
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
-      <h2 className="text-2xl font-bold mb-1 text-gray-900">Student Directory & Records</h2>
-      <p className="text-gray-500 text-sm mb-6">
-        View, search, and manage registered students in the GCES Placement Portal.
-      </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-1 text-gray-900">Student Directory & Records</h2>
+          <p className="text-gray-500 text-sm">
+            View, search, and manage registered students in the GCES Placement Portal.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/students/manage')}
+          className="flex items-center justify-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm font-medium shrink-0"
+        >
+          <UserCog className="w-4 h-4" />
+          Manage Students
+        </button>
+      </div>
 
       {/* Error state */}
       {error && (
@@ -198,9 +196,10 @@ export default function AdminStudents() {
           }}
           className="border border-gray-300 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          {DEPTS.map((d) => (
-            <option key={d} value={d}>
-              {d === 'All' ? 'Department: All' : d}
+          <option value="All">Department: All</option>
+          {departments.map((d) => (
+            <option key={d.id} value={d.code} title={d.name}>
+              {d.code}
             </option>
           ))}
         </select>
@@ -332,12 +331,6 @@ export default function AdminStudents() {
                     className="flex items-center gap-1 text-blue-600 hover:underline text-xs font-semibold"
                   >
                     <Eye className="w-3.5 h-3.5" /> View Profile
-                  </button>
-                  <button
-                    onClick={() => handleDelete(s.id)}
-                    className="flex items-center gap-1 text-red-500 hover:underline text-xs font-medium"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Remove
                   </button>
                 </div>
               </div>

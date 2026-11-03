@@ -16,5 +16,7 @@ public interface JobEligibleDepartmentRepository extends JpaRepository<JobEligib
 
     List<JobEligibleDepartment> findByDepartmentCode(String departmentCode);
 
+    boolean existsByDepartmentCodeIgnoreCase(String departmentCode);
+
     void deleteByJobId(Long jobId);
 }
