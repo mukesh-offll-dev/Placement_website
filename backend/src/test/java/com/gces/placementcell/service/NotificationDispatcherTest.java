@@ -18,10 +18,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -47,8 +43,7 @@ class NotificationDispatcherTest {
     @Mock private UserRepository userRepository;
     @Mock private JobRepository jobRepository;
     @Mock private TransactionTemplate transactionTemplate;
-    @Mock private ObjectProvider<JavaMailSender> mailSenderProvider;
-    @Mock private JavaMailSender mailSender;
+    @Mock private EmailJsMailer mailer;
 
     private final User admin = User.builder().id(1L).email("admin@gces.edu").build();
     private final User asha = User.builder().id(2L).email("asha@example.com").build();
@@ -59,14 +54,14 @@ class NotificationDispatcherTest {
     void setUp() {
         when(transactionTemplate.execute(any())).thenAnswer(inv ->
                 ((TransactionCallback<Object>) inv.getArgument(0)).doInTransaction(null));
-        when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
+        when(mailer.isConfigured()).thenReturn(true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(userRepository.findAllById(any())).thenReturn(List.of(asha, ravi));
     }
 
-    private NotificationDispatcher dispatcher(boolean mailEnabled, String from) {
+    private NotificationDispatcher dispatcher(boolean mailEnabled) {
         return new NotificationDispatcher(notificationRepository, userRepository, jobRepository,
-                transactionTemplate, mailSenderProvider, mailEnabled, from, "", "http://localhost:5173/");
+                transactionTemplate, mailer, mailEnabled, "http://localhost:5173/");
     }
 
     private static UserNotificationEvent event(boolean sendEmail) {
@@ -78,7 +73,7 @@ class NotificationDispatcherTest {
     @Test
     @DisplayName("Stores one published notification with an unread row per recipient")
     void storesInApp() {
-        int stored = dispatcher(false, "").dispatch(event(true));
+        int stored = dispatcher(false).dispatch(event(true));
 
         assertEquals(2, stored);
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -89,41 +84,51 @@ class NotificationDispatcherTest {
         assertEquals(NotificationType.APPLICATION, saved.getNotificationType());
         assertEquals(2, saved.getRecipients().size());
         assertTrue(saved.getRecipients().stream().noneMatch(NotificationRecipient::getIsRead));
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailer, never()).send(any(), any(), any(), any());
     }
 
     @Test
     @DisplayName("Emails every recipient separately with the same text and a portal link")
     void emailsRecipients() {
-        dispatcher(true, "placement@gces.edu").dispatch(event(true));
+        dispatcher(true).dispatch(event(true));
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender, times(2)).send(captor.capture());
-        SimpleMailMessage first = captor.getAllValues().get(0);
-        assertEquals("placement@gces.edu", first.getFrom());
-        assertEquals(1, first.getTo().length);
-        assertEquals("Application update: Shortlisted", first.getSubject());
-        assertTrue(first.getText().contains("You were shortlisted."));
-        assertTrue(first.getText().contains("http://localhost:5173/student/applications"));
+        ArgumentCaptor<String> to = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(mailer, times(2)).send(to.capture(), any(), subject.capture(), body.capture());
+        assertEquals(List.of("asha@example.com", "ravi@example.com"), to.getAllValues());
+        assertEquals("Application update: Shortlisted", subject.getAllValues().get(0));
+        assertTrue(body.getAllValues().get(0).contains("You were shortlisted."));
+        assertTrue(body.getAllValues().get(0).contains("http://localhost:5173/student/applications"));
     }
 
     @Test
     @DisplayName("sendEmail=false stores in-app only")
     void inAppOnly() {
-        dispatcher(true, "placement@gces.edu").dispatch(event(false));
+        dispatcher(true).dispatch(event(false));
 
         verify(notificationRepository).save(any(Notification.class));
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailer, never()).send(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Nothing is sent when EmailJS is not configured, but the in-app copy is kept")
+    void notConfigured() {
+        when(mailer.isConfigured()).thenReturn(false);
+
+        assertEquals(2, dispatcher(true).dispatch(event(true)));
+        verify(mailer, never()).send(any(), any(), any(), any());
+        verify(notificationRepository).save(any(Notification.class));
     }
 
     @Test
     @DisplayName("One failed email does not stop the others, and the in-app copy is kept")
     void failureIsolated() {
-        doThrow(new MailSendException("rejected")).when(mailSender)
-                .send(org.mockito.ArgumentMatchers.<SimpleMailMessage>argThat(m -> m.getTo()[0].equals("asha@example.com")));
+        doThrow(new EmailJsMailer.EmailDeliveryException("rejected")).when(mailer)
+                .send(org.mockito.ArgumentMatchers.eq("asha@example.com"), any(), any(), any());
 
-        assertEquals(2, dispatcher(true, "placement@gces.edu").dispatch(event(true)));
-        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        assertEquals(2, dispatcher(true).dispatch(event(true)));
+        verify(mailer, times(2)).send(any(), any(), any(), any());
         verify(notificationRepository).save(any(Notification.class));
     }
 
@@ -133,7 +138,7 @@ class NotificationDispatcherTest {
         User gone = User.builder().id(4L).email("gone@example.com").isDeleted(true).build();
         when(userRepository.findAllById(any())).thenReturn(List.of(asha, gone));
 
-        assertEquals(1, dispatcher(false, "").dispatch(event(false)));
+        assertEquals(1, dispatcher(false).dispatch(event(false)));
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         assertEquals(1, captor.getValue().getRecipients().size());
@@ -147,12 +152,12 @@ class NotificationDispatcherTest {
                 "New application\r\nBcc: attacker@example.com", "msg", NotificationType.APPLICATION,
                 NotificationPriority.NORMAL, null, null, true);
 
-        dispatcher(true, "placement@gces.edu").dispatch(evil);
+        dispatcher(true).dispatch(evil);
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender).send(captor.capture());
-        assertFalse(captor.getValue().getSubject().contains("\n"));
-        assertFalse(captor.getValue().getSubject().contains("\r"));
+        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
+        verify(mailer).send(any(), any(), subject.capture(), any());
+        assertFalse(subject.getValue().contains("\n"));
+        assertFalse(subject.getValue().contains("\r"));
     }
 
     @Test
@@ -161,7 +166,7 @@ class NotificationDispatcherTest {
         UserNotificationEvent empty = new UserNotificationEvent(List.of(), 1L, "t", "m",
                 NotificationType.GENERAL, NotificationPriority.NORMAL, null, null, true);
 
-        assertEquals(0, dispatcher(true, "placement@gces.edu").dispatch(empty));
+        assertEquals(0, dispatcher(true).dispatch(empty));
         verify(notificationRepository, never()).save(any(Notification.class));
     }
 }

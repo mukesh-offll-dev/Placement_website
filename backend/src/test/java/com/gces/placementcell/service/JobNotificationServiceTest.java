@@ -16,10 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -47,8 +43,7 @@ class JobNotificationServiceTest {
     @Mock private JobRepository jobRepository;
     @Mock private StudentProfileRepository studentRepository;
     @Mock private TransactionTemplate transactionTemplate;
-    @Mock private ObjectProvider<JavaMailSender> mailSenderProvider;
-    @Mock private JavaMailSender mailSender;
+    @Mock private EmailJsMailer mailer;
     @Mock private NotificationDispatcher dispatcher;
 
     @BeforeEach
@@ -57,12 +52,12 @@ class JobNotificationServiceTest {
         // Run the callback inline instead of opening a real transaction.
         when(transactionTemplate.execute(any())).thenAnswer(inv ->
                 ((TransactionCallback<Object>) inv.getArgument(0)).doInTransaction(null));
-        when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
+        when(mailer.isConfigured()).thenReturn(true);
     }
 
-    private JobNotificationService service(boolean enabled, String from) {
+    private JobNotificationService service(boolean enabled) {
         return new JobNotificationService(jobRepository, studentRepository, transactionTemplate,
-                mailSenderProvider, enabled, from, "", "http://localhost:5173/", dispatcher);
+                mailer, enabled, "http://localhost:5173/", dispatcher);
     }
 
     private static Job openJob() {
@@ -92,20 +87,19 @@ class JobNotificationServiceTest {
                 student("Ravi Kumar", "ravi@example.com", "6.0"),
                 student("Meena S", "meena@example.com", "7.5")));
 
-        int sent = service(true, "placement@gces.edu").notifyEligibleStudents(42L);
+        int sent = service(true).notifyEligibleStudents(42L);
 
         assertEquals(2, sent);
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender, times(2)).send(captor.capture());
+        ArgumentCaptor<String> to = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(mailer, times(2)).send(to.capture(), any(), subject.capture(), body.capture());
 
-        SimpleMailMessage first = captor.getAllValues().get(0);
-        assertEquals("placement@gces.edu", first.getFrom());
-        assertEquals("asha@example.com", first.getTo()[0]);
-        assertEquals(1, first.getTo().length, "each student gets their own message");
-        assertEquals("New job drive: SDE at Zoho", first.getSubject());
-        assertTrue(first.getText().startsWith("Hi Asha,"));
-        assertTrue(first.getText().contains("http://localhost:5173/student/jobs/42"));
-        assertFalse(captor.getAllValues().stream().anyMatch(m -> m.getTo()[0].equals("ravi@example.com")));
+        assertEquals(List.of("asha@example.com", "meena@example.com"), to.getAllValues(),
+                "each eligible student gets their own message");
+        assertEquals("New job drive: SDE at Zoho", subject.getAllValues().get(0));
+        assertTrue(body.getAllValues().get(0).startsWith("Hi Asha,"));
+        assertTrue(body.getAllValues().get(0).contains("http://localhost:5173/student/jobs/42"));
     }
 
     @Test
@@ -118,9 +112,9 @@ class JobNotificationServiceTest {
         asha.setUser(User.builder().id(7L).build());
         when(studentRepository.findNotifiableStudents(any())).thenReturn(List.of(asha));
 
-        assertEquals(0, service(false, "placement@gces.edu").notifyEligibleStudents(42L));
+        assertEquals(0, service(false).notifyEligibleStudents(42L));
 
-        verifyNoInteractions(mailSender);
+        verify(mailer, never()).send(any(), any(), any(), any());
         ArgumentCaptor<UserNotificationEvent> captor = ArgumentCaptor.forClass(UserNotificationEvent.class);
         verify(dispatcher).dispatch(captor.capture());
         UserNotificationEvent event = captor.getValue();
@@ -132,10 +126,11 @@ class JobNotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Does nothing when no sender address is configured")
-    void noFromAddress() {
-        assertEquals(0, service(true, "").notifyEligibleStudents(42L));
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    @DisplayName("Does nothing when EmailJS is not configured")
+    void notConfigured() {
+        when(mailer.isConfigured()).thenReturn(false);
+        assertEquals(0, service(true).notifyEligibleStudents(42L));
+        verify(mailer, never()).send(any(), any(), any(), any());
     }
 
     @Test
@@ -145,8 +140,8 @@ class JobNotificationServiceTest {
         job.setApplicationDeadline(LocalDate.now().minusDays(1));
         when(jobRepository.findWithDetailsByIdAndIsDeletedFalse(42L)).thenReturn(Optional.of(job));
 
-        assertEquals(0, service(true, "placement@gces.edu").notifyEligibleStudents(42L));
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        assertEquals(0, service(true).notifyEligibleStudents(42L));
+        verify(mailer, never()).send(any(), any(), any(), any());
     }
 
     @Test
@@ -156,11 +151,11 @@ class JobNotificationServiceTest {
         when(studentRepository.findNotifiableStudents(any())).thenReturn(List.of(
                 student("Asha Rao", "bad@example.com", "9"),
                 student("Meena S", "meena@example.com", "9")));
-        doThrow(new MailSendException("rejected")).when(mailSender)
-                .send(org.mockito.ArgumentMatchers.<SimpleMailMessage>argThat(m -> m.getTo()[0].equals("bad@example.com")));
+        doThrow(new EmailJsMailer.EmailDeliveryException("rejected")).when(mailer)
+                .send(org.mockito.ArgumentMatchers.eq("bad@example.com"), any(), any(), any());
 
-        assertEquals(1, service(true, "placement@gces.edu").notifyEligibleStudents(42L));
-        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        assertEquals(1, service(true).notifyEligibleStudents(42L));
+        verify(mailer, times(2)).send(any(), any(), any(), any());
     }
 
     @Test
@@ -171,12 +166,12 @@ class JobNotificationServiceTest {
         when(jobRepository.findWithDetailsByIdAndIsDeletedFalse(42L)).thenReturn(Optional.of(job));
         when(studentRepository.findNotifiableStudents(any())).thenReturn(List.of(student("Asha", "asha@example.com", "9")));
 
-        service(true, "placement@gces.edu").notifyEligibleStudents(42L);
+        service(true).notifyEligibleStudents(42L);
 
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mailSender).send(captor.capture());
-        assertFalse(captor.getValue().getSubject().contains("\n"));
-        assertFalse(captor.getValue().getSubject().contains("\r"));
+        ArgumentCaptor<String> subject = ArgumentCaptor.forClass(String.class);
+        verify(mailer).send(any(), any(), subject.capture(), any());
+        assertFalse(subject.getValue().contains("\n"));
+        assertFalse(subject.getValue().contains("\r"));
     }
 
     @Test
@@ -185,7 +180,7 @@ class JobNotificationServiceTest {
         when(jobRepository.findWithDetailsByIdAndIsDeletedFalse(42L)).thenReturn(Optional.of(openJob()));
         when(studentRepository.findNotifiableStudents(any())).thenReturn(List.of());
 
-        service(true, "placement@gces.edu").notifyEligibleStudents(42L);
+        service(true).notifyEligibleStudents(42L);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<java.util.Collection<PlacementStatus>> captor = ArgumentCaptor.forClass(java.util.Collection.class);

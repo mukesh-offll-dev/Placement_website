@@ -500,14 +500,14 @@ $env:SPRING_PROFILES_ACTIVE="prod"
 
 ### Email notifications with EmailJS (frontend)
 
-Besides the backend's SMTP mail, the frontend can send emails through [EmailJS](https://www.emailjs.com/) using `@emailjs/browser`. It sends two emails, always as a quiet extra: a failure is logged to the browser console and never blocks the action or changes the screen.
+Besides the backend's EmailJS mail, the frontend can send emails through [EmailJS](https://www.emailjs.com/) using `@emailjs/browser`. It sends two emails, always as a quiet extra: a failure is logged to the browser console and never blocks the action or changes the screen.
 
 | When | Who gets the email |
 |---|---|
 | A student submits an application | The student (confirmation) |
 | The placement cell changes an application's status | The student |
 
-Job-posted alerts and the emails to admins are still sent by the backend (SMTP), because the browser does not know those recipients.
+Job-posted alerts and the emails to admins are sent by the backend, also through EmailJS (REST API, `EMAILJS_*` in `backend/.env`; needs the private key and EmailJS's "Allow EmailJS API for non-browser applications" setting). There is no SMTP.
 
 **Setup**
 
@@ -966,7 +966,7 @@ APP_PROFILE_REMINDER_INTERVAL_DAYS=7   # at most one reminder per student per in
 APP_PROFILE_REMINDER_CRON=0 0 10 * * * # when it runs
 ```
 
-Reminder emails use the same mail settings as job alerts (`APP_MAIL_ENABLED`, `MAIL_*`). With mail off, the in-app notification is still created.
+Reminder emails use the same mail settings as job alerts (`APP_MAIL_ENABLED`, `EMAILJS_*`). With mail off, the in-app notification is still created.
 
 ### Testing it
 

@@ -8,11 +8,7 @@ import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,30 +38,24 @@ public class JobNotificationService {
     private final JobRepository jobRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final TransactionTemplate transactionTemplate;
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final EmailJsMailer mailer;
     private final boolean enabled;
-    private final String configuredFrom;
-    private final String smtpUsername;
     private final String frontendUrl;
     private final NotificationDispatcher notificationDispatcher;
 
     public JobNotificationService(JobRepository jobRepository,
                                   StudentProfileRepository studentProfileRepository,
                                   TransactionTemplate transactionTemplate,
-                                  ObjectProvider<JavaMailSender> mailSenderProvider,
+                                  EmailJsMailer mailer,
                                   @Value("${app.mail.enabled:false}") boolean enabled,
-                                  @Value("${app.mail.from:}") String configuredFrom,
-                                  @Value("${spring.mail.username:}") String smtpUsername,
                                   @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl,
                                   NotificationDispatcher notificationDispatcher) {
         this.notificationDispatcher = notificationDispatcher;
         this.jobRepository = jobRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.transactionTemplate = transactionTemplate;
-        this.mailSenderProvider = mailSenderProvider;
+        this.mailer = mailer;
         this.enabled = enabled;
-        this.configuredFrom = configuredFrom;
-        this.smtpUsername = smtpUsername;
         this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
     }
 
@@ -129,10 +119,8 @@ public class JobNotificationService {
             log.info("Job {} posted; email alerts are disabled (app.mail.enabled=false).", jobId);
             return 0;
         }
-        JavaMailSender sender = mailSenderProvider.getIfAvailable();
-        String from = (configuredFrom == null || configuredFrom.isBlank()) ? smtpUsername : configuredFrom;
-        if (sender == null || from == null || from.isBlank()) {
-            log.warn("Job {} posted but email alerts are on and the mail sender/from address is not configured.", jobId);
+        if (!mailer.isConfigured()) {
+            log.warn("Job {} posted but email alerts are on and EmailJS is not configured.", jobId);
             return 0;
         }
 
@@ -144,9 +132,11 @@ public class JobNotificationService {
                 continue;
             }
             try {
-                sender.send(buildMessage(from, alert, recipient));
+                // Admin-typed text is in the subject; the mailer keeps it on one line.
+                mailer.send(recipient.email(), recipient.firstName(),
+                        singleLine("New job drive: " + alert.role() + " at " + alert.company()), buildBody(alert, recipient));
                 sent++;
-            } catch (MailException ex) {
+            } catch (EmailJsMailer.EmailDeliveryException ex) {
                 failed++;
                 log.warn("Could not email an eligible student for job {}: {}", jobId, ex.getMessage());
             }
@@ -181,16 +171,6 @@ public class JobNotificationService {
         String name = student.getFullName() == null || student.getFullName().isBlank()
                 ? "Student" : student.getFullName().trim().split("\\s+")[0];
         return new Recipient(student.getUser() != null ? student.getUser().getId() : null, student.getEmail(), name);
-    }
-
-    private SimpleMailMessage buildMessage(String from, Alert alert, Recipient recipient) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(recipient.email());
-        // Admin-typed text goes into a header, so line breaks must not survive (header injection).
-        message.setSubject(singleLine("New job drive: " + alert.role() + " at " + alert.company()));
-        message.setText(buildBody(alert, recipient));
-        return message;
     }
 
     private String buildBody(Alert alert, Recipient recipient) {

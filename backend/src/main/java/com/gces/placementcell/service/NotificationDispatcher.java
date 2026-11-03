@@ -8,11 +8,7 @@ import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.NotificationRepository;
 import com.gces.placementcell.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
@@ -40,29 +36,23 @@ public class NotificationDispatcher {
     private final UserRepository userRepository;
     private final JobRepository jobRepository;
     private final TransactionTemplate transactionTemplate;
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final EmailJsMailer mailer;
     private final boolean mailEnabled;
-    private final String configuredFrom;
-    private final String smtpUsername;
     private final String frontendUrl;
 
     public NotificationDispatcher(NotificationRepository notificationRepository,
                                   UserRepository userRepository,
                                   JobRepository jobRepository,
                                   TransactionTemplate transactionTemplate,
-                                  ObjectProvider<JavaMailSender> mailSenderProvider,
+                                  EmailJsMailer mailer,
                                   @Value("${app.mail.enabled:false}") boolean mailEnabled,
-                                  @Value("${app.mail.from:}") String configuredFrom,
-                                  @Value("${spring.mail.username:}") String smtpUsername,
                                   @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
         this.transactionTemplate = transactionTemplate;
-        this.mailSenderProvider = mailSenderProvider;
+        this.mailer = mailer;
         this.mailEnabled = mailEnabled;
-        this.configuredFrom = configuredFrom;
-        this.smtpUsername = smtpUsername;
         this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
     }
 
@@ -132,10 +122,8 @@ public class NotificationDispatcher {
             log.info("Notification '{}' stored in-app; email is disabled (app.mail.enabled=false).", event.title());
             return;
         }
-        JavaMailSender sender = mailSenderProvider.getIfAvailable();
-        String from = (configuredFrom == null || configuredFrom.isBlank()) ? smtpUsername : configuredFrom;
-        if (sender == null || from == null || from.isBlank()) {
-            log.warn("Notification '{}' stored in-app but the mail sender/from address is not configured.", event.title());
+        if (!mailer.isConfigured()) {
+            log.warn("Notification '{}' stored in-app but EmailJS is not configured.", event.title());
             return;
         }
 
@@ -146,9 +134,10 @@ public class NotificationDispatcher {
                 continue;
             }
             try {
-                sender.send(buildMessage(from, email, event));
+                // Titles carry user-typed text (company, role); the mailer keeps the subject on one line.
+                mailer.send(email, null, singleLine(event.title()), buildBody(event));
                 sent++;
-            } catch (MailException ex) {
+            } catch (EmailJsMailer.EmailDeliveryException ex) {
                 failed++;
                 log.warn("Could not email notification '{}' to a recipient: {}", event.title(), ex.getMessage());
             }
@@ -156,19 +145,13 @@ public class NotificationDispatcher {
         log.info("Notification '{}' emails: {} sent, {} failed.", event.title(), sent, failed);
     }
 
-    private SimpleMailMessage buildMessage(String from, String to, UserNotificationEvent event) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(from);
-        message.setTo(to);
-        // Titles carry user-typed text (company, role), so line breaks must not reach the header.
-        message.setSubject(singleLine(event.title()));
+    private String buildBody(UserNotificationEvent event) {
         StringBuilder body = new StringBuilder("Hello,\n\n").append(event.message()).append('\n');
         if (event.linkPath() != null && !event.linkPath().isBlank()) {
             body.append("\nOpen in the portal: ").append(frontendUrl).append(event.linkPath()).append('\n');
         }
         body.append("\nGCE Srirangam Placement Cell\n");
-        message.setText(body.toString());
-        return message;
+        return body.toString();
     }
 
     private static String singleLine(String value) {
