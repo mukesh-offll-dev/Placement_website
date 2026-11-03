@@ -19,7 +19,8 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "app.data-init.enabled", havingValue = "true", matchIfMissing = true)
+// Demo data (sample jobs and students) is strictly opt-in: it only runs when APP_DATA_INIT_ENABLED=true.
+@ConditionalOnProperty(name = "app.data-init.enabled", havingValue = "true", matchIfMissing = false)
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;

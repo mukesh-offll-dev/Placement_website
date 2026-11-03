@@ -22,9 +22,9 @@ import org.springframework.stereotype.Component;
  * If an admin already exists, this step is skipped.
  */
 @Component
-// Same switch as DataInitializer, so one property turns all startup seeding off
-// (tests set it false; production keeps the default of enabled).
-@ConditionalOnProperty(name = "app.data-init.enabled", havingValue = "true", matchIfMissing = true)
+// Only creates the first admin on an empty database (never any jobs or students). It has its own switch so
+// turning demo data off does not stop the first admin from being created; tests set it false.
+@ConditionalOnProperty(name = "app.admin-init.enabled", havingValue = "true", matchIfMissing = true)
 public class AdminDataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDataInitializer.class);
