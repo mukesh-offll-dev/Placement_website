@@ -519,6 +519,22 @@ Code: `EmailJsMailer`, used by `NotificationDispatcher` and `JobNotificationServ
 
 ---
 
+## 14b. Deploy: Render (backend) + Vercel (frontend) + Neon (database)
+
+**1. Backend on Render.** Render > New > Blueprint > pick this repo. `render.yaml` creates a Docker web service in Singapore (same region as Neon) and a health check on `/api/actuator/health`. Fill in the secrets it asks for: `DB_URL` (`jdbc:postgresql://<neon-host>/neondb?sslmode=require`), `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` (32+ random characters), `EMAILJS_*`, `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`, `CLOUDINARY_URL` (uploads are stored in Cloudinary, see below), and leave `APP_CORS_ALLOWED_ORIGINS` / `APP_FRONTEND_URL` for step 3. The plan is `starter` on purpose: the free plan sleeps after about 15 minutes idle (the first request then takes up to a minute, and the daily reminder job does not run) and has too little RAM for Spring Boot.
+
+**2. Frontend on Vercel.** Import the repo (Framework: Vite; `vercel.json` sets the build and the single-page-app rewrite). Add one environment variable: `VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api`. Deploy.
+
+**3. Connect them.** In Render set `APP_CORS_ALLOWED_ORIGINS` and `APP_FRONTEND_URL` to the Vercel URL (no trailing slash; add a custom domain too if you use one, comma-separated). Redeploy the backend. If you restrict EmailJS domains, nothing to add: email is sent by the backend.
+
+**4. Check.** Open `https://<render-service>.onrender.com/api/actuator/health` (should be `UP`), then sign in at the Vercel URL as the admin from `DEFAULT_ADMIN_*`. On a fresh database the admin is created at first start; change that password straight away.
+
+**File storage (Cloudinary).** With `FILE_STORAGE=cloudinary` (set in `render.yaml`) resumes and project media are uploaded to Cloudinary as private files; nothing is kept on the server disk, so redeploys lose nothing. Browsers never get a Cloudinary link: downloads go through the backend (`/files/...` and the resume/project endpoints), which checks the login and then fetches the file with a signed URL. Set `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>` (Cloudinary console > Settings > API Keys). In Cloudinary > Settings > Security, tick **Allow delivery of PDF and ZIP files**. The free plan limits file size (about 10 MB). For local development leave `FILE_STORAGE=local`. Code: `CloudinaryFileStorageService` (the local one is `FileStorageServiceImpl`).
+
+Notes: use a new `JWT_SECRET` and database password for production (never the ones used in development). `APP_DATA_INIT_ENABLED` stays `false` so no demo data is created. Every push to `main` redeploys both services.
+
+---
+
 ## 15. Verify Production / Neon Connection
 
 When started with `SPRING_PROFILES_ACTIVE=prod`, verify the PostgreSQL connection:

@@ -24,7 +24,7 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # Run as a non-root user: a container process should not be root.
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN addgroup -S spring && adduser -S spring -G spring && apk add --no-cache su-exec
 
 COPY --from=build /build/target/*.jar app.jar
 
@@ -32,11 +32,12 @@ COPY --from=build /build/target/*.jar app.jar
 # compose, otherwise the files disappear with the container.
 RUN mkdir -p /app/uploads && chown -R spring:spring /app
 
-USER spring
 
 EXPOSE 8080
 
 # Container memory, not the host's, decides the heap size.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75"
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+# Starts as root only to fix ownership of a mounted disk (Render mounts disks as root), then drops to the
+# unprivileged user for the JVM.
+ENTRYPOINT ["sh", "-c", "chown -R spring:spring /app/uploads && exec su-exec spring java $JAVA_OPTS -jar /app/app.jar"]

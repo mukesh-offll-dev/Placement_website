@@ -5,11 +5,11 @@ import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.service.FileStorageService;
 import jakarta.annotation.PostConstruct;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -17,11 +17,10 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.*;
 import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
 
 @Service
 @EnableConfigurationProperties(FileStorageProperties.class)
+@ConditionalOnProperty(name = "file.storage", havingValue = "local", matchIfMissing = true)
 public class FileStorageServiceImpl implements FileStorageService {
 
 
@@ -46,35 +45,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String storeFile(MultipartFile file, String subDirectory, List<String> allowedExtensions, long maxSizeBytes) {
-        if (file == null || file.isEmpty()) {
-            throw new BadRequestException("Uploaded file is empty");
-        }
-
-        if (file.getSize() > maxSizeBytes) {
-            long maxMb = maxSizeBytes / (1024 * 1024);
-            throw new BadRequestException("File size exceeds maximum allowed limit of " + maxMb + "MB");
-        }
-
-        String rawOriginalFilename = StringUtils.cleanPath(Objects.requireNonNullElse(file.getOriginalFilename(), "file"));
-        if (rawOriginalFilename.contains("..")) {
-            throw new BadRequestException("Invalid filename containing path traversal characters");
-        }
-
-        String extension = getFileExtension(rawOriginalFilename).toLowerCase();
-        if (allowedExtensions != null && !allowedExtensions.isEmpty()) {
-            boolean isAllowed = allowedExtensions.stream().anyMatch(ext -> ext.equalsIgnoreCase(extension));
-            if (!isAllowed) {
-                throw new BadRequestException("File type '." + extension + "' is not supported. Allowed: " + String.join(", ", allowedExtensions));
-            }
-        }
-
-        // Clean original base name (alphanumeric, dash, underscore)
-        String baseName = getBaseName(rawOriginalFilename).replaceAll("[^a-zA-Z0-9._-]", "_");
-        if (baseName.length() > 50) {
-            baseName = baseName.substring(0, 50);
-        }
-
-        String uniqueFileName = UUID.randomUUID().toString().substring(0, 12) + "_" + baseName + (extension.isEmpty() ? "" : "." + extension);
+        String uniqueFileName = StoredFiles.validatedUniqueName(file, allowedExtensions, maxSizeBytes);
 
         try {
             Path targetDir = this.rootLocation.resolve(subDirectory).normalize();
@@ -131,33 +102,6 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String getContentType(String fileName) {
-        String ext = getFileExtension(fileName).toLowerCase();
-        return switch (ext) {
-            case "pdf" -> "application/pdf";
-            case "doc" -> "application/msword";
-            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            case "png" -> "image/png";
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "webp" -> "image/webp";
-            case "gif" -> "image/gif";
-            case "svg" -> "image/svg+xml";
-            default -> "application/octet-stream";
-        };
-    }
-
-    private String getFileExtension(String fileName) {
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex > 0 && dotIndex < fileName.length() - 1) {
-            return fileName.substring(dotIndex + 1);
-        }
-        return "";
-    }
-
-    private String getBaseName(String fileName) {
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex > 0) {
-            return fileName.substring(0, dotIndex);
-        }
-        return fileName;
+        return StoredFiles.contentType(fileName);
     }
 }

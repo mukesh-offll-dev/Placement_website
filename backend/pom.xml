@@ -49,6 +49,13 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- Cloudinary file storage (FILE_STORAGE=cloudinary) -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http45</artifactId>
+            <version>1.39.0</version>
+        </dependency>
+
         <!-- Spring Actuator (health & info endpoints) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
