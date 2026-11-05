@@ -32,6 +32,12 @@ export const storeAuth = (authResponse) => {
   );
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(LEGACY_USER_KEY);
+
+  // Set session cookie for native browser downloads and media streaming
+  if (typeof document !== 'undefined') {
+    document.cookie = `placement_jwt=${encodeURIComponent(authResponse.token)}; path=/; SameSite=Lax`;
+    document.cookie = `token=${encodeURIComponent(authResponse.token)}; path=/; SameSite=Lax`;
+  }
 };
 
 export const clearAuth = () => {
@@ -39,6 +45,11 @@ export const clearAuth = () => {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(LEGACY_USER_KEY);
+
+  if (typeof document !== 'undefined') {
+    document.cookie = 'placement_jwt=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
+  }
 };
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);

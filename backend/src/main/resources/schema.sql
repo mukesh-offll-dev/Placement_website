@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     CONSTRAINT uq_student_profiles_roll_no UNIQUE (roll_no),
     CONSTRAINT fk_student_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_student_profiles_placed_company FOREIGN KEY (placed_company_id) REFERENCES companies(id) ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT chk_student_semester CHECK (semester IS NULL OR (semester >= 1 AND semester <= 10)),
+    CONSTRAINT chk_student_semester CHECK (semester IS NULL OR (semester >= 1 AND semester <= 8)),
     CONSTRAINT chk_student_cgpa CHECK (cgpa IS NULL OR (cgpa >= 0.00 AND cgpa <= 10.00)),
     CONSTRAINT chk_student_completion CHECK (profile_completion_percent >= 0 AND profile_completion_percent <= 100),
     CONSTRAINT chk_student_backlogs CHECK (active_backlogs <= total_backlogs),

@@ -112,8 +112,8 @@ public class StudentProfile {
     @Column(name = "batch", length = 20)
     private String batch;
 
-    @Min(value = 1, message = "Semester must be between 1 and 10")
-    @Max(value = 10, message = "Semester must be between 1 and 10")
+    @Min(value = 1, message = "Semester must be between 1 and 8")
+    @Max(value = 8, message = "Semester must be between 1 and 8")
     @Column(name = "semester")
     private Short semester;
 

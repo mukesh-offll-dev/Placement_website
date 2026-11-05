@@ -89,11 +89,11 @@ public class SecurityConfig {
                 // reachable without a login, so anyone could download or delete another
                 // student's resume. Authenticated rather than STUDENT-only, because the
                 // admin student detail page reads resumes too.
-                // Note: this proves a caller is signed in, not that the row is theirs;
+                // Note: this proves a caller is signed in, not senseless ownership;
                 // per-owner checks still belong in the services.
-                .requestMatchers("/students/**").authenticated()
-                .requestMatchers("/files/**").authenticated()
-                .requestMatchers("/notifications/**").authenticated()
+                .requestMatchers("/students/**", "/api/students/**").authenticated()
+                .requestMatchers("/files/**", "/api/files/**").authenticated()
+                .requestMatchers("/notifications/**", "/api/notifications/**").authenticated()
                 // Deny by default: a new controller is protected until a rule opens it.
                 .anyRequest().authenticated()
             )

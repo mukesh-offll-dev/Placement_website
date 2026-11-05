@@ -24,6 +24,7 @@ import {
   getStudentResume,
   getResumeViewUrl,
   getResumeDownloadUrl,
+  downloadStudentResumeFile,
   formatFileSize,
 } from '../services/fileUploadService';
 
@@ -35,7 +36,23 @@ export default function AdminStudentDetail() {
   const [loadingStudent, setLoadingStudent] = useState(true);
   const [resume, setResume] = useState(null);
   const [loadingResume, setLoadingResume] = useState(true);
+  const [isDownloadingResume, setIsDownloadingResume] = useState(false);
   const [error, setError] = useState(null);
+
+  const handleDownloadResume = async () => {
+    if (!studentId) return;
+    setIsDownloadingResume(true);
+    try {
+      await downloadStudentResumeFile(studentId, resume?.fileName || 'Resume.pdf');
+    } catch (err) {
+      console.error('Failed to download resume:', err);
+      if (resume?.downloadUrl) {
+        window.open(resume.downloadUrl, '_blank');
+      }
+    } finally {
+      setIsDownloadingResume(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -64,7 +81,10 @@ export default function AdminStudentDetail() {
               year: studentData.batch || '2022-2026',
               rollNo: studentData.rollNo || 'N/A',
               about: studentData.about || 'Student has not filled their summary yet.',
-              skills: ['Computer Science', 'Technical Problem Solving'],
+              skills:
+                Array.isArray(studentData.skills) && studentData.skills.length > 0
+                  ? studentData.skills.map((s) => (typeof s === 'string' ? s : s.skillName || ''))
+                  : ['Computer Science', 'Technical Problem Solving'],
               projects: Array.isArray(studentData.projects) ? studentData.projects : [],
             });
           } else {
@@ -257,14 +277,23 @@ export default function AdminStudentDetail() {
                     </a>
                   )}
                   {resume.downloadUrl && (
-                    <a
-                      href={resume.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition"
+                    <button
+                      type="button"
+                      onClick={handleDownloadResume}
+                      disabled={isDownloadingResume}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                      title="Download Resume"
                     >
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
+                      {isDownloadingResume ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </>
+                      )}
+                    </button>
                   )}
                 </div>
               </div>

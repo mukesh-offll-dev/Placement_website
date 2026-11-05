@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     CONSTRAINT uq_student_profiles_user UNIQUE (user_id),
     CONSTRAINT uq_student_profiles_roll_no UNIQUE (roll_no),
     CONSTRAINT fk_student_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT chk_student_semester CHECK (semester IS NULL OR (semester >= 1 AND semester <= 10)),
+    CONSTRAINT chk_student_semester CHECK (semester IS NULL OR (semester >= 1 AND semester <= 8)),
     CONSTRAINT chk_student_cgpa CHECK (cgpa IS NULL OR (cgpa >= 0.00 AND cgpa <= 10.00)),
     CONSTRAINT chk_student_profile_completion CHECK (profile_completion_percent >= 0 AND profile_completion_percent <= 100),
     CONSTRAINT chk_student_backlogs CHECK (active_backlogs <= total_backlogs),
@@ -157,7 +157,7 @@ COMMENT ON COLUMN student_profiles.degree IS 'Degree program (e.g. B.E, B.Tech, 
 COMMENT ON COLUMN student_profiles.department IS 'Full department name (e.g. Computer Science and Engineering)';
 COMMENT ON COLUMN student_profiles.department_code IS 'Short department code (e.g. CSE, ECE, MECH, EEE, CIVIL, IT)';
 COMMENT ON COLUMN student_profiles.batch IS 'Academic batch period (e.g. 2022-2026)';
-COMMENT ON COLUMN student_profiles.semester IS 'Current academic semester (1 to 10)';
+COMMENT ON COLUMN student_profiles.semester IS 'Current academic semester (1 to 8)';
 COMMENT ON COLUMN student_profiles.cgpa IS 'Cumulative Grade Point Average (0.00 to 10.00)';
 COMMENT ON COLUMN student_profiles.total_backlogs IS 'Total historical backlog count';
 COMMENT ON COLUMN student_profiles.active_backlogs IS 'Current active backlog count (must be <= total_backlogs)';

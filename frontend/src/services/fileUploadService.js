@@ -4,6 +4,8 @@ import {
   uploadResume as apiUploadResume,
   getResume as apiGetResume,
   deleteResume as apiDeleteResume,
+  downloadResumeBlob,
+  downloadStudentResumeFile,
   getResumeViewUrl,
   getResumeDownloadUrl,
 } from './api/fileService.js';
@@ -13,7 +15,14 @@ import {
   uploadProjectMedia as apiUploadProjectMedia,
 } from './api/projectService.js';
 
-export { validateFile, formatFileSize, getResumeViewUrl, getResumeDownloadUrl };
+export {
+  validateFile,
+  formatFileSize,
+  getResumeViewUrl,
+  getResumeDownloadUrl,
+  downloadResumeBlob,
+  downloadStudentResumeFile,
+};
 
 /**
  * Upload student resume to backend
@@ -85,6 +94,8 @@ const fileUploadService = {
   uploadProjectMedia,
   getResumeViewUrl,
   getResumeDownloadUrl,
+  downloadResumeBlob,
+  downloadStudentResumeFile,
 };
 
 export default fileUploadService;

@@ -3,6 +3,7 @@ package com.gces.placementcell.security;
 import com.gces.placementcell.entity.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -77,6 +78,37 @@ public class AdminAuthFilter extends OncePerRequestFilter {
         String customToken = request.getHeader("X-Auth-Token");
         if (StringUtils.hasText(customToken)) {
             Optional<User> user = tokenProvider.validateTokenAndGetUser(customToken.trim());
+            if (user.isPresent()) {
+                return user;
+            }
+        }
+
+        // 3. Check Cookie authentication (placement_jwt, token, jwt, authToken)
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                String name = cookie.getName();
+                if ("placement_jwt".equalsIgnoreCase(name)
+                        || "token".equalsIgnoreCase(name)
+                        || "jwt".equalsIgnoreCase(name)
+                        || "authToken".equalsIgnoreCase(name)) {
+                    String cookieVal = cookie.getValue();
+                    if (StringUtils.hasText(cookieVal)) {
+                        Optional<User> user = tokenProvider.validateTokenAndGetUser(cookieVal.trim());
+                        if (user.isPresent()) {
+                            return user;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Check query parameter token / authToken (for direct browser file downloads)
+        String paramToken = request.getParameter("token");
+        if (!StringUtils.hasText(paramToken)) {
+            paramToken = request.getParameter("authToken");
+        }
+        if (StringUtils.hasText(paramToken)) {
+            Optional<User> user = tokenProvider.validateTokenAndGetUser(paramToken.trim());
             if (user.isPresent()) {
                 return user;
             }

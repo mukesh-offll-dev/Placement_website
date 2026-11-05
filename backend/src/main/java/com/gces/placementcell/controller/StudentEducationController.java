@@ -3,9 +3,8 @@ package com.gces.placementcell.controller;
 import com.gces.placementcell.dto.request.StudentEducationRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.StudentEducationResponse;
-import com.gces.placementcell.service.StudentEducationService;
+import com.gces.placementcell.service.StudentProfileService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,76 +14,67 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * REST controller for authenticated student education history management.
+ * REST controller for authenticated student education records.
  * Path: /api/student/education
- * Requires: ROLE_STUDENT (enforced by SecurityConfig /student/**)
+ * Requires: ROLE_STUDENT
  */
 @RestController
 @RequestMapping("/student/education")
-@RequiredArgsConstructor
 public class StudentEducationController {
 
-    private final StudentEducationService studentEducationService;
+    private final StudentProfileService studentProfileService;
 
-    /**
-     * POST /api/student/education
-     * Creates a new education record for the authenticated student.
-     */
-    @PostMapping
-    public ResponseEntity<ApiResponse<StudentEducationResponse>> createEducation(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody StudentEducationRequest request) {
-        StudentEducationResponse response = studentEducationService.createEducation(userDetails.getUsername(), request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Education record created successfully", response));
+    public StudentEducationController(StudentProfileService studentProfileService) {
+        this.studentProfileService = studentProfileService;
     }
 
     /**
      * GET /api/student/education
-     * Retrieves all education records belonging to the authenticated student.
+     * Retrieves all education entries of the authenticated student.
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<StudentEducationResponse>>> getAllEducation(
+    public ResponseEntity<ApiResponse<List<StudentEducationResponse>>> getEducation(
             @AuthenticationPrincipal UserDetails userDetails) {
-        List<StudentEducationResponse> response = studentEducationService.getAllEducation(userDetails.getUsername());
-        return ResponseEntity.ok(ApiResponse.success(response));
+        List<StudentEducationResponse> education = studentProfileService.getEducation(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(education));
     }
 
     /**
-     * GET /api/student/education/{educationId}
-     * Retrieves a specific education record belonging to the authenticated student.
+     * POST /api/student/education
+     * Adds an education entry to the authenticated student's profile.
      */
-    @GetMapping("/{educationId}")
-    public ResponseEntity<ApiResponse<StudentEducationResponse>> getEducationById(
+    @PostMapping
+    public ResponseEntity<ApiResponse<StudentEducationResponse>> addEducation(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long educationId) {
-        StudentEducationResponse response = studentEducationService.getEducationById(userDetails.getUsername(), educationId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+            @Valid @RequestBody StudentEducationRequest request) {
+        StudentEducationResponse education = studentProfileService.addEducation(userDetails.getUsername(), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Education record added successfully", education));
     }
 
     /**
      * PUT /api/student/education/{educationId}
-     * Updates an existing education record belonging to the authenticated student.
+     * Updates an education entry on the authenticated student's profile.
      */
     @PutMapping("/{educationId}")
     public ResponseEntity<ApiResponse<StudentEducationResponse>> updateEducation(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long educationId,
             @Valid @RequestBody StudentEducationRequest request) {
-        StudentEducationResponse response = studentEducationService.updateEducation(userDetails.getUsername(), educationId, request);
-        return ResponseEntity.ok(ApiResponse.success("Education record updated successfully", response));
+        StudentEducationResponse updated = studentProfileService.updateEducation(userDetails.getUsername(), educationId, request);
+        return ResponseEntity.ok(ApiResponse.success("Education record updated successfully", updated));
     }
 
     /**
      * DELETE /api/student/education/{educationId}
-     * Deletes an education record belonging to the authenticated student.
+     * Deletes an education entry from the authenticated student's profile.
      */
     @DeleteMapping("/{educationId}")
     public ResponseEntity<ApiResponse<Void>> deleteEducation(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long educationId) {
-        studentEducationService.deleteEducation(userDetails.getUsername(), educationId);
-        return ResponseEntity.ok(ApiResponse.success("Education record deleted successfully"));
+        studentProfileService.deleteEducation(userDetails.getUsername(), educationId);
+        return ResponseEntity.ok(ApiResponse.success("Education record deleted successfully", null));
     }
 }
 

@@ -234,7 +234,7 @@ Table student_profiles [headercolor: #2F9E44] {
   department                 varchar(100)      [null]
   department_code            varchar(10)       [null, note: 'CSE, ECE, MECH, EEE, CIVIL, IT']
   batch                      varchar(20)       [null, note: 'e.g. 2022-2026']
-  semester                   smallint          [null, note: 'CHECK between 1 and 10']
+  semester                   smallint          [null, note: 'CHECK between 1 and 8']
   cgpa                       "decimal(4,2)"    [null, note: 'CHECK between 0 and 10']
   total_backlogs             int               [not null, default: 0]
   active_backlogs            int               [not null, default: 0]
@@ -267,7 +267,7 @@ Table student_profiles [headercolor: #2F9E44] {
   `studentDetailView` (incl. the nested `academic{}` block).
 
   CHECK constraints:
-  - semester BETWEEN 1 AND 10
+  - semester BETWEEN 1 AND 8
   - cgpa BETWEEN 0 AND 10
   - profile_completion_percent BETWEEN 0 AND 100
   - active_backlogs <= total_backlogs

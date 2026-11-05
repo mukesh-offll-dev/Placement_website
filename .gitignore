@@ -47,3 +47,6 @@ backend/*.local
 
 # Local demo logins
 credentials.md
+
+# Uploaded files (resumes etc.) are personal data and live in Cloudinary or local disk, never in git
+backend/uploads/

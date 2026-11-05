@@ -207,6 +207,21 @@ class DtoContractTest {
         }
 
         @Test
+        @DisplayName("Semester outside 1-8 is rejected")
+        void testSemesterRange() {
+            java.util.function.Function<Short, StudentProfileRequest> profileWithSem = sem -> new StudentProfileRequest(
+                    "Asha Rao", "811521104001", "asha@gces.edu", "+919876543210", null, null, null, null,
+                    "GCES", "B.E.", "Computer Science", "CSE", "2022-2026",
+                    sem, new BigDecimal("8.75"), 0, 0, true, null);
+
+            assertTrue(violatedProperties(profileWithSem.apply((short) 9)).contains("semester"));
+            assertTrue(violatedProperties(profileWithSem.apply((short) 10)).contains("semester"));
+            assertTrue(violatedProperties(profileWithSem.apply((short) 0)).contains("semester"));
+            assertTrue(validator.validate(profileWithSem.apply((short) 1)).isEmpty());
+            assertTrue(validator.validate(profileWithSem.apply((short) 8)).isEmpty());
+        }
+
+        @Test
         @DisplayName("An application without consent is rejected")
         void testConsentIsMandatory() {
             var withheld = new JobApplicationRequest(1L, null, null, false);

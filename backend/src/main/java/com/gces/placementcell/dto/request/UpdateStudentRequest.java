@@ -58,8 +58,8 @@ public class UpdateStudentRequest {
     @Max(value = 2100, message = "Year must be between 2000 and 2100")
     private Integer year;
 
-    @Min(value = 1, message = "Semester must be between 1 and 10")
-    @Max(value = 10, message = "Semester must be between 1 and 10")
+    @Min(value = 1, message = "Semester must be between 1 and 8")
+    @Max(value = 8, message = "Semester must be between 1 and 8")
     private Short semester;
 
     @DecimalMin(value = "0.00", message = "CGPA must be at least 0.00")

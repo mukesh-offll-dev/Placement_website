@@ -66,7 +66,7 @@ public record StudentProfileRequest(
         String batch,
 
         @Min(value = 1, message = "Semester must be at least 1")
-        @Max(value = 10, message = "Semester cannot exceed 10")
+        @Max(value = 8, message = "Semester cannot exceed 8")
         Short semester,
 
         @DecimalMin(value = "0.00", message = "CGPA cannot be negative")
@@ -84,8 +84,31 @@ public record StudentProfileRequest(
 
         List<StudentEducationRequest> education,
 
-        List<StudentProjectRequest> projects
+        List<StudentProjectRequest> projects,
+
+        List<@Size(max = 60, message = "Skill name cannot exceed 60 characters") String> skills
 ) {
+    /** Profile with skills only (no education or projects). */
+    public StudentProfileRequest(
+            String fullName, String rollNo, String email, String phone, String address, String about,
+            String avatarUrl, String resumeUrl, String college, String degree, String department,
+            String departmentCode, String batch, Short semester, BigDecimal cgpa, Integer totalBacklogs,
+            Integer activeBacklogs, Boolean isOpenToOpportunities, List<String> skills
+    ) {
+        this(fullName, rollNo, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null, skills);
+    }
+
+    /** Profile with education and projects (no skills). */
+    public StudentProfileRequest(
+            String fullName, String rollNo, String email, String phone, String address, String about,
+            String avatarUrl, String resumeUrl, String college, String degree, String department,
+            String departmentCode, String batch, Short semester, BigDecimal cgpa, Integer totalBacklogs,
+            Integer activeBacklogs, Boolean isOpenToOpportunities, List<StudentEducationRequest> education,
+            List<StudentProjectRequest> projects
+    ) {
+        this(fullName, rollNo, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, education, projects, null);
+    }
+
     public StudentProfileRequest(
             String fullName,
             String rollNo,
@@ -106,7 +129,7 @@ public record StudentProfileRequest(
             Integer activeBacklogs,
             Boolean isOpenToOpportunities
     ) {
-        this(fullName, rollNo, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null);
+        this(fullName, rollNo, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null, null);
     }
 
     public StudentProfileRequest(
@@ -128,6 +151,6 @@ public record StudentProfileRequest(
             Integer activeBacklogs,
             Boolean isOpenToOpportunities
     ) {
-        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null);
+        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null, null, null);
     }
 }

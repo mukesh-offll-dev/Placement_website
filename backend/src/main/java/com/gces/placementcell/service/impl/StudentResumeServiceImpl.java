@@ -12,6 +12,9 @@ import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.service.FileStorageService;
 import com.gces.placementcell.service.StudentResumeService;
 import org.springframework.core.io.Resource;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -134,5 +137,30 @@ public class StudentResumeServiceImpl implements StudentResumeService {
 
         student.setResumeUrl(null);
         profileRepository.save(student);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void verifyAccess(Long studentId, UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new InsufficientAuthenticationException("Authentication is required to access this resource");
+        }
+
+        boolean isAdminOrOfficer = userDetails.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_PLACEMENT_OFFICER".equals(a.getAuthority()));
+        if (isAdminOrOfficer) {
+            return;
+        }
+
+        StudentProfile student = profileRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + studentId));
+
+        String username = userDetails.getUsername();
+        boolean isOwner = (student.getUser() != null && student.getUser().getEmail() != null && student.getUser().getEmail().equalsIgnoreCase(username))
+                || (student.getEmail() != null && student.getEmail().equalsIgnoreCase(username));
+
+        if (!isOwner) {
+            throw new AccessDeniedException("You are not authorized to access this resume");
+        }
     }
 }

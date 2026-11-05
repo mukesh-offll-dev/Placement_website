@@ -56,8 +56,8 @@ public class CreateStudentRequest {
     @Size(max = 20, message = "Batch cannot exceed 20 characters")
     private String batch;
 
-    @Min(value = 1, message = "Semester must be between 1 and 10")
-    @Max(value = 10, message = "Semester must be between 1 and 10")
+    @Min(value = 1, message = "Semester must be between 1 and 8")
+    @Max(value = 8, message = "Semester must be between 1 and 8")
     private Short semester;
 
     @DecimalMin(value = "0.00", message = "CGPA must be at least 0.00")
