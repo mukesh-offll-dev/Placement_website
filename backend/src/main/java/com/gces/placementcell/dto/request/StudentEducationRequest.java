@@ -36,6 +36,12 @@ public record StudentEducationRequest(
         Boolean isCurrent
 ) {
 
+    public StudentEducationRequest {
+        if (isCurrent == null) {
+            isCurrent = false;
+        }
+    }
+
     @AssertTrue(message = "End year cannot be earlier than start year")
     public boolean isYearRangeValid() {
         return startYear == null || endYear == null || endYear >= startYear;

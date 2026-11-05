@@ -19,7 +19,6 @@ public record StudentExperienceRequest(
         @Size(max = 150, message = "Company cannot exceed 150 characters")
         String company,
 
-        @NotNull(message = "Experience type is required")
         ExperienceType experienceType,
 
         @Size(max = 120, message = "Location cannot exceed 120 characters")
@@ -36,6 +35,15 @@ public record StudentExperienceRequest(
 
         Boolean isCurrent
 ) {
+
+    public StudentExperienceRequest {
+        if (experienceType == null) {
+            experienceType = ExperienceType.INTERNSHIP;
+        }
+        if (isCurrent == null) {
+            isCurrent = false;
+        }
+    }
 
     @AssertTrue(message = "End date cannot be earlier than start date")
     public boolean isDateRangeValid() {

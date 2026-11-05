@@ -15,12 +15,16 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -107,6 +111,34 @@ class StudentResumeControllerTest {
             }
         };
 
+        when(resumeService.downloadResume(10L)).thenReturn(resource);
+        when(fileStorageService.getContentType("resume.pdf")).thenReturn("application/pdf");
+
+        mockMvc.perform(get("/students/10/resume/download"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "other.student@gces.edu.np", roles = {"STUDENT"})
+    void testDownloadResume_Forbidden_WhenOtherStudent() throws Exception {
+        doThrow(new AccessDeniedException("You are not authorized to access this resume"))
+                .when(resumeService).verifyAccess(eq(10L), any());
+
+        mockMvc.perform(get("/students/10/resume/download"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "owner.student@gces.edu.np", roles = {"STUDENT"})
+    void testDownloadResume_Success_WhenOwnerStudent() throws Exception {
+        Resource resource = new ByteArrayResource("PDF Content".getBytes()) {
+            @Override
+            public String getFilename() {
+                return "resume.pdf";
+            }
+        };
+
+        doNothing().when(resumeService).verifyAccess(eq(10L), any());
         when(resumeService.downloadResume(10L)).thenReturn(resource);
         when(fileStorageService.getContentType("resume.pdf")).thenReturn("application/pdf");
 

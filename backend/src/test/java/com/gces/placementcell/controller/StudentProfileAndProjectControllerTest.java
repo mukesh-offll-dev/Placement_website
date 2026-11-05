@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.gces.placementcell.dto.request.StudentProfileRequest;
 import com.gces.placementcell.dto.request.StudentProjectRequest;
+import com.gces.placementcell.dto.request.StudentSkillRequest;
 import com.gces.placementcell.dto.response.StudentProfileResponse;
 import com.gces.placementcell.dto.response.StudentProjectResponse;
+import com.gces.placementcell.dto.response.StudentSkillResponse;
 import com.gces.placementcell.dto.response.UserResponse;
 import com.gces.placementcell.entity.enums.AccountStatus;
 import com.gces.placementcell.entity.enums.PlacementStatus;
+import com.gces.placementcell.entity.enums.SkillProficiency;
 import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.exception.DuplicateResourceException;
 import com.gces.placementcell.exception.GlobalExceptionHandler;
@@ -239,6 +242,86 @@ class StudentProfileAndProjectControllerTest {
                 .andExpect(jsonPath("$.success", is(false)))
                 .andExpect(jsonPath("$.message", is("Validation failed")))
                 .andExpect(jsonPath("$.data.fullName").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /student/profile validation fails when semester exceeds 8 returning 400")
+    void testUpdateProfileSemesterExceedsEightFails() throws Exception {
+        String invalidSemesterJson = "{\"fullName\": \"Adithya Kumar\", \"email\": \"student@gces.edu\", \"semester\": 9}";
+
+        profileMockMvc.perform(put("/student/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidSemesterJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", is("Validation failed")))
+                .andExpect(jsonPath("$.data.semester", containsString("cannot exceed 8")));
+    }
+
+    @Test
+    @DisplayName("GET /student/profile/skills returns list of student skills")
+    void testGetSkillsSuccess() throws Exception {
+        StudentSkillResponse skill = new StudentSkillResponse(1L, "React", SkillProficiency.INTERMEDIATE);
+        when(studentProfileService.getSkills("student@gces.edu")).thenReturn(List.of(skill));
+
+        profileMockMvc.perform(get("/student/profile/skills"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].skillName", is("React")));
+
+        verify(studentProfileService).getSkills("student@gces.edu");
+    }
+
+    @Test
+    @DisplayName("POST /student/profile/skills adds skill and returns 201")
+    void testAddSkillSuccess() throws Exception {
+        StudentSkillRequest request = new StudentSkillRequest("Spring Boot", SkillProficiency.ADVANCED);
+        StudentSkillResponse response = new StudentSkillResponse(2L, "Spring Boot", SkillProficiency.ADVANCED);
+        when(studentProfileService.addSkill(eq("student@gces.edu"), any(StudentSkillRequest.class)))
+                .thenReturn(response);
+
+        profileMockMvc.perform(post("/student/profile/skills")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.skillName", is("Spring Boot")));
+
+        verify(studentProfileService).addSkill(eq("student@gces.edu"), any(StudentSkillRequest.class));
+    }
+
+    @Test
+    @DisplayName("PUT /student/profile/skills batch updates skills")
+    void testUpdateSkillsSuccess() throws Exception {
+        List<String> skills = List.of("Java", "PostgreSQL");
+        List<StudentSkillResponse> responses = List.of(
+                new StudentSkillResponse(10L, "Java", SkillProficiency.INTERMEDIATE),
+                new StudentSkillResponse(11L, "PostgreSQL", SkillProficiency.INTERMEDIATE)
+        );
+        when(studentProfileService.updateSkills(eq("student@gces.edu"), any())).thenReturn(responses);
+
+        profileMockMvc.perform(put("/student/profile/skills")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(skills)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data", hasSize(2)));
+
+        verify(studentProfileService).updateSkills(eq("student@gces.edu"), any());
+    }
+
+    @Test
+    @DisplayName("DELETE /student/profile/skills/{id} deletes skill and returns 200")
+    void testDeleteSkillSuccess() throws Exception {
+        doNothing().when(studentProfileService).deleteSkill("student@gces.edu", 5L);
+
+        profileMockMvc.perform(delete("/student/profile/skills/5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.message", is("Skill deleted successfully")));
+
+        verify(studentProfileService).deleteSkill("student@gces.edu", 5L);
     }
 
     // =========================================================================

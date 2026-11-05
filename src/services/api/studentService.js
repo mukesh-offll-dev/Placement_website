@@ -122,6 +122,138 @@ export const updateProfile = async (profileData) => {
   return response?.data !== undefined ? response.data : response;
 };
 
+/**
+ * Retrieve skills for authenticated student.
+ * GET /api/student/profile/skills
+ */
+export const getSkills = async () => {
+  const response = await axiosClient.get('/student/profile/skills');
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Replace all skills for authenticated student.
+ * PUT /api/student/profile/skills
+ * @param {Array<string>} skills
+ */
+export const updateSkills = async (skills) => {
+  const response = await axiosClient.put('/student/profile/skills', skills);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Add a single skill for authenticated student.
+ * POST /api/student/profile/skills
+ * @param {string|{skillName: string, proficiency?: string}} skillData
+ */
+export const addSkill = async (skillData) => {
+  const payload = typeof skillData === 'string' ? { skillName: skillData } : skillData;
+  const response = await axiosClient.post('/student/profile/skills', payload);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Update an existing skill for authenticated student.
+ * PUT /api/student/profile/skills/{skillId}
+ * @param {number|string} skillId
+ * @param {string|{skillName: string, proficiency?: string}} skillData
+ */
+export const updateSkill = async (skillId, skillData) => {
+  const payload = typeof skillData === 'string' ? { skillName: skillData } : skillData;
+  const response = await axiosClient.put(`/student/profile/skills/${skillId}`, payload);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Delete a skill for authenticated student.
+ * DELETE /api/student/profile/skills/{skillId}
+ * @param {number|string} skillId
+ */
+export const deleteSkill = async (skillId) => {
+  const response = await axiosClient.delete(`/student/profile/skills/${skillId}`);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Retrieve education history for authenticated student.
+ * GET /api/student/education
+ */
+export const getEducation = async () => {
+  const response = await axiosClient.get('/student/education');
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Add an education record for authenticated student.
+ * POST /api/student/education
+ * @param {Object} educationData
+ */
+export const addEducation = async (educationData) => {
+  const response = await axiosClient.post('/student/education', educationData);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Update an education record for authenticated student.
+ * PUT /api/student/education/{educationId}
+ * @param {number|string} educationId
+ * @param {Object} educationData
+ */
+export const updateEducation = async (educationId, educationData) => {
+  const response = await axiosClient.put(`/student/education/${educationId}`, educationData);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Delete an education record for authenticated student.
+ * DELETE /api/student/education/{educationId}
+ * @param {number|string} educationId
+ */
+export const deleteEducation = async (educationId) => {
+  const response = await axiosClient.delete(`/student/education/${educationId}`);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Retrieve internship/experience history for authenticated student.
+ * GET /api/student/experience
+ */
+export const getExperience = async () => {
+  const response = await axiosClient.get('/student/experience');
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Add an internship/experience record for authenticated student.
+ * POST /api/student/experience
+ * @param {Object} experienceData
+ */
+export const addExperience = async (experienceData) => {
+  const response = await axiosClient.post('/student/experience', experienceData);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Update an internship/experience record for authenticated student.
+ * PUT /api/student/experience/{experienceId}
+ * @param {number|string} experienceId
+ * @param {Object} experienceData
+ */
+export const updateExperience = async (experienceId, experienceData) => {
+  const response = await axiosClient.put(`/student/experience/${experienceId}`, experienceData);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
+ * Delete an internship/experience record for authenticated student.
+ * DELETE /api/student/experience/{experienceId}
+ * @param {number|string} experienceId
+ */
+export const deleteExperience = async (experienceId) => {
+  const response = await axiosClient.delete(`/student/experience/${experienceId}`);
+  return response?.data !== undefined ? response.data : response;
+};
+
 const studentService = {
   getMyApplications,
   getMyApplication,
@@ -130,6 +262,19 @@ const studentService = {
   getProfile,
   createProfile,
   updateProfile,
+  getSkills,
+  updateSkills,
+  addSkill,
+  updateSkill,
+  deleteSkill,
+  getEducation,
+  addEducation,
+  updateEducation,
+  deleteEducation,
+  getExperience,
+  addExperience,
+  updateExperience,
+  deleteExperience,
 };
 
 export default studentService;

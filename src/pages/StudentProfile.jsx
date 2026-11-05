@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   GraduationCap,
+  Briefcase,
+  Calendar,
   Mail,
   Phone,
   MapPin,
@@ -26,6 +28,18 @@ import {
   updateProfile,
   createProfile,
   getStudentDashboard,
+  getSkills,
+  updateSkills,
+  addSkill as apiAddSkill,
+  deleteSkill as apiDeleteSkill,
+  getEducation,
+  addEducation as apiAddEducation,
+  updateEducation as apiUpdateEducation,
+  deleteEducation as apiDeleteEducation,
+  getExperience,
+  addExperience as apiAddExperience,
+  updateExperience as apiUpdateExperience,
+  deleteExperience as apiDeleteExperience,
 } from '../services/api/studentService';
 import {
   getAllProjects,
@@ -35,6 +49,7 @@ import {
   uploadStudentResume,
   getStudentResume,
   deleteStudentResume,
+  downloadStudentResumeFile,
   getResumeViewUrl,
   getResumeDownloadUrl,
   validateFile,
@@ -92,12 +107,47 @@ export default function StudentProfile() {
   // Resume states
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeMessage, setResumeMessage] = useState(null);
+  const [isDownloadingResume, setIsDownloadingResume] = useState(false);
 
   // Project action state
   const [deletingProjectId, setDeletingProjectId] = useState(null);
 
   // Local skills state
   const [skillsList, setSkillsList] = useState([]);
+
+  // Education state
+  const [educationList, setEducationList] = useState([]);
+  const [showEducationModal, setShowEducationModal] = useState(false);
+  const [editingEducation, setEditingEducation] = useState(null);
+  const [educationForm, setEducationForm] = useState({
+    institutionName: '',
+    degree: '',
+    boardOrUniversity: '',
+    startYear: '',
+    endYear: '',
+    grade: '',
+    isCurrent: false,
+  });
+  const [educationErrors, setEducationErrors] = useState({});
+  const [savingEducation, setSavingEducation] = useState(false);
+  const [deletingEducationId, setDeletingEducationId] = useState(null);
+
+  // Internship / Experience state
+  const [experienceList, setExperienceList] = useState([]);
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [editingExperience, setEditingExperience] = useState(null);
+  const [experienceForm, setExperienceForm] = useState({
+    jobRole: '',
+    company: '',
+    location: '',
+    startDate: '',
+    endDate: '',
+    isCurrent: false,
+    description: '',
+  });
+  const [experienceErrors, setExperienceErrors] = useState({});
+  const [savingExperience, setSavingExperience] = useState(false);
+  const [deletingExperienceId, setDeletingExperienceId] = useState(null);
 
   // Check for notification passed from navigation
   useEffect(() => {
@@ -158,10 +208,42 @@ export default function StudentProfile() {
       // Populate skills
       if (Array.isArray(profileResult.skills)) {
         setSkillsList(
-          profileResult.skills.map((s) => (typeof s === 'string' ? s : s.skillName || ''))
+          profileResult.skills
+            .map((s) => ({
+              id: typeof s === 'object' && s !== null ? s.id : null,
+              skillName: typeof s === 'string' ? s : s.skillName || '',
+              proficiency: (typeof s === 'object' && s !== null && s.proficiency) || 'INTERMEDIATE',
+            }))
+            .filter((s) => s.skillName && s.skillName.trim().length > 0)
         );
       } else {
         setSkillsList([]);
+      }
+
+      // Populate education
+      if (Array.isArray(profileResult.education)) {
+        setEducationList(profileResult.education);
+      } else {
+        try {
+          const eduData = await getEducation();
+          const list = Array.isArray(eduData) ? eduData : (eduData?.data && Array.isArray(eduData.data) ? eduData.data : []);
+          setEducationList(list);
+        } catch {
+          setEducationList([]);
+        }
+      }
+
+      // Populate internship / experience
+      if (Array.isArray(profileResult.experience)) {
+        setExperienceList(profileResult.experience);
+      } else {
+        try {
+          const expData = await getExperience();
+          const list = Array.isArray(expData) ? expData : (expData?.data && Array.isArray(expData.data) ? expData.data : []);
+          setExperienceList(list);
+        } catch {
+          setExperienceList([]);
+        }
       }
 
       // Populate edit form
@@ -304,6 +386,7 @@ export default function StudentProfile() {
       totalBacklogs: profile.totalBacklogs ?? 0,
       activeBacklogs: profile.activeBacklogs ?? 0,
       isOpenToOpportunities: profile.isOpenToOpportunities ?? true,
+      skills: skillsList.map((s) => (typeof s === 'string' ? s : s.skillName)).filter(Boolean),
     };
 
     try {
@@ -356,8 +439,8 @@ export default function StudentProfile() {
 
     if (editForm.semester !== '' && editForm.semester !== null) {
       const sem = parseInt(editForm.semester, 10);
-      if (isNaN(sem) || sem < 1 || sem > 10) {
-        errs.semester = 'Semester must be between 1 and 10';
+      if (isNaN(sem) || sem < 1 || sem > 8) {
+        errs.semester = 'Semester must be between 1 and 8';
       }
     }
 
@@ -391,6 +474,7 @@ export default function StudentProfile() {
       totalBacklogs: editForm.totalBacklogs !== '' ? Number(editForm.totalBacklogs) : 0,
       activeBacklogs: editForm.activeBacklogs !== '' ? Number(editForm.activeBacklogs) : 0,
       isOpenToOpportunities: Boolean(editForm.isOpenToOpportunities),
+      skills: skillsList.map((s) => (typeof s === 'string' ? s : s.skillName)).filter(Boolean),
     };
 
     try {
@@ -473,6 +557,31 @@ export default function StudentProfile() {
     }
   };
 
+  // Authenticated Resume Download handler
+  const handleResumeDownload = async () => {
+    const studentId = profile?.id || currentUser?.userId;
+    if (!studentId) {
+      toastError('Unable to identify student profile for download.');
+      return;
+    }
+
+    setIsDownloadingResume(true);
+    try {
+      await downloadStudentResumeFile(studentId, resumeData?.fileName || 'Resume.pdf');
+      toastSuccess('Resume download initiated.');
+    } catch (err) {
+      console.error('Resume download error:', err);
+      // Fallback: If blob request fails with unexpected error, open downloadUrl
+      if (resumeData?.downloadUrl) {
+        window.open(resumeData.downloadUrl, '_blank');
+      } else {
+        toastError(err?.response?.data?.message || err.message || 'Failed to download resume. Please try again.');
+      }
+    } finally {
+      setIsDownloadingResume(false);
+    }
+  };
+
   // Delete Resume handler
   const handleResumeDelete = async () => {
     if (!window.confirm('Are you sure you want to delete your uploaded resume?')) {
@@ -527,18 +636,304 @@ export default function StudentProfile() {
   };
 
   // Skill management
-  const addSkill = () => {
+  const addSkill = async () => {
     const skill = prompt('Enter a new skill name:');
     if (skill && skill.trim()) {
       const trimmed = skill.trim();
-      if (!skillsList.includes(trimmed)) {
-        setSkillsList((prev) => [...prev, trimmed]);
+      const exists = skillsList.some(
+        (s) => (typeof s === 'string' ? s : s.skillName).trim().toLowerCase() === trimmed.toLowerCase()
+      );
+      if (!exists) {
+        try {
+          const res = await apiAddSkill(trimmed);
+          const saved = res?.data !== undefined ? res.data : res;
+          setSkillsList((prev) => [...prev, saved || trimmed]);
+          toastSuccess(`Skill "${trimmed}" added!`);
+        } catch {
+          const updated = [...skillsList.map((s) => (typeof s === 'string' ? s : s.skillName)), trimmed];
+          await updateSkills(updated);
+          setSkillsList(updated);
+          toastSuccess(`Skill "${trimmed}" added!`);
+        }
       }
     }
   };
 
-  const removeSkill = (index) => {
-    setSkillsList((prev) => prev.filter((_, i) => i !== index));
+  const removeSkill = async (index) => {
+    const target = skillsList[index];
+    if (!target) return;
+    const name = typeof target === 'string' ? target : target.skillName;
+    const skillId = target?.id;
+    try {
+      if (skillId) {
+        await apiDeleteSkill(skillId);
+      } else {
+        const remaining = skillsList
+          .filter((_, i) => i !== index)
+          .map((s) => (typeof s === 'string' ? s : s.skillName));
+        await updateSkills(remaining);
+      }
+      setSkillsList((prev) => prev.filter((_, i) => i !== index));
+      toastSuccess(`Skill "${name}" removed.`);
+    } catch {
+      const remaining = skillsList
+        .filter((_, i) => i !== index)
+        .map((s) => (typeof s === 'string' ? s : s.skillName));
+      await updateSkills(remaining);
+      setSkillsList(remaining);
+      toastSuccess(`Skill "${name}" removed.`);
+    }
+  };
+
+  // Education Modal Openers & Handlers
+  const openAddEducationModal = () => {
+    setEditingEducation(null);
+    setEducationForm({
+      institutionName: '',
+      degree: '',
+      boardOrUniversity: '',
+      startYear: '',
+      endYear: '',
+      grade: '',
+      isCurrent: false,
+    });
+    setEducationErrors({});
+    setShowEducationModal(true);
+  };
+
+  const openEditEducationModal = (edu) => {
+    setEditingEducation(edu);
+    setEducationForm({
+      institutionName: edu.institutionName || '',
+      degree: edu.degree || '',
+      boardOrUniversity: edu.boardOrUniversity || '',
+      startYear: edu.startYear ?? '',
+      endYear: edu.endYear ?? '',
+      grade: edu.grade || '',
+      isCurrent: Boolean(edu.isCurrent),
+    });
+    setEducationErrors({});
+    setShowEducationModal(true);
+  };
+
+  const validateEducation = () => {
+    const errs = {};
+    if (!educationForm.institutionName.trim()) {
+      errs.institutionName = 'Institution name is required';
+    } else if (educationForm.institutionName.length > 150) {
+      errs.institutionName = 'Institution name cannot exceed 150 characters';
+    }
+
+    if (!educationForm.degree.trim()) {
+      errs.degree = 'Degree is required';
+    } else if (educationForm.degree.length > 120) {
+      errs.degree = 'Degree cannot exceed 120 characters';
+    }
+
+    if (educationForm.boardOrUniversity && educationForm.boardOrUniversity.length > 150) {
+      errs.boardOrUniversity = 'Board or university cannot exceed 150 characters';
+    }
+
+    if (educationForm.grade && educationForm.grade.length > 30) {
+      errs.grade = 'Grade cannot exceed 30 characters';
+    }
+
+    const start = parseInt(educationForm.startYear, 10);
+    if (!educationForm.startYear || isNaN(start)) {
+      errs.startYear = 'Start year is required';
+    } else if (start < 1950 || start > 2100) {
+      errs.startYear = 'Start year must be between 1950 and 2100';
+    }
+
+    if (!educationForm.isCurrent && educationForm.endYear) {
+      const end = parseInt(educationForm.endYear, 10);
+      if (isNaN(end) || end < 1950 || end > 2100) {
+        errs.endYear = 'End year must be between 1950 and 2100';
+      } else if (!isNaN(start) && end < start) {
+        errs.endYear = 'End year cannot be earlier than start year';
+      }
+    }
+
+    setEducationErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSaveEducation = async (e) => {
+    e.preventDefault();
+    if (!validateEducation()) return;
+
+    setSavingEducation(true);
+    setEducationErrors({});
+
+    const payload = {
+      institutionName: educationForm.institutionName.trim(),
+      degree: educationForm.degree.trim(),
+      boardOrUniversity: educationForm.boardOrUniversity.trim() || null,
+      startYear: parseInt(educationForm.startYear, 10),
+      endYear: educationForm.isCurrent || !educationForm.endYear ? null : parseInt(educationForm.endYear, 10),
+      grade: educationForm.grade.trim() || null,
+      isCurrent: Boolean(educationForm.isCurrent),
+    };
+
+    try {
+      if (editingEducation) {
+        const updated = await apiUpdateEducation(editingEducation.id, payload);
+        const resolved = updated?.data !== undefined ? updated.data : updated;
+        setEducationList((prev) =>
+          prev.map((item) => (item.id === editingEducation.id ? { ...item, ...payload, ...resolved } : item))
+        );
+        toastSuccess('Education record updated successfully!');
+      } else {
+        const created = await apiAddEducation(payload);
+        const resolved = created?.data !== undefined ? created.data : created;
+        setEducationList((prev) => [resolved || { ...payload, id: Date.now() }, ...prev]);
+        toastSuccess('Education record added successfully!');
+      }
+      setShowEducationModal(false);
+    } catch (err) {
+      const msg = err.message || 'Failed to save education record.';
+      setEducationErrors({ submit: msg });
+      toastError(err, 'Failed to save education record.');
+    } finally {
+      setSavingEducation(false);
+    }
+  };
+
+  const handleDeleteEducation = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this education entry?')) return;
+    setDeletingEducationId(id);
+    try {
+      await apiDeleteEducation(id);
+      setEducationList((prev) => prev.filter((item) => item.id !== id));
+      toastSuccess('Education record deleted successfully!');
+    } catch (err) {
+      toastError(err, 'Failed to delete education record.');
+    } finally {
+      setDeletingEducationId(null);
+    }
+  };
+
+  // Internship / Experience Modal Openers & Handlers
+  const openAddExperienceModal = () => {
+    setEditingExperience(null);
+    setExperienceForm({
+      jobRole: '',
+      company: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      isCurrent: false,
+      description: '',
+    });
+    setExperienceErrors({});
+    setShowExperienceModal(true);
+  };
+
+  const openEditExperienceModal = (exp) => {
+    setEditingExperience(exp);
+    setExperienceForm({
+      jobRole: exp.jobRole || '',
+      company: exp.company || '',
+      location: exp.location || '',
+      startDate: exp.startDate || '',
+      endDate: exp.endDate || '',
+      isCurrent: Boolean(exp.isCurrent),
+      description: exp.description || '',
+    });
+    setExperienceErrors({});
+    setShowExperienceModal(true);
+  };
+
+  const validateExperience = () => {
+    const errs = {};
+    if (!experienceForm.jobRole.trim()) {
+      errs.jobRole = 'Job/Internship role is required';
+    } else if (experienceForm.jobRole.length > 120) {
+      errs.jobRole = 'Role cannot exceed 120 characters';
+    }
+
+    if (!experienceForm.company.trim()) {
+      errs.company = 'Company is required';
+    } else if (experienceForm.company.length > 150) {
+      errs.company = 'Company cannot exceed 150 characters';
+    }
+
+    if (experienceForm.location && experienceForm.location.length > 120) {
+      errs.location = 'Location cannot exceed 120 characters';
+    }
+
+    if (!experienceForm.startDate) {
+      errs.startDate = 'Start date is required';
+    }
+
+    if (!experienceForm.isCurrent && experienceForm.endDate && experienceForm.startDate) {
+      if (new Date(experienceForm.endDate) < new Date(experienceForm.startDate)) {
+        errs.endDate = 'End date cannot be earlier than start date';
+      }
+    }
+
+    if (experienceForm.description && experienceForm.description.length > 2000) {
+      errs.description = 'Description cannot exceed 2000 characters';
+    }
+
+    setExperienceErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSaveExperience = async (e) => {
+    e.preventDefault();
+    if (!validateExperience()) return;
+
+    setSavingExperience(true);
+    setExperienceErrors({});
+
+    const payload = {
+      jobRole: experienceForm.jobRole.trim(),
+      company: experienceForm.company.trim(),
+      experienceType: 'INTERNSHIP',
+      location: experienceForm.location.trim() || null,
+      startDate: experienceForm.startDate,
+      endDate: experienceForm.isCurrent || !experienceForm.endDate ? null : experienceForm.endDate,
+      isCurrent: Boolean(experienceForm.isCurrent),
+      description: experienceForm.description.trim() || null,
+    };
+
+    try {
+      if (editingExperience) {
+        const updated = await apiUpdateExperience(editingExperience.id, payload);
+        const resolved = updated?.data !== undefined ? updated.data : updated;
+        setExperienceList((prev) =>
+          prev.map((item) => (item.id === editingExperience.id ? { ...item, ...payload, ...resolved } : item))
+        );
+        toastSuccess('Internship record updated successfully!');
+      } else {
+        const created = await apiAddExperience(payload);
+        const resolved = created?.data !== undefined ? created.data : created;
+        setExperienceList((prev) => [resolved || { ...payload, id: Date.now() }, ...prev]);
+        toastSuccess('Internship record added successfully!');
+      }
+      setShowExperienceModal(false);
+    } catch (err) {
+      const msg = err.message || 'Failed to save internship record.';
+      setExperienceErrors({ submit: msg });
+      toastError(err, 'Failed to save internship record.');
+    } finally {
+      setSavingExperience(false);
+    }
+  };
+
+  const handleDeleteExperience = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this internship entry?')) return;
+    setDeletingExperienceId(id);
+    try {
+      await apiDeleteExperience(id);
+      setExperienceList((prev) => prev.filter((item) => item.id !== id));
+      toastSuccess('Internship record deleted successfully!');
+    } catch (err) {
+      toastError(err, 'Failed to delete internship record.');
+    } finally {
+      setDeletingExperienceId(null);
+    }
   };
 
   // Loading state with skeleton screen
@@ -684,19 +1079,23 @@ export default function StudentProfile() {
                     <span className="text-xs text-gray-400">Click a tag to remove</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {skillsList.map((skill, i) => (
-                      <span
-                        key={i}
-                        onClick={() => removeSkill(i)}
-                        className="bg-blue-50 text-blue-700 hover:bg-red-50 hover:text-red-700 border border-blue-200 hover:border-red-200 px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition"
-                        title="Click to remove"
-                      >
-                        {skill} ✕
-                      </span>
-                    ))}
+                    {skillsList.map((skill, i) => {
+                      const skillName = typeof skill === 'string' ? skill : (skill?.skillName || '');
+                      return (
+                        <span
+                          key={skill?.id || i}
+                          onClick={() => removeSkill(i)}
+                          className="bg-blue-50 text-blue-700 hover:bg-red-50 hover:text-red-700 border border-blue-200 hover:border-red-200 px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition"
+                          title="Click to remove"
+                        >
+                          {skillName} ✕
+                        </span>
+                      );
+                    })}
                     <button
+                      type="button"
                       onClick={addSkill}
-                      className="border border-dashed border-blue-500 text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1"
+                      className="border border-dashed border-blue-500 text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3 h-3" /> Add Skill
                     </button>
@@ -704,6 +1103,217 @@ export default function StudentProfile() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Education Section */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-blue-600" />
+                  Education & Qualifications
+                </h3>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  Academic qualifications, degrees, and school history.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openAddEducationModal}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Education
+              </button>
+            </div>
+
+            {educationList.length > 0 ? (
+              <div className="space-y-3">
+                {educationList.map((edu) => (
+                  <div
+                    key={edu.id}
+                    className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 hover:bg-gray-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="bg-blue-100 text-blue-700 p-2.5 rounded-xl shrink-0 mt-0.5">
+                        <GraduationCap className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900">{edu.institutionName}</h4>
+                        <p className="text-xs font-semibold text-blue-700 mt-0.5">{edu.degree}</p>
+                        {edu.boardOrUniversity && (
+                          <p className="text-xs text-gray-500 mt-0.5">{edu.boardOrUniversity}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-white border border-gray-200 px-2.5 py-0.5 rounded-full">
+                            <Calendar className="w-3 h-3 text-gray-400" />
+                            {edu.startYear} - {edu.isCurrent ? 'Present' : (edu.endYear || 'N/A')}
+                          </span>
+                          {edu.grade && (
+                            <span className="text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+                              Grade: {edu.grade}
+                            </span>
+                          )}
+                          {edu.isCurrent && (
+                            <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                              Currently Studying
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => openEditEducationModal(edu)}
+                        className="text-gray-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition cursor-pointer"
+                        title="Edit Education"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEducation(edu.id)}
+                        disabled={deletingEducationId === edu.id}
+                        className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition cursor-pointer"
+                        title="Delete Education"
+                      >
+                        {deletingEducationId === edu.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                type="empty"
+                icon={GraduationCap}
+                title="No education entries added yet"
+                description="Add your degree or academic qualifications so placement coordinators and visiting companies can verify your background."
+                action={{
+                  label: 'Add Education',
+                  onClick: openAddEducationModal,
+                  icon: Plus,
+                }}
+                compact
+                className="bg-gray-50/50 border-dashed border-gray-200"
+              />
+            )}
+          </div>
+
+          {/* Internship Section */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-indigo-600" />
+                  Internships & Work Experience
+                </h3>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  Professional internships, industrial training, and employment history.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openAddExperienceModal}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Internship
+              </button>
+            </div>
+
+            {experienceList.length > 0 ? (
+              <div className="space-y-3">
+                {experienceList.map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 hover:bg-gray-50 transition flex flex-col justify-between gap-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-indigo-100 text-indigo-700 p-2.5 rounded-xl shrink-0 mt-0.5">
+                          <Briefcase className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-sm text-gray-900">{exp.jobRole}</h4>
+                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                              {exp.experienceType || 'INTERNSHIP'}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-gray-700 mt-0.5">{exp.company}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-500">
+                            {exp.location && (
+                              <span className="flex items-center gap-1 text-[11px] text-gray-600">
+                                <MapPin className="w-3 h-3 text-gray-400" />
+                                {exp.location}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-600 bg-white border border-gray-200 px-2.5 py-0.5 rounded-full">
+                              <Calendar className="w-3 h-3 text-gray-400" />
+                              {exp.startDate} - {exp.isCurrent ? 'Present' : (exp.endDate || 'N/A')}
+                            </span>
+                            {exp.isCurrent && (
+                              <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                                Currently Working
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-start">
+                        <button
+                          type="button"
+                          onClick={() => openEditExperienceModal(exp)}
+                          className="text-gray-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition cursor-pointer"
+                          title="Edit Internship"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteExperience(exp.id)}
+                          disabled={deletingExperienceId === exp.id}
+                          className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition cursor-pointer"
+                          title="Delete Internship"
+                        >
+                          {deletingExperienceId === exp.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {exp.description && (
+                      <p className="text-gray-600 text-xs mt-1 leading-relaxed whitespace-pre-line pl-12">
+                        {exp.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                type="empty"
+                icon={Briefcase}
+                title="No internships or experience added yet"
+                description="Add professional internships, summer training, or research experience to stand out to companies."
+                action={{
+                  label: 'Add Internship',
+                  onClick: openAddExperienceModal,
+                  icon: Plus,
+                }}
+                compact
+                className="bg-gray-50/50 border-dashed border-gray-200"
+              />
+            )}
           </div>
 
           {/* Resume Section */}
@@ -809,14 +1419,23 @@ export default function StudentProfile() {
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   {resumeData.downloadUrl || resumeData.url ? (
-                    <a
-                      href={resumeData.downloadUrl || resumeData.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition"
+                    <button
+                      type="button"
+                      onClick={handleResumeDownload}
+                      disabled={isDownloadingResume}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                      title="Download Resume"
                     >
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
+                      {isDownloadingResume ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </>
+                      )}
+                    </button>
                   ) : null}
                   <button
                     type="button"
@@ -1161,6 +1780,14 @@ export default function StudentProfile() {
                   {dashboardStats?.activeJobsCount ?? 0}
                 </span>
               </div>
+              <div className="flex justify-between py-1.5 border-b border-gray-100">
+                <span className="text-gray-500">Education Entries</span>
+                <span className="font-bold text-blue-600">{educationList.length}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-gray-100">
+                <span className="text-gray-500">Internships</span>
+                <span className="font-bold text-indigo-600">{experienceList.length}</span>
+              </div>
               <div className="flex justify-between py-1.5">
                 <span className="text-gray-500">Projects Showcased</span>
                 <span className="font-bold text-purple-600">{projects.length}</span>
@@ -1306,15 +1933,20 @@ export default function StudentProfile() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Semester (1-10)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={editForm.semester}
+                  <label htmlFor="modal-semester" className="block text-xs font-semibold text-gray-700 mb-1">Semester (1-8)</label>
+                  <select
+                    id="modal-semester"
+                    value={editForm.semester ?? ''}
                     onChange={(e) => setEditForm({ ...editForm, semester: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                    className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Select Semester</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                      <option key={sem} value={sem}>
+                        Semester {sem}
+                      </option>
+                    ))}
+                  </select>
                   {modalErrors.semester && (
                     <p className="text-red-500 text-xs mt-1">{modalErrors.semester}</p>
                   )}
@@ -1399,6 +2031,342 @@ export default function StudentProfile() {
                 >
                   {savingProfile && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ── Add / Edit Education Modal ── */}
+      {showEducationModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 my-8 border border-gray-100">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-blue-600" />
+                {editingEducation ? 'Edit Education' : 'Add Education'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowEducationModal(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {educationErrors.submit && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{educationErrors.submit}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEducation} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Institution Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Government College of Engineering, Srirangam"
+                  value={educationForm.institutionName}
+                  onChange={(e) => setEducationForm({ ...educationForm, institutionName: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {educationErrors.institutionName && (
+                  <p className="text-red-500 text-xs mt-1">{educationErrors.institutionName}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Degree / Course <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. B.E. Computer Science and Engineering"
+                  value={educationForm.degree}
+                  onChange={(e) => setEducationForm({ ...educationForm, degree: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {educationErrors.degree && (
+                  <p className="text-red-500 text-xs mt-1">{educationErrors.degree}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Board or University
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Anna University / State Board"
+                  value={educationForm.boardOrUniversity}
+                  onChange={(e) => setEducationForm({ ...educationForm, boardOrUniversity: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {educationErrors.boardOrUniversity && (
+                  <p className="text-red-500 text-xs mt-1">{educationErrors.boardOrUniversity}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Start Year <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1950"
+                    max="2100"
+                    placeholder="2021"
+                    value={educationForm.startYear}
+                    onChange={(e) => setEducationForm({ ...educationForm, startYear: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {educationErrors.startYear && (
+                    <p className="text-red-500 text-xs mt-1">{educationErrors.startYear}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    End Year {educationForm.isCurrent ? '(Ongoing)' : ''}
+                  </label>
+                  <input
+                    type="number"
+                    min="1950"
+                    max="2100"
+                    placeholder="2025"
+                    disabled={educationForm.isCurrent}
+                    value={educationForm.isCurrent ? '' : educationForm.endYear}
+                    onChange={(e) => setEducationForm({ ...educationForm, endYear: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                  {educationErrors.endYear && (
+                    <p className="text-red-500 text-xs mt-1">{educationErrors.endYear}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="edu-is-current"
+                  checked={educationForm.isCurrent}
+                  onChange={(e) =>
+                    setEducationForm({
+                      ...educationForm,
+                      isCurrent: e.target.checked,
+                      endYear: e.target.checked ? '' : educationForm.endYear,
+                    })
+                  }
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <label htmlFor="edu-is-current" className="text-xs text-gray-700 font-medium">
+                  Currently studying here
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Grade / CGPA / Percentage
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 8.75 CGPA or 85%"
+                  value={educationForm.grade}
+                  onChange={(e) => setEducationForm({ ...educationForm, grade: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {educationErrors.grade && (
+                  <p className="text-red-500 text-xs mt-1">{educationErrors.grade}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEducationModal(false)}
+                  disabled={savingEducation}
+                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEducation}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingEducation && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editingEducation ? 'Update Education' : 'Save Education'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add / Edit Internship Modal ── */}
+      {showExperienceModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 my-8 border border-gray-100">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-indigo-600" />
+                {editingExperience ? 'Edit Internship' : 'Add Internship'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowExperienceModal(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {experienceErrors.submit && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{experienceErrors.submit}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveExperience} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Role / Position <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Software Development Intern"
+                  value={experienceForm.jobRole}
+                  onChange={(e) => setExperienceForm({ ...experienceForm, jobRole: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {experienceErrors.jobRole && (
+                  <p className="text-red-500 text-xs mt-1">{experienceErrors.jobRole}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Company / Organization <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Zoho, Microsoft, TCS"
+                  value={experienceForm.company}
+                  onChange={(e) => setExperienceForm({ ...experienceForm, company: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {experienceErrors.company && (
+                  <p className="text-red-500 text-xs mt-1">{experienceErrors.company}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Chennai, Remote, Bangalore"
+                  value={experienceForm.location}
+                  onChange={(e) => setExperienceForm({ ...experienceForm, location: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {experienceErrors.location && (
+                  <p className="text-red-500 text-xs mt-1">{experienceErrors.location}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Start Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={experienceForm.startDate}
+                    onChange={(e) => setExperienceForm({ ...experienceForm, startDate: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                  {experienceErrors.startDate && (
+                    <p className="text-red-500 text-xs mt-1">{experienceErrors.startDate}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    End Date {experienceForm.isCurrent ? '(Present)' : ''}
+                  </label>
+                  <input
+                    type="date"
+                    disabled={experienceForm.isCurrent}
+                    value={experienceForm.isCurrent ? '' : experienceForm.endDate}
+                    onChange={(e) => setExperienceForm({ ...experienceForm, endDate: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                  {experienceErrors.endDate && (
+                    <p className="text-red-500 text-xs mt-1">{experienceErrors.endDate}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="exp-is-current"
+                  checked={experienceForm.isCurrent}
+                  onChange={(e) =>
+                    setExperienceForm({
+                      ...experienceForm,
+                      isCurrent: e.target.checked,
+                      endDate: e.target.checked ? '' : experienceForm.endDate,
+                    })
+                  }
+                  className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                />
+                <label htmlFor="exp-is-current" className="text-xs text-gray-700 font-medium">
+                  I currently work / intern here
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Description / Responsibilities
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Briefly describe key tasks, tech stack, and achievements during this internship..."
+                  value={experienceForm.description}
+                  onChange={(e) => setExperienceForm({ ...experienceForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                {experienceErrors.description && (
+                  <p className="text-red-500 text-xs mt-1">{experienceErrors.description}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowExperienceModal(false)}
+                  disabled={savingExperience}
+                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingExperience}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingExperience && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editingExperience ? 'Update Internship' : 'Save Internship'}
                 </button>
               </div>
             </form>

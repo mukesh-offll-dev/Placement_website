@@ -2,6 +2,7 @@ package com.gces.placementcell.service;
 
 import com.gces.placementcell.dto.response.ResumeResponse;
 import org.springframework.core.io.Resource;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface StudentResumeService {
@@ -37,4 +38,13 @@ public interface StudentResumeService {
      * @param studentId ID of the student
      */
     void deleteResume(Long studentId);
+
+    /**
+     * Verifies whether the authenticated user has permission to access the student's resume.
+     * Admins and Placement Officers have universal access; students can only access their own.
+     *
+     * @param studentId   ID of the student
+     * @param userDetails Authenticated user details
+     */
+    void verifyAccess(Long studentId, UserDetails userDetails);
 }

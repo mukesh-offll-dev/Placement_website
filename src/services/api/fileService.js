@@ -1,4 +1,4 @@
-import axiosClient, { API_BASE_URL } from './axiosClient.js';
+import axiosClient, { API_BASE_URL, TOKEN_KEY, LEGACY_TOKEN_KEY } from './axiosClient.js';
 
 /**
  * File & Resume Service
@@ -79,29 +79,86 @@ export const deleteResume = async (studentId) => {
   return response.data;
 };
 
+const getCurrentToken = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+};
+
 /**
  * Get resume inline view URL
  */
-export const getResumeViewUrl = (studentId) =>
-  `${API_BASE_URL}/students/${studentId}/resume/download?download=false`;
+export const getResumeViewUrl = (studentId) => {
+  const token = getCurrentToken();
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE_URL}/students/${studentId}/resume/download?download=false${tokenParam}`;
+};
 
 /**
  * Get resume attachment download URL
  */
-export const getResumeDownloadUrl = (studentId) =>
-  `${API_BASE_URL}/students/${studentId}/resume/download?download=true`;
+export const getResumeDownloadUrl = (studentId) => {
+  const token = getCurrentToken();
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE_URL}/students/${studentId}/resume/download?download=true${tokenParam}`;
+};
+
+/**
+ * Download resume binary blob using authenticated Axios client.
+ * GET /api/students/{studentId}/resume/download?download=true
+ */
+export const downloadResumeBlob = async (studentId) => {
+  const response = await axiosClient.get(`/students/${studentId}/resume/download?download=true`, {
+    responseType: 'blob',
+  });
+  return response;
+};
+
+/**
+ * Trigger download of student resume in browser via authenticated blob fetch.
+ */
+export const downloadStudentResumeFile = async (studentId, defaultFileName = 'Resume.pdf') => {
+  const response = await downloadResumeBlob(studentId);
+  const blob = new Blob([response.data], {
+    type: response.headers?.['content-type'] || 'application/pdf',
+  });
+
+  let fileName = defaultFileName;
+  const disposition = response.headers?.['content-disposition'];
+  if (disposition && disposition.indexOf('filename=') !== -1) {
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      fileName = filenameMatch[1].replace(/['"]/g, '').trim();
+    }
+  }
+
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+  return true;
+};
 
 /**
  * Get file download URL by category and fileName
  */
-export const getFileDownloadUrl = (category, fileName) =>
-  `${API_BASE_URL}/files/download/${category}/${fileName}`;
+export const getFileDownloadUrl = (category, fileName) => {
+  const token = getCurrentToken();
+  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE_URL}/files/download/${category}/${fileName}${tokenParam}`;
+};
 
 /**
  * Get file inline view URL by category and fileName
  */
-export const getFileViewUrl = (category, fileName) =>
-  `${API_BASE_URL}/files/view/${category}/${fileName}`;
+export const getFileViewUrl = (category, fileName) => {
+  const token = getCurrentToken();
+  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE_URL}/files/view/${category}/${fileName}${tokenParam}`;
+};
 
 const fileService = {
   validateFile,
@@ -109,6 +166,8 @@ const fileService = {
   uploadResume,
   getResume,
   deleteResume,
+  downloadResumeBlob,
+  downloadStudentResumeFile,
   getResumeViewUrl,
   getResumeDownloadUrl,
   getFileDownloadUrl,

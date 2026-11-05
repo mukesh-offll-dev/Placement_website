@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Fields a student may edit on their own profile.
@@ -65,7 +66,7 @@ public record StudentProfileRequest(
         String batch,
 
         @Min(value = 1, message = "Semester must be at least 1")
-        @Max(value = 10, message = "Semester cannot exceed 10")
+        @Max(value = 8, message = "Semester cannot exceed 8")
         Short semester,
 
         @DecimalMin(value = "0.00", message = "CGPA cannot be negative")
@@ -79,8 +80,33 @@ public record StudentProfileRequest(
         @Min(value = 0, message = "Active backlogs cannot be negative")
         Integer activeBacklogs,
 
-        Boolean isOpenToOpportunities
+        Boolean isOpenToOpportunities,
+
+        List<@Size(max = 60, message = "Skill name cannot exceed 60 characters") String> skills
 ) {
+    public StudentProfileRequest(
+            String fullName,
+            String rollNo,
+            String email,
+            String phone,
+            String address,
+            String about,
+            String avatarUrl,
+            String resumeUrl,
+            String college,
+            String degree,
+            String department,
+            String departmentCode,
+            String batch,
+            Short semester,
+            BigDecimal cgpa,
+            Integer totalBacklogs,
+            Integer activeBacklogs,
+            Boolean isOpenToOpportunities
+    ) {
+        this(fullName, rollNo, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null);
+    }
+
     public StudentProfileRequest(
             String fullName,
             String email,
@@ -100,6 +126,6 @@ public record StudentProfileRequest(
             Integer activeBacklogs,
             Boolean isOpenToOpportunities
     ) {
-        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities);
+        this(fullName, null, email, phone, address, about, avatarUrl, resumeUrl, college, degree, department, departmentCode, batch, semester, cgpa, totalBacklogs, activeBacklogs, isOpenToOpportunities, null);
     }
 }
