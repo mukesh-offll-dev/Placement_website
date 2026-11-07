@@ -180,7 +180,7 @@ public class JobNotificationService {
 
     private Alert buildAlert(Long jobId) {
         Job job = jobRepository.findWithDetailsByIdAndIsDeletedFalse(jobId).orElse(null);
-        if (job == null || !job.isOpen()) {
+        if (job == null || Boolean.TRUE.equals(job.getIsDeleted()) || com.gces.placementcell.entity.enums.JobStatus.CLOSED.equals(job.getStatus()) || job.isExpired()) {
             return null;
         }
         Set<Long> alreadyNotified = recipientRepository != null

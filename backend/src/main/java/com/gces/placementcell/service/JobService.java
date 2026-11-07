@@ -78,21 +78,16 @@ public class JobService {
         job.setPostedDate(LocalDate.now());
         applyRequest(job, request);
         Job saved = jobRepository.save(job);
-        announceIfRequested(saved, request);
+        eventPublisher.publishEvent(new JobPostedEvent(saved.getId()));
         return JobResponse.from(saved);
     }
 
     @Transactional
     public JobResponse updateJob(Long id, JobRequest request) {
         Job job = findManagedJob(id);
-        boolean wasOpen = job.isOpen();
         applyRequest(job, request);
         Job saved = jobRepository.save(job);
-        // Only the moment a draft/closed drive goes live is announced, so editing a live
-        // drive (typo fix, new deadline) never re-sends mail to everyone.
-        if (!wasOpen) {
-            announceIfRequested(saved, request);
-        }
+        eventPublisher.publishEvent(new JobPostedEvent(saved.getId()));
         return JobResponse.from(saved);
     }
 
