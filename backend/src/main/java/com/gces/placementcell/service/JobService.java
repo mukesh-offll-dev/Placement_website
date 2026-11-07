@@ -117,7 +117,7 @@ public class JobService {
      * applications. The mail itself is sent by JobNotificationService after this transaction commits.
      */
     private void announceIfRequested(Job job, JobRequest request) {
-        if (Boolean.TRUE.equals(request.notifyEligibleStudents()) && job.isOpen()) {
+        if (job.isOpen() && (request == null || !Boolean.FALSE.equals(request.notifyEligibleStudents()))) {
             eventPublisher.publishEvent(new JobPostedEvent(job.getId()));
         }
     }

@@ -20,6 +20,7 @@ import {
   RefreshCw,
   X,
   Award,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   getProfile,
@@ -29,8 +30,12 @@ import {
 } from '../services/api/studentService';
 import {
   getAllProjects,
+  updateProject,
   deleteProject,
+  uploadProjectMedia,
+  deleteProjectMedia,
 } from '../services/api/projectService';
+import axiosClient from '../services/api/axiosClient';
 import {
   uploadStudentResume,
   getStudentResume,
@@ -44,6 +49,93 @@ import { getUser } from '../services/authService';
 import EmptyState from '../components/EmptyState';
 import { ProfileSkeleton } from '../components/Skeleton';
 import { toastSuccess, toastError } from '../utils/toast';
+
+/**
+ * Renders project images with authenticated streaming, loading indicator, and fallback.
+ * Prevents broken image icons when media endpoints require authentication.
+ */
+function ProjectImage({ src, alt, className = '' }) {
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!src) {
+      setBlobUrl(null);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+
+    if (
+      src.startsWith('data:') ||
+      src.startsWith('blob:') ||
+      (src.startsWith('http') && !src.includes('/api/'))
+    ) {
+      setBlobUrl(src);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+
+    let isMounted = true;
+    let activeObjectUrl = null;
+    setLoading(true);
+    setError(false);
+
+    // Normalize URL: strip duplicate leading /api to avoid /api/api
+    const requestUrl = src.startsWith('/api/') ? src.substring(4) : src;
+
+    axiosClient
+      .get(requestUrl, { responseType: 'blob' })
+      .then((res) => {
+        if (!isMounted) return;
+        const blob = res instanceof Blob ? res : new Blob([res]);
+        activeObjectUrl = URL.createObjectURL(blob);
+        setBlobUrl(activeObjectUrl);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error('Failed to load project image:', err);
+        setError(true);
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      if (activeObjectUrl) {
+        URL.revokeObjectURL(activeObjectUrl);
+      }
+    };
+  }, [src]);
+
+  if (loading) {
+    return (
+      <div className={`flex items-center justify-center bg-gray-100 ${className}`}>
+        <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !blobUrl) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-gray-100 text-gray-400 text-xs ${className}`}>
+        <ImageIcon className="w-6 h-6 mb-1 text-gray-300" />
+        <span>Image unavailable</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={blobUrl}
+      alt={alt || 'Project media'}
+      className={className}
+      onError={() => setError(true)}
+    />
+  );
+}
 
 export default function StudentProfile() {
   const resumeFileRef = useRef(null);
@@ -95,6 +187,24 @@ export default function StudentProfile() {
 
   // Project action state
   const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
+  const [projectEditForm, setProjectEditForm] = useState({
+    title: '',
+    description: '',
+    techInput: '',
+    techStack: [],
+    liveUrl: '',
+    repoUrl: '',
+    mediaUrl: null,
+  });
+  const [projectEditErrors, setProjectEditErrors] = useState({});
+  const [savingProject, setSavingProject] = useState(false);
+  const [selectedProjectImage, setSelectedProjectImage] = useState(null);
+  const [projectImagePreview, setProjectImagePreview] = useState(null);
+  const [uploadingImageProjectId, setUploadingImageProjectId] = useState(null);
+  const [deletingImageProjectId, setDeletingImageProjectId] = useState(null);
+  const cardFileInputRef = useRef(null);
+  const [activeUploadProjectId, setActiveUploadProjectId] = useState(null);
 
   // Local skills state
   const [skillsList, setSkillsList] = useState([]);
@@ -523,6 +633,248 @@ export default function StudentProfile() {
       toastError(err, 'Failed to delete project. Please try again.');
     } finally {
       setDeletingProjectId(null);
+    }
+  };
+
+  // Open Edit Project modal
+  const handleOpenEditProject = (proj) => {
+    const tech = Array.isArray(proj.techStack)
+      ? [...proj.techStack]
+      : Array.isArray(proj.tech)
+      ? [...proj.tech]
+      : [];
+
+    setEditingProject(proj);
+    setProjectEditForm({
+      title: proj.title || '',
+      description: proj.description || proj.desc || '',
+      techInput: '',
+      techStack: tech,
+      liveUrl: proj.liveUrl || '',
+      repoUrl: proj.repoUrl || '',
+      mediaUrl: proj.mediaUrl || null,
+    });
+    setProjectEditErrors({});
+    setSelectedProjectImage(null);
+    setProjectImagePreview(null);
+  };
+
+  const handleCloseEditProject = () => {
+    setEditingProject(null);
+    setProjectEditForm({
+      title: '',
+      description: '',
+      techInput: '',
+      techStack: [],
+      liveUrl: '',
+      repoUrl: '',
+      mediaUrl: null,
+    });
+    setProjectEditErrors({});
+    setSelectedProjectImage(null);
+    setProjectImagePreview(null);
+  };
+
+  const handleAddEditTech = (tag) => {
+    const trimmed = tag.trim();
+    if (trimmed && !projectEditForm.techStack.includes(trimmed)) {
+      setProjectEditForm((prev) => ({
+        ...prev,
+        techStack: [...prev.techStack, trimmed],
+        techInput: '',
+      }));
+      if (projectEditErrors.techStack) {
+        setProjectEditErrors((prev) => ({ ...prev, techStack: '' }));
+      }
+    }
+  };
+
+  const handleRemoveEditTech = (tag) => {
+    setProjectEditForm((prev) => ({
+      ...prev,
+      techStack: prev.techStack.filter((t) => t !== tag),
+    }));
+  };
+
+  // Select image in edit modal
+  const handleModalImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['png', 'jpg', 'jpeg'].includes(ext)) {
+      toastError('Only PNG and JPG/JPEG image formats are allowed.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toastError('Image size cannot exceed 10MB.');
+      return;
+    }
+
+    setSelectedProjectImage(file);
+    setProjectImagePreview(URL.createObjectURL(file));
+  };
+
+  // Save Edit Project
+  const handleSaveEditProject = async (e) => {
+    e.preventDefault();
+    if (!editingProject) return;
+
+    const errors = {};
+    if (!projectEditForm.title.trim()) {
+      errors.title = 'Project title is required.';
+    } else if (projectEditForm.title.trim().length > 150) {
+      errors.title = 'Project title cannot exceed 150 characters.';
+    }
+
+    if (!projectEditForm.description.trim()) {
+      errors.description = 'Project description is required.';
+    }
+
+    if (projectEditForm.techStack.length === 0) {
+      errors.techStack = 'Add at least one technology.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setProjectEditErrors(errors);
+      return;
+    }
+
+    setSavingProject(true);
+    setProjectEditErrors({});
+
+    try {
+      let finalMediaUrl = projectEditForm.mediaUrl;
+
+      // If user uploaded a new image in modal
+      if (selectedProjectImage) {
+        const uploadRes = await uploadProjectMedia(editingProject.id, selectedProjectImage);
+        finalMediaUrl = uploadRes?.mediaUrl || uploadRes?.data?.mediaUrl || finalMediaUrl;
+      }
+
+      const payload = {
+        title: projectEditForm.title.trim(),
+        description: projectEditForm.description.trim(),
+        liveUrl: projectEditForm.liveUrl.trim() || null,
+        repoUrl: projectEditForm.repoUrl.trim() || null,
+        mediaUrl: finalMediaUrl,
+        techStack: projectEditForm.techStack,
+      };
+
+      const updated = await updateProject(editingProject.id, payload);
+
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === editingProject.id
+            ? {
+                ...p,
+                title: payload.title,
+                description: payload.description,
+                liveUrl: payload.liveUrl,
+                repoUrl: payload.repoUrl,
+                mediaUrl: payload.mediaUrl,
+                techStack: payload.techStack,
+                tech: payload.techStack,
+                ...(updated && typeof updated === 'object' ? updated : {}),
+              }
+            : p
+        )
+      );
+
+      toastSuccess('Project updated successfully.');
+      handleCloseEditProject();
+    } catch (err) {
+      setProjectEditErrors({
+        submit: err.message || 'Failed to update project. Please try again.',
+      });
+      toastError(err, 'Failed to update project.');
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  // Direct card image upload handler
+  const handleTriggerCardUpload = (projectId) => {
+    setActiveUploadProjectId(projectId);
+    if (cardFileInputRef.current) {
+      cardFileInputRef.current.value = '';
+      cardFileInputRef.current.click();
+    }
+  };
+
+  const handleCardFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    const projectId = activeUploadProjectId;
+    if (!file || !projectId) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['png', 'jpg', 'jpeg'].includes(ext)) {
+      toastError('Only PNG and JPG/JPEG image formats are allowed.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toastError('Image size cannot exceed 10MB.');
+      return;
+    }
+
+    setUploadingImageProjectId(projectId);
+    try {
+      const uploadRes = await uploadProjectMedia(projectId, file);
+      const newMediaUrl = uploadRes?.mediaUrl || uploadRes?.data?.mediaUrl;
+
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? { ...p, mediaUrl: newMediaUrl }
+            : p
+        )
+      );
+      toastSuccess('Project image uploaded successfully.');
+    } catch (err) {
+      toastError(err, 'Failed to upload project image.');
+    } finally {
+      setUploadingImageProjectId(null);
+      setActiveUploadProjectId(null);
+    }
+  };
+
+  // Delete project image handler
+  const handleDeleteProjectImage = async (projectId) => {
+    if (!window.confirm('Are you sure you want to delete this project image?')) {
+      return;
+    }
+
+    setDeletingImageProjectId(projectId);
+    try {
+      await deleteProjectMedia(projectId);
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, mediaUrl: null } : p))
+      );
+      toastSuccess('Project image deleted successfully.');
+    } catch (err) {
+      toastError(err, 'Failed to delete project image.');
+    } finally {
+      setDeletingImageProjectId(null);
+    }
+  };
+
+  // Open authenticated media in a new tab
+  const handleOpenMedia = async (mediaUrl) => {
+    if (!mediaUrl) return;
+    if (mediaUrl.startsWith('http') && !mediaUrl.includes('/api/')) {
+      window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    try {
+      const cleanUrl = mediaUrl.startsWith('/api/') ? mediaUrl.substring(4) : mediaUrl;
+      const blob = await axiosClient.get(cleanUrl, { responseType: 'blob' });
+      const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob]));
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      toastError('Unable to open media preview.');
     }
   };
 
@@ -990,39 +1342,95 @@ export default function StudentProfile() {
                   return (
                     <div
                       key={proj.id}
-                      className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition flex flex-col justify-between bg-white"
+                      className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition flex flex-col justify-between bg-white relative"
                     >
                       <div>
-                        {proj.mediaUrl && (
-                          <div className="mb-3 rounded-lg overflow-hidden border border-gray-100 h-32 bg-gray-100">
+                        {/* Media Display Area */}
+                        {proj.mediaUrl ? (
+                          <div className="mb-3 rounded-lg overflow-hidden border border-gray-100 h-36 bg-gray-50 relative group">
                             {proj.mediaUrl.toLowerCase().endsWith('.pdf') ? (
                               <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-500 text-xs gap-1.5">
                                 <FileText className="w-5 h-5 text-red-500" /> PDF Attachment
                               </div>
                             ) : (
-                              <img
+                              <ProjectImage
                                 src={proj.mediaUrl}
                                 alt={proj.title}
                                 className="w-full h-full object-cover"
                               />
                             )}
+                            <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-black/60 rounded-lg p-1 backdrop-blur-xs">
+                              <button
+                                type="button"
+                                onClick={() => handleTriggerCardUpload(proj.id)}
+                                disabled={uploadingImageProjectId === proj.id}
+                                className="text-white hover:text-blue-300 p-1 transition"
+                                title="Change Image"
+                              >
+                                {uploadingImageProjectId === proj.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Upload className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProjectImage(proj.id)}
+                                disabled={deletingImageProjectId === proj.id}
+                                className="text-white hover:text-red-300 p-1 transition"
+                                title="Delete Image"
+                              >
+                                {deletingImageProjectId === proj.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mb-3 rounded-lg border border-dashed border-gray-200 p-3 bg-gray-50/50 flex flex-col items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleTriggerCardUpload(proj.id)}
+                              disabled={uploadingImageProjectId === proj.id}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1.5 transition py-1"
+                            >
+                              {uploadingImageProjectId === proj.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5" />
+                              )}
+                              <span>Upload Image (PNG, JPG)</span>
+                            </button>
                           </div>
                         )}
 
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-bold text-sm text-gray-900">{proj.title}</h4>
-                          <button
-                            onClick={() => handleDeleteProject(proj.id)}
-                            disabled={deletingProjectId === proj.id}
-                            className="text-gray-400 hover:text-red-500 p-1 transition"
-                            title="Delete Project"
-                          >
-                            {deletingProjectId === proj.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                          <h4 className="font-bold text-sm text-gray-900 break-words">{proj.title}</h4>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditProject(proj)}
+                              className="text-gray-400 hover:text-blue-600 p-1 transition rounded-lg hover:bg-gray-100"
+                              title="Edit Project"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProject(proj.id)}
+                              disabled={deletingProjectId === proj.id}
+                              className="text-gray-400 hover:text-red-500 p-1 transition rounded-lg hover:bg-gray-100"
+                              title="Delete Project"
+                            >
+                              {deletingProjectId === proj.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
 
                         <p className="text-gray-600 text-xs mt-1.5 mb-3 leading-relaxed line-clamp-3">
@@ -1065,14 +1473,13 @@ export default function StudentProfile() {
                           </a>
                         )}
                         {proj.mediaUrl && (
-                          <a
-                            href={proj.mediaUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-purple-600 hover:underline flex items-center gap-1 font-medium"
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMedia(proj.mediaUrl)}
+                            className="text-purple-600 hover:underline flex items-center gap-1 font-medium bg-transparent border-0 p-0 text-xs cursor-pointer"
                           >
                             Media
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1398,6 +1805,235 @@ export default function StudentProfile() {
                   className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition flex items-center gap-2 disabled:opacity-50"
                 >
                   {savingProfile && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden file input for direct card image uploads */}
+      <input
+        type="file"
+        ref={cardFileInputRef}
+        onChange={handleCardFileChange}
+        accept="image/png,image/jpeg,image/jpg"
+        className="hidden"
+      />
+
+      {/* ── Edit Project Modal ── */}
+      {editingProject && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 my-8">
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">Edit Project</h2>
+              <button
+                type="button"
+                onClick={handleCloseEditProject}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {projectEditErrors.submit && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{projectEditErrors.submit}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditProject} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Project Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={projectEditForm.title}
+                  onChange={(e) => {
+                    setProjectEditForm({ ...projectEditForm, title: e.target.value });
+                    if (projectEditErrors.title) {
+                      setProjectEditErrors((prev) => ({ ...prev, title: '' }));
+                    }
+                  }}
+                  className="w-full text-sm p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="e.g. AI-Powered Placement Portal"
+                  maxLength={150}
+                />
+                {projectEditErrors.title && (
+                  <p className="text-red-500 text-xs mt-1">{projectEditErrors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={projectEditForm.description}
+                  onChange={(e) => {
+                    setProjectEditForm({ ...projectEditForm, description: e.target.value });
+                    if (projectEditErrors.description) {
+                      setProjectEditErrors((prev) => ({ ...prev, description: '' }));
+                    }
+                  }}
+                  className="w-full text-sm p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed"
+                  placeholder="Describe the problem solved, core features, architecture, and impact..."
+                  maxLength={2000}
+                />
+                {projectEditErrors.description && (
+                  <p className="text-red-500 text-xs mt-1">{projectEditErrors.description}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Technology Stack <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={projectEditForm.techInput}
+                    onChange={(e) =>
+                      setProjectEditForm({ ...projectEditForm, techInput: e.target.value })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        handleAddEditTech(projectEditForm.techInput);
+                      }
+                    }}
+                    placeholder="Type tech (e.g. React, Spring Boot) and press Enter"
+                    className="flex-1 text-sm p-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddEditTech(projectEditForm.techInput)}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                {projectEditForm.techStack.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 rounded-xl border border-gray-100">
+                    {projectEditForm.techStack.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-lg flex items-center gap-1 font-medium"
+                      >
+                        {t}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditTech(t)}
+                          className="hover:text-red-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {projectEditErrors.techStack && (
+                  <p className="text-red-500 text-xs mt-1">{projectEditErrors.techStack}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Live Demo URL
+                  </label>
+                  <input
+                    type="url"
+                    value={projectEditForm.liveUrl}
+                    onChange={(e) =>
+                      setProjectEditForm({ ...projectEditForm, liveUrl: e.target.value })
+                    }
+                    className="w-full text-sm p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                    Repository URL
+                  </label>
+                  <input
+                    type="url"
+                    value={projectEditForm.repoUrl}
+                    onChange={(e) =>
+                      setProjectEditForm({ ...projectEditForm, repoUrl: e.target.value })
+                    }
+                    className="w-full text-sm p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="https://github.com/..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                  Project Image (PNG, JPG/JPEG)
+                </label>
+                {(projectImagePreview || projectEditForm.mediaUrl) ? (
+                  <div className="relative rounded-xl overflow-hidden border border-gray-200 h-32 bg-gray-100 mb-2">
+                    {projectImagePreview ? (
+                      <img
+                        src={projectImagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ProjectImage
+                        src={projectEditForm.mediaUrl}
+                        alt="Project media"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectImage(null);
+                        setProjectImagePreview(null);
+                        setProjectEditForm((prev) => ({ ...prev, mediaUrl: null }));
+                      }}
+                      className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-lg hover:bg-red-700 transition"
+                      title="Remove Image"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-gray-200 hover:border-blue-400 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-blue-50/20 transition">
+                    <Upload className="w-5 h-5 text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-600 font-medium">Click to select image</span>
+                    <span className="text-[11px] text-gray-400">PNG, JPG or JPEG up to 10MB</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={handleModalImageSelect}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={handleCloseEditProject}
+                  disabled={savingProject}
+                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProject}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition flex items-center gap-2 disabled:opacity-50"
+                >
+                  {savingProject && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save Changes
                 </button>
               </div>

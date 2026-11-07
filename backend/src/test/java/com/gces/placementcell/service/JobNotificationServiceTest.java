@@ -6,7 +6,9 @@ import com.gces.placementcell.entity.StudentProfile;
 import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.PlacementStatus;
 import com.gces.placementcell.repository.JobRepository;
+import com.gces.placementcell.repository.NotificationRecipientRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
+import com.gces.placementcell.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,8 @@ class JobNotificationServiceTest {
 
     @Mock private JobRepository jobRepository;
     @Mock private StudentProfileRepository studentRepository;
+    @Mock private NotificationRecipientRepository recipientRepository;
+    @Mock private UserRepository userRepository;
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private EmailJsMailer mailer;
     @Mock private NotificationDispatcher dispatcher;
@@ -53,11 +57,12 @@ class JobNotificationServiceTest {
         when(transactionTemplate.execute(any())).thenAnswer(inv ->
                 ((TransactionCallback<Object>) inv.getArgument(0)).doInTransaction(null));
         when(mailer.isConfigured()).thenReturn(true);
+        when(recipientRepository.findNotifiedUserIdsByJobId(any())).thenReturn(java.util.Collections.emptySet());
     }
 
     private JobNotificationService service(boolean enabled) {
-        return new JobNotificationService(jobRepository, studentRepository, transactionTemplate,
-                mailer, enabled, "http://localhost:5173/", dispatcher);
+        return new JobNotificationService(jobRepository, studentRepository, recipientRepository, userRepository,
+                transactionTemplate, mailer, enabled, "http://localhost:5173/", dispatcher);
     }
 
     private static Job openJob() {
@@ -188,5 +193,28 @@ class JobNotificationServiceTest {
         assertTrue(captor.getValue().containsAll(List.of(PlacementStatus.PENDING, PlacementStatus.ACTIVE)));
         assertFalse(captor.getValue().contains(PlacementStatus.PLACED));
         assertFalse(captor.getValue().contains(PlacementStatus.BLOCKED));
+    }
+
+    @Test
+    @DisplayName("Students who have already been notified for this job are not notified again (duplicate prevention)")
+    void doesNotNotifyAlreadyNotifiedStudents() {
+        Job job = openJob();
+        job.setPostedBy(User.builder().id(1L).build());
+        when(jobRepository.findWithDetailsByIdAndIsDeletedFalse(42L)).thenReturn(Optional.of(job));
+
+        StudentProfile asha = student("Asha Rao", "asha@example.com", "8.5");
+        asha.setUser(User.builder().id(7L).build());
+        StudentProfile meena = student("Meena S", "meena@example.com", "8.0");
+        meena.setUser(User.builder().id(8L).build());
+
+        when(studentRepository.findNotifiableStudents(any())).thenReturn(List.of(asha, meena));
+        when(recipientRepository.findNotifiedUserIdsByJobId(42L)).thenReturn(java.util.Set.of(7L));
+
+        int sent = service(true).notifyEligibleStudents(42L);
+
+        assertEquals(1, sent);
+        ArgumentCaptor<String> to = ArgumentCaptor.forClass(String.class);
+        verify(mailer).send(to.capture(), any(), any(), any());
+        assertEquals("meena@example.com", to.getValue(), "only un-notified Meena receives notification");
     }
 }

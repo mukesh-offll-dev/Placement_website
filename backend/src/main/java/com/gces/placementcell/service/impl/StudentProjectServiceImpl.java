@@ -1,7 +1,9 @@
 package com.gces.placementcell.service.impl;
 
+import com.gces.placementcell.config.FileStorageProperties;
 import com.gces.placementcell.dto.request.StudentProjectRequest;
 import com.gces.placementcell.dto.response.StudentProjectResponse;
+import com.gces.placementcell.entity.ProjectTechStack;
 import com.gces.placementcell.entity.StudentProfile;
 import com.gces.placementcell.entity.StudentProject;
 import com.gces.placementcell.entity.User;
@@ -10,14 +12,20 @@ import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.StudentProjectRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.service.FileStorageService;
 import com.gces.placementcell.service.StudentProjectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class StudentProjectServiceImpl implements StudentProjectService {
@@ -27,13 +35,26 @@ public class StudentProjectServiceImpl implements StudentProjectService {
     private final UserRepository userRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final StudentProjectRepository studentProjectRepository;
+    private final FileStorageService fileStorageService;
+    private final FileStorageProperties properties;
 
     public StudentProjectServiceImpl(UserRepository userRepository,
                                      StudentProfileRepository studentProfileRepository,
                                      StudentProjectRepository studentProjectRepository) {
+        this(userRepository, studentProfileRepository, studentProjectRepository, null, null);
+    }
+
+    @Autowired
+    public StudentProjectServiceImpl(UserRepository userRepository,
+                                     StudentProfileRepository studentProfileRepository,
+                                     StudentProjectRepository studentProjectRepository,
+                                     @Autowired(required = false) FileStorageService fileStorageService,
+                                     @Autowired(required = false) FileStorageProperties properties) {
         this.userRepository = userRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.studentProjectRepository = studentProjectRepository;
+        this.fileStorageService = fileStorageService;
+        this.properties = properties;
     }
 
     @Override
@@ -55,10 +76,14 @@ public class StudentProjectServiceImpl implements StudentProjectService {
                 .build();
 
         if (request.techStack() != null) {
+            Set<String> uniqueTechs = new LinkedHashSet<>();
             for (String tech : request.techStack()) {
                 if (tech != null && !tech.isBlank()) {
-                    project.addTechnology(tech.trim());
+                    uniqueTechs.add(tech.trim());
                 }
+            }
+            for (String tech : uniqueTechs) {
+                project.addTechnology(tech);
             }
         }
 
@@ -101,6 +126,15 @@ public class StudentProjectServiceImpl implements StudentProjectService {
             }
         }
 
+        if (project.getMediaUrl() != null && !project.getMediaUrl().equals(request.mediaUrl()) && fileStorageService != null && properties != null) {
+            try {
+                String oldFileName = project.getMediaUrl().substring(project.getMediaUrl().lastIndexOf('/') + 1);
+                fileStorageService.deleteFile(properties.getProjectMediaSubdir(), oldFileName);
+            } catch (Exception e) {
+                log.warn("Could not delete previous media file: {}", e.getMessage());
+            }
+        }
+
         project.setTitle(newTitle);
         project.setDescription(request.description());
         project.setLiveUrl(request.liveUrl());
@@ -108,14 +142,27 @@ public class StudentProjectServiceImpl implements StudentProjectService {
         project.setMediaUrl(request.mediaUrl());
 
         if (request.techStack() != null) {
-            if (project.getTechStack() == null) {
-                project.setTechStack(new java.util.ArrayList<>());
-            } else {
-                project.getTechStack().clear();
-            }
+            Set<String> newTechs = new LinkedHashSet<>();
             for (String tech : request.techStack()) {
                 if (tech != null && !tech.isBlank()) {
-                    project.addTechnology(tech.trim());
+                    newTechs.add(tech.trim());
+                }
+            }
+
+            if (project.getTechStack() != null) {
+                project.getTechStack().removeIf(pts -> !newTechs.contains(pts.getTechnology()));
+                Set<String> existingTechs = project.getTechStack().stream()
+                        .map(ProjectTechStack::getTechnology)
+                        .collect(Collectors.toSet());
+                for (String tech : newTechs) {
+                    if (!existingTechs.contains(tech)) {
+                        project.addTechnology(tech);
+                    }
+                }
+            } else {
+                project.setTechStack(new ArrayList<>());
+                for (String tech : newTechs) {
+                    project.addTechnology(tech);
                 }
             }
         }
@@ -132,6 +179,16 @@ public class StudentProjectServiceImpl implements StudentProjectService {
         StudentProfile profile = getStudentProfileByEmail(email);
         StudentProject project = studentProjectRepository.findByIdAndStudentId(projectId, profile.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
+
+        if (project.getMediaUrl() != null && !project.getMediaUrl().isBlank() && fileStorageService != null && properties != null) {
+            try {
+                String mediaUrl = project.getMediaUrl();
+                String fileName = mediaUrl.substring(mediaUrl.lastIndexOf('/') + 1);
+                fileStorageService.deleteFile(properties.getProjectMediaSubdir(), fileName);
+            } catch (Exception e) {
+                log.warn("Could not delete project media file during project deletion: {}", e.getMessage());
+            }
+        }
 
         studentProjectRepository.delete(project);
         log.info("Deleted project id: {} for student {}", projectId, email);

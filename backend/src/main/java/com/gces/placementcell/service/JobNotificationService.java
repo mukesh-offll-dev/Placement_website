@@ -2,12 +2,17 @@ package com.gces.placementcell.service;
 
 import com.gces.placementcell.entity.Job;
 import com.gces.placementcell.entity.StudentProfile;
+import com.gces.placementcell.entity.User;
 import com.gces.placementcell.entity.enums.NotificationPriority;
 import com.gces.placementcell.entity.enums.NotificationType;
 import com.gces.placementcell.entity.enums.PlacementStatus;
+import com.gces.placementcell.entity.enums.UserRole;
 import com.gces.placementcell.repository.JobRepository;
+import com.gces.placementcell.repository.NotificationRecipientRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
+import com.gces.placementcell.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -37,14 +42,19 @@ public class JobNotificationService {
 
     private final JobRepository jobRepository;
     private final StudentProfileRepository studentProfileRepository;
+    private final NotificationRecipientRepository recipientRepository;
+    private final UserRepository userRepository;
     private final TransactionTemplate transactionTemplate;
     private final EmailJsMailer mailer;
     private final boolean enabled;
     private final String frontendUrl;
     private final NotificationDispatcher notificationDispatcher;
 
+    @Autowired
     public JobNotificationService(JobRepository jobRepository,
                                   StudentProfileRepository studentProfileRepository,
+                                  NotificationRecipientRepository recipientRepository,
+                                  UserRepository userRepository,
                                   TransactionTemplate transactionTemplate,
                                   EmailJsMailer mailer,
                                   @Value("${app.mail.enabled:false}") boolean enabled,
@@ -53,14 +63,26 @@ public class JobNotificationService {
         this.notificationDispatcher = notificationDispatcher;
         this.jobRepository = jobRepository;
         this.studentProfileRepository = studentProfileRepository;
+        this.recipientRepository = recipientRepository;
+        this.userRepository = userRepository;
         this.transactionTemplate = transactionTemplate;
         this.mailer = mailer;
         this.enabled = enabled;
         this.frontendUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
     }
 
+    public JobNotificationService(JobRepository jobRepository,
+                                  StudentProfileRepository studentProfileRepository,
+                                  TransactionTemplate transactionTemplate,
+                                  EmailJsMailer mailer,
+                                  boolean enabled,
+                                  String frontendUrl,
+                                  NotificationDispatcher notificationDispatcher) {
+        this(jobRepository, studentProfileRepository, null, null, transactionTemplate, mailer, enabled, frontendUrl, notificationDispatcher);
+    }
+
     @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onJobPosted(JobPostedEvent event) {
         try {
             notifyEligibleStudents(event.jobId());
@@ -85,7 +107,12 @@ public class JobNotificationService {
     }
 
     private void publishInApp(Alert alert) {
-        if (alert.createdByUserId() == null) {
+        Long posterId = alert.createdByUserId();
+        if (posterId == null && userRepository != null) {
+            posterId = userRepository.findByRoleAndIsActiveTrueAndIsDeletedFalse(UserRole.ADMIN).stream()
+                    .findFirst().map(User::getId).orElse(null);
+        }
+        if (posterId == null) {
             log.warn("Job {} has no poster; in-app notifications skipped.", alert.jobId());
             return;
         }
@@ -100,11 +127,17 @@ public class JobNotificationService {
             message.append(" Apply before ").append(alert.deadline()).append('.');
         }
         message.append(" This drive matches your profile.");
+
+        String title = singleLine("New job drive: " + alert.role() + " at " + alert.company());
+        if (title.length() > 200) {
+            title = title.substring(0, 197) + "...";
+        }
+
         // Email is sent below with the richer job template, so the dispatcher stores in-app only.
         notificationDispatcher.dispatch(new UserNotificationEvent(
                 alert.recipients().stream().map(Recipient::userId).filter(java.util.Objects::nonNull).toList(),
-                alert.createdByUserId(),
-                "New job drive: " + alert.role() + " at " + alert.company(),
+                posterId,
+                title,
                 message.toString(),
                 NotificationType.JOB,
                 NotificationPriority.NORMAL,
@@ -150,9 +183,13 @@ public class JobNotificationService {
         if (job == null || !job.isOpen()) {
             return null;
         }
+        Set<Long> alreadyNotified = recipientRepository != null
+                ? recipientRepository.findNotifiedUserIdsByJobId(jobId)
+                : Set.of();
         List<Recipient> recipients = studentProfileRepository.findNotifiableStudents(ALERTABLE).stream()
                 .filter(student -> JobEligibility.isEligible(student, job))
                 .map(JobNotificationService::toRecipient)
+                .filter(r -> r.userId() == null || !alreadyNotified.contains(r.userId()))
                 .toList();
 
         return new Alert(

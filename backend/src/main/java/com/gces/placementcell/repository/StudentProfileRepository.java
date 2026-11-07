@@ -101,8 +101,9 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
      * opportunities and in one of the given placement statuses. Job-specific rules
      * (CGPA, backlogs, batch, department) are applied afterwards by JobEligibility.
      */
-    @Query("SELECT s FROM StudentProfile s JOIN s.user u WHERE u.isDeleted = false AND u.isActive = true " +
-           "AND s.email IS NOT NULL AND s.isOpenToOpportunities = true AND s.placementStatus IN :statuses")
+    @Query("SELECT s FROM StudentProfile s JOIN FETCH s.user u WHERE u.isDeleted = false AND u.isActive = true " +
+           "AND s.email IS NOT NULL AND (s.isOpenToOpportunities IS NULL OR s.isOpenToOpportunities = true) " +
+           "AND (s.placementStatus IS NULL OR s.placementStatus IN :statuses)")
     List<StudentProfile> findNotifiableStudents(@Param("statuses") Collection<PlacementStatus> statuses);
 
     /** Students per department code (current students only), for the Departments screen. */

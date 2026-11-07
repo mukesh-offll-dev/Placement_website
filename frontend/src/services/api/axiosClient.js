@@ -46,6 +46,11 @@ const axiosClient = axios.create({
  */
 axiosClient.interceptors.request.use(
   (config) => {
+    // Normalize URL to prevent duplicate /api prefix when paths starting with /api are passed to axiosClient
+    if (config.url && typeof config.url === 'string' && config.url.startsWith('/api/')) {
+      config.url = config.url.replace(/^\/api(\/|$)/, '/');
+    }
+
     // Falls back to the legacy key so a session stored before the rename still sends
     // its token; the 401 handler clears both.
     const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);

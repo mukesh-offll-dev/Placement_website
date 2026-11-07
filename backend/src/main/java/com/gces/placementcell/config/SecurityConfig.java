@@ -69,7 +69,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/register/admin").hasRole("ADMIN")
                 // Students cannot register themselves; the placement cell creates their accounts.
                 .requestMatchers("/auth/register/student", "/auth/register").denyAll()
-                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                 // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
                 // AdminStudentController and AdminDashboardController are mapped at both
                 // /admin/... and /api/admin/..., and the context path is already /api, so
@@ -92,6 +92,9 @@ public class SecurityConfig {
                 // Note: this proves a caller is signed in, not that the row is theirs;
                 // per-owner checks still belong in the services.
                 .requestMatchers("/students/**").authenticated()
+                // Allow read-only access to project images (e.g. for recruiter project showcases or direct image display)
+                // while keeping resumes, uploads, and deletes protected.
+                .requestMatchers(HttpMethod.GET, "/files/download/projects/**", "/files/view/projects/**").permitAll()
                 .requestMatchers("/files/**").authenticated()
                 .requestMatchers("/notifications/**").authenticated()
                 // Deny by default: a new controller is protected until a rule opens it.
@@ -99,7 +102,7 @@ public class SecurityConfig {
             )
             // Bearer token is the primary scheme; HTTP Basic is a deliberate fallback for
             // API clients and tooling (covered by RoleBasedAccessControlTest).
-            .httpBasic(Customizer.withDefaults())
+            .httpBasic(basic -> basic.authenticationEntryPoint(authenticationEntryPoint))
             .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(passwordChangeRequiredFilter, AdminAuthFilter.class)
             // Allow H2 console frames in dev

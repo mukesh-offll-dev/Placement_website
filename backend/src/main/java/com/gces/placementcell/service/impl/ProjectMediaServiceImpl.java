@@ -61,6 +61,15 @@ public class ProjectMediaServiceImpl implements ProjectMediaService {
         StudentProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with ID: " + projectId));
 
+        // Delete any existing media file before attaching new one
+        if (project.getMediaUrl() != null && !project.getMediaUrl().isBlank()) {
+            try {
+                String oldFileName = project.getMediaUrl().substring(project.getMediaUrl().lastIndexOf('/') + 1);
+                fileStorageService.deleteFile(properties.getProjectMediaSubdir(), oldFileName);
+            } catch (Exception ignored) {
+            }
+        }
+
         String storedFileName = fileStorageService.storeFile(
                 file,
                 properties.getProjectMediaSubdir(),
