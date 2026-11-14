@@ -1,5 +1,6 @@
 package com.gces.placementcell.service;
 
+import com.gces.placementcell.dto.request.ApplicationTimelineNoteRequest;
 import com.gces.placementcell.dto.request.ApplicationTimelineRequest;
 import com.gces.placementcell.dto.request.JobApplicationRequest;
 import com.gces.placementcell.entity.ApplicationTimeline;
@@ -182,6 +183,57 @@ class ApplicationServiceTest {
         assertEquals((short) 2, response.timeline().get(1).displayOrder());
         assertEquals(TimelineStatus.UPCOMING, response.timeline().get(1).status());
         assertEquals(ApplicationStatus.SHORTLISTED, response.status());
+    }
+
+    @Test
+    void addTimelineNoteAppendsTimelineEntryAndPreservesCurrentStage() {
+        User admin = User.builder().id(9L).email("admin@example.com").build();
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        StudentProfile student = StudentProfile.builder()
+                .id(5L).user(studentUser).fullName("Student Example").email(studentUser.getEmail()).build();
+        JobApplication application = JobApplication.builder()
+                .id(12L).job(openJob()).studentProfile(student)
+                .status(ApplicationStatus.SHORTLISTED).currentStage("Shortlisted").build();
+        ApplicationTimeline submitted = ApplicationTimeline.builder()
+                .stageLabel("Application Submitted")
+                .status(TimelineStatus.DONE)
+                .displayOrder((short) 1)
+                .build();
+        application.addTimeline(submitted);
+
+        when(applicationRepository.findWithTimelineById(application.getId())).thenReturn(Optional.of(application));
+        when(userRepository.findByEmailAndIsDeletedFalse(admin.getEmail())).thenReturn(Optional.of(admin));
+        when(timelineRepository.findByJobApplicationIdOrderByDisplayOrderAsc(application.getId()))
+                .thenReturn(List.of(submitted));
+        when(timelineRepository.save(any(ApplicationTimeline.class))).thenAnswer(invocation -> {
+            ApplicationTimeline timeline = invocation.getArgument(0);
+            timeline.setId(31L);
+            return timeline;
+        });
+        when(applicationRepository.save(application)).thenReturn(application);
+
+        var response = applicationService.addTimelineNote(admin.getEmail(), application.getId(),
+                new ApplicationTimelineNoteRequest("Candidate demonstrated great problem solving", "Admin Note"));
+
+        assertEquals("Shortlisted", response.currentStage());
+        assertEquals(2, response.timeline().size());
+        assertEquals("Admin Note", response.timeline().get(1).stageLabel());
+        assertEquals("Candidate demonstrated great problem solving", response.timeline().get(1).remarks());
+        assertEquals(TimelineStatus.DONE, response.timeline().get(1).status());
+        assertEquals((short) 2, response.timeline().get(1).displayOrder());
+    }
+
+    @Test
+    void addTimelineNoteThrowsBadRequestWhenNoteIsEmpty() {
+        User admin = User.builder().id(9L).email("admin@example.com").build();
+        JobApplication application = JobApplication.builder().id(12L).build();
+
+        when(applicationRepository.findWithTimelineById(12L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmailAndIsDeletedFalse(admin.getEmail())).thenReturn(Optional.of(admin));
+
+        assertThrows(BadRequestException.class,
+                () -> applicationService.addTimelineNote(admin.getEmail(), 12L,
+                        new ApplicationTimelineNoteRequest("", null)));
     }
 
     @Test

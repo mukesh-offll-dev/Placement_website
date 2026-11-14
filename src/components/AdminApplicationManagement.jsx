@@ -25,8 +25,16 @@ import {
   XCircle,
   HelpCircle,
   Send,
+  MessageSquare,
+  Plus,
 } from 'lucide-react';
-import { getApplications, updateApplicationStatus, getApplicationById } from '../services/api/adminService';
+import {
+  getApplications,
+  updateApplicationStatus,
+  getApplicationById,
+  addTimelineNote,
+} from '../services/api/adminService';
+import { toastSuccess, toastError } from '../utils/toast';
 
 // Standard stage definitions required by placement workflow
 const STAGES = [
@@ -148,6 +156,11 @@ export default function AdminApplicationManagement({
     remarks: '',
   });
 
+  // Timeline note state inside detail modal
+  const [timelineNoteText, setTimelineNoteText] = useState('');
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [noteError, setNoteError] = useState(null);
+
   // Application detail view modal
   const [detailModal, setDetailModal] = useState({
     isOpen: false,
@@ -252,6 +265,8 @@ export default function AdminApplicationManagement({
 
   // View detail modal
   const handleOpenDetailModal = async (application) => {
+    setTimelineNoteText('');
+    setNoteError(null);
     setDetailModal({ isOpen: true, loading: true, data: application });
     try {
       const fullDetails = await getApplicationById(application.id);
@@ -259,6 +274,83 @@ export default function AdminApplicationManagement({
     } catch (err) {
       console.warn('Could not fetch expanded application details, using cached row:', err);
       setDetailModal({ isOpen: true, loading: false, data: application });
+    }
+  };
+
+  // Close detail modal and reset note state
+  const handleCloseDetailModal = () => {
+    setTimelineNoteText('');
+    setNoteError(null);
+    setDetailModal({ isOpen: false, loading: false, data: null });
+  };
+
+  // Add timeline note handler
+  const handleAddTimelineNote = async () => {
+    if (!detailModal.data || isSubmittingNote) return;
+
+    const trimmedNote = timelineNoteText.trim();
+    if (!trimmedNote) {
+      setNoteError('Please enter a note before submitting.');
+      return;
+    }
+
+    if (trimmedNote.length > 255) {
+      setNoteError('Note cannot exceed 255 characters.');
+      return;
+    }
+
+    const applicationId = detailModal.data.id;
+    setIsSubmittingNote(true);
+    setNoteError(null);
+
+    try {
+      const response = await addTimelineNote(applicationId, {
+        note: trimmedNote,
+        stageLabel: 'Admin Note',
+      });
+
+      const updatedApp = response?.data || response;
+
+      // Update detailModal timeline immediately
+      setDetailModal((prev) => {
+        if (!prev.data || prev.data.id !== applicationId) return prev;
+        return {
+          ...prev,
+          data: {
+            ...prev.data,
+            ...(updatedApp && typeof updatedApp === 'object' ? updatedApp : {}),
+            timeline: updatedApp?.timeline || [
+              ...(prev.data.timeline || []),
+              {
+                id: Date.now(),
+                stageLabel: 'Admin Note',
+                stageDate: new Date().toISOString().split('T')[0],
+                status: 'DONE',
+                remarks: trimmedNote,
+              },
+            ],
+          },
+        };
+      });
+
+      // Update applications list in state so background table/cards reflect any change
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === applicationId
+            ? { ...app, ...(updatedApp && typeof updatedApp === 'object' ? updatedApp : {}) }
+            : app
+        )
+      );
+
+      setTimelineNoteText('');
+      toastSuccess('Timeline note added successfully.');
+    } catch (err) {
+      console.error('Failed to add timeline note:', err);
+      const errMsg = err?.message || 'Failed to add timeline note. Please try again.';
+      setNoteError(errMsg);
+      toastError(err, 'Failed to add timeline note.');
+    } finally {
+      setIsSubmittingNote(false);
     }
   };
 
@@ -895,7 +987,7 @@ export default function AdminApplicationManagement({
                 </div>
               </div>
               <button
-                onClick={() => setDetailModal({ isOpen: false, loading: false, data: null })}
+                onClick={handleCloseDetailModal}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
               >
                 <X className="w-4 h-4" />
@@ -994,6 +1086,63 @@ export default function AdminApplicationManagement({
                   </p>
                 )}
               </div>
+
+              {/* Add Timeline Note Section */}
+              <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                    Add Timeline Note
+                  </h4>
+                  <span className="text-[10px] text-gray-400">
+                    {timelineNoteText.length}/255
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <textarea
+                    value={timelineNoteText}
+                    onChange={(e) => {
+                      setTimelineNoteText(e.target.value);
+                      if (noteError) setNoteError(null);
+                    }}
+                    placeholder="Enter timeline note or interview feedback (e.g. Cleared technical screening, awaiting HR feedback)..."
+                    rows={3}
+                    maxLength={255}
+                    aria-label="Timeline note text"
+                    disabled={isSubmittingNote}
+                    className="w-full text-xs p-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none transition-colors resize-none disabled:opacity-60"
+                  />
+
+                  {noteError && (
+                    <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-100">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{noteError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleAddTimelineNote}
+                      disabled={isSubmittingNote || !timelineNoteText.trim()}
+                      className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isSubmittingNote ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Adding Note...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Note</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
@@ -1002,7 +1151,7 @@ export default function AdminApplicationManagement({
                 Placement Cell Application Record
               </span>
               <button
-                onClick={() => setDetailModal({ isOpen: false, loading: false, data: null })}
+                onClick={handleCloseDetailModal}
                 className="px-4 py-2 text-xs font-bold bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl"
               >
                 Close
