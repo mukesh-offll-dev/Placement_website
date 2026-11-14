@@ -85,6 +85,18 @@ export const submitApplication = async (applicationData) => {
 };
 
 /**
+ * Withdraw an application for the authenticated student.
+ * PATCH /api/student/applications/{applicationId}/withdraw
+ *
+ * @param {number|string} applicationId
+ * @returns {Promise<Object>} Updated JobApplicationResponse
+ */
+export const withdrawApplication = async (applicationId) => {
+  const response = await axiosClient.patch(`/student/applications/${applicationId}/withdraw`);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
  * Get authenticated student's profile summary.
  * GET /api/student/me
  */
@@ -135,6 +147,7 @@ const studentService = {
   getMyApplications,
   getMyApplication,
   submitApplication,
+  withdrawApplication,
   getMyProfileSummary,
   getStudentDashboard,
   getProfile,

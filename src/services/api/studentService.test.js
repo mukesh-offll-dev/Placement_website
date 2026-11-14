@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import axiosClient from './axiosClient.js';
-import { getMyApplication, getMyApplications, submitApplication } from './studentService.js';
+import { getMyApplication, getMyApplications, submitApplication, withdrawApplication } from './studentService.js';
 
 const originalGet = axiosClient.get;
 const originalPost = axiosClient.post;
+const originalPatch = axiosClient.patch;
 
 afterEach(() => {
   axiosClient.get = originalGet;
   axiosClient.post = originalPost;
+  axiosClient.patch = originalPatch;
 });
 
 test('getMyApplications requests every page from the authenticated student endpoint', async () => {
@@ -83,4 +85,27 @@ test('submitApplication posts the student application to the backend', async () 
   };
 
   assert.deepEqual(await submitApplication(payload), application);
+});
+
+test('withdrawApplication sends PATCH to withdraw the application and returns updated data', async () => {
+  const updatedApp = {
+    id: 42,
+    status: 'WITHDRAWN',
+    currentStage: 'Application Withdrawn',
+  };
+
+  axiosClient.patch = async (url) => {
+    assert.equal(url, '/student/applications/42/withdraw');
+    return { data: updatedApp };
+  };
+
+  const result = await withdrawApplication(42);
+  assert.deepEqual(result, updatedApp);
+});
+
+test('withdrawApplication propagates error when withdrawal fails', async () => {
+  const error = new Error('This application can no longer be withdrawn');
+  axiosClient.patch = async () => Promise.reject(error);
+
+  await assert.rejects(withdrawApplication(42), /This application can no longer be withdrawn/);
 });

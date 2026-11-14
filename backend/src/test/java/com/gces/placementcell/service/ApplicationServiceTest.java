@@ -16,6 +16,7 @@ import com.gces.placementcell.repository.JobRepository;
 import com.gces.placementcell.repository.JobSelectionRoundRepository;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
+import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -181,6 +182,83 @@ class ApplicationServiceTest {
         assertEquals((short) 2, response.timeline().get(1).displayOrder());
         assertEquals(TimelineStatus.UPCOMING, response.timeline().get(1).status());
         assertEquals(ApplicationStatus.SHORTLISTED, response.status());
+    }
+
+    @Test
+    void withdrawUpdatesStatusToWithdrawnAndAddsTimeline() {
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        StudentProfile student = StudentProfile.builder()
+                .id(5L).user(studentUser).fullName("Student Example").email(studentUser.getEmail()).build();
+        JobApplication application = JobApplication.builder()
+                .id(12L).job(openJob()).studentProfile(student)
+                .status(ApplicationStatus.APPLIED).currentStage("Application Submitted").build();
+        ApplicationTimeline submitted = ApplicationTimeline.builder()
+                .stageLabel("Application Submitted")
+                .status(TimelineStatus.DONE)
+                .displayOrder((short) 1)
+                .build();
+        application.addTimeline(submitted);
+
+        when(userRepository.findByEmailAndIsDeletedFalse(studentUser.getEmail()))
+                .thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(studentUser.getId())).thenReturn(Optional.of(student));
+        when(applicationRepository.findWithTimelineById(application.getId())).thenReturn(Optional.of(application));
+        when(timelineRepository.findByJobApplicationIdOrderByDisplayOrderAsc(application.getId()))
+                .thenReturn(List.of(submitted));
+        when(timelineRepository.save(any(ApplicationTimeline.class))).thenAnswer(invocation -> {
+            ApplicationTimeline timeline = invocation.getArgument(0);
+            timeline.setId(22L);
+            return timeline;
+        });
+        when(applicationRepository.save(application)).thenReturn(application);
+
+        var response = applicationService.withdraw(studentUser.getEmail(), application.getId());
+
+        assertEquals(ApplicationStatus.WITHDRAWN, response.status());
+        assertEquals("Application Withdrawn", response.currentStage());
+        assertEquals(2, response.timeline().size());
+        assertEquals("Application Withdrawn", response.timeline().get(1).stageLabel());
+        verify(applicationRepository).save(application);
+    }
+
+    @Test
+    void withdrawThrowsBadRequestWhenApplicationAlreadyWithdrawnOrSelectedOrRejected() {
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        StudentProfile student = StudentProfile.builder()
+                .id(5L).user(studentUser).fullName("Student Example").email(studentUser.getEmail()).build();
+        JobApplication application = JobApplication.builder()
+                .id(12L).job(openJob()).studentProfile(student)
+                .status(ApplicationStatus.WITHDRAWN).currentStage("Application Withdrawn").build();
+
+        when(userRepository.findByEmailAndIsDeletedFalse(studentUser.getEmail()))
+                .thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(studentUser.getId())).thenReturn(Optional.of(student));
+        when(applicationRepository.findWithTimelineById(application.getId())).thenReturn(Optional.of(application));
+
+        assertThrows(BadRequestException.class,
+                () -> applicationService.withdraw(studentUser.getEmail(), application.getId()));
+    }
+
+    @Test
+    void withdrawThrowsResourceNotFoundWhenApplicationBelongsToAnotherStudent() {
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        StudentProfile student = StudentProfile.builder().id(5L).user(studentUser).build();
+        StudentProfile anotherStudent = StudentProfile.builder().id(6L).build();
+        JobApplication anotherStudentsApplication = JobApplication.builder()
+                .id(12L)
+                .job(openJob())
+                .studentProfile(anotherStudent)
+                .status(ApplicationStatus.APPLIED)
+                .build();
+
+        when(userRepository.findByEmailAndIsDeletedFalse(studentUser.getEmail()))
+                .thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(studentUser.getId())).thenReturn(Optional.of(student));
+        when(applicationRepository.findWithTimelineById(anotherStudentsApplication.getId()))
+                .thenReturn(Optional.of(anotherStudentsApplication));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> applicationService.withdraw(studentUser.getEmail(), anotherStudentsApplication.getId()));
     }
 
     private Job openJob() {

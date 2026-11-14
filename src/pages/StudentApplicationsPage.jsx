@@ -10,10 +10,14 @@ import {
   Calendar,
   MapPin,
   Briefcase,
+  AlertTriangle,
+  X,
+  Loader2,
 } from 'lucide-react';
 import studentService from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
 import { ApplicationCardSkeleton } from '../components/Skeleton';
+import { toastSuccess, toastError } from '../utils/toast';
 
 const STATUS_LABELS = {
   APPLIED: 'Applied',
@@ -92,6 +96,8 @@ export default function StudentApplicationsPage() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [expanded, setExpanded] = useState(null);
   const [timelineDetails, setTimelineDetails] = useState({});
+  const [withdrawConfirmApp, setWithdrawConfirmApp] = useState(null);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const applicationsRequest = useRef(null);
   const timelineRequests = useRef(new Map());
 
@@ -168,6 +174,64 @@ export default function StudentApplicationsPage() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && withdrawConfirmApp && !isWithdrawing) {
+        setWithdrawConfirmApp(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [withdrawConfirmApp, isWithdrawing]);
+
+  const handleConfirmWithdraw = async () => {
+    if (!withdrawConfirmApp || isWithdrawing) return;
+
+    if (
+      typeof withdrawConfirmApp.status === 'string' &&
+      withdrawConfirmApp.status.toUpperCase() !== 'APPLIED'
+    ) {
+      toastError('Only applications with status "Applied" can be withdrawn.');
+      setWithdrawConfirmApp(null);
+      return;
+    }
+
+    const appId = withdrawConfirmApp.id;
+    setIsWithdrawing(true);
+
+    try {
+      const response = await studentService.withdrawApplication(appId);
+
+      setApplications((prev) =>
+        prev.map((app) =>
+          app.id === appId
+            ? {
+                ...app,
+                status: 'WITHDRAWN',
+                currentStage: 'Application Withdrawn',
+                ...(response && typeof response === 'object' ? response : {}),
+              }
+            : app
+        )
+      );
+
+      if (response?.timeline && Array.isArray(response.timeline)) {
+        setTimelineDetails((prev) => ({
+          ...prev,
+          [appId]: { status: 'success', timeline: response.timeline },
+        }));
+      }
+
+      toastSuccess('Application withdrawn successfully');
+      setWithdrawConfirmApp(null);
+    } catch (err) {
+      toastError(err, 'Failed to withdraw application. Please try again.');
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -323,6 +387,7 @@ export default function StudentApplicationsPage() {
               (companyName === 'Company unavailable'
                 ? '—'
                 : companyName.slice(0, 2).toUpperCase());
+            const canWithdraw = typeof application.status === 'string' && application.status.toUpperCase() === 'APPLIED';
 
             return (
               <div key={application.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -380,26 +445,41 @@ export default function StudentApplicationsPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isExpanded) {
-                        setExpanded(null);
-                      } else {
-                        setExpanded(application.id);
-                        if (details?.status !== 'success' && details?.status !== 'loading') {
-                          loadTimeline(application);
+                  <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                    {canWithdraw && (
+                      <button
+                        type="button"
+                        onClick={() => setWithdrawConfirmApp(application)}
+                        className="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-400"
+                        title="Withdraw application"
+                        aria-label={`Withdraw application for ${role} at ${companyName}`}
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Withdraw
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isExpanded) {
+                          setExpanded(null);
+                        } else {
+                          setExpanded(application.id);
+                          if (details?.status !== 'success' && details?.status !== 'loading') {
+                            loadTimeline(application);
+                          }
                         }
-                      }
-                    }}
-                    aria-expanded={isExpanded}
-                    className="flex items-center gap-1 text-blue-600 text-sm hover:underline shrink-0"
-                  >
-                    {isExpanded ? 'Hide' : 'Timeline'}
-                    <ChevronRight
-                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                    />
-                  </button>
+                      }}
+                      aria-expanded={isExpanded}
+                      className="flex items-center gap-1 text-blue-600 text-sm hover:underline cursor-pointer"
+                    >
+                      {isExpanded ? 'Hide' : 'Timeline'}
+                      <ChevronRight
+                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 {isExpanded && (
@@ -487,6 +567,114 @@ export default function StudentApplicationsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+      {/* Withdraw Confirmation Modal */}
+      {withdrawConfirmApp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="withdraw-dialog-title"
+          onClick={() => {
+            if (!isWithdrawing) setWithdrawConfirmApp(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b border-rose-100 bg-rose-50/70 flex items-start gap-3.5">
+              <div className="p-2 rounded-xl shrink-0 bg-rose-100 text-rose-600">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 id="withdraw-dialog-title" className="font-bold text-base text-gray-900">
+                  Withdraw Application
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Are you sure you want to withdraw this job application?
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isWithdrawing}
+                onClick={() => setWithdrawConfirmApp(null)}
+                aria-label="Close dialog"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-200/80 text-xs space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Company:</span>
+                  <span className="font-bold text-gray-900">
+                    {getText(withdrawConfirmApp.job?.company?.name, 'Company unavailable')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Role:</span>
+                  <span className="font-semibold text-gray-800">
+                    {getText(withdrawConfirmApp.job?.jobRole, 'Role unavailable')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Applied Date:</span>
+                  <span className="text-gray-700">
+                    {formatDate(withdrawConfirmApp.appliedOn)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Current Status:</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                    {getStatusLabel(withdrawConfirmApp.status)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                <p className="font-medium">Please Note:</p>
+                <p className="mt-0.5">
+                  This action cannot be undone. Once withdrawn, your application will no longer be considered for this recruitment drive.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 bg-gray-50/80 border-t border-gray-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isWithdrawing}
+                onClick={() => setWithdrawConfirmApp(null)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isWithdrawing}
+                onClick={handleConfirmWithdraw}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {isWithdrawing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Withdrawing...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Confirm Withdraw</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>
