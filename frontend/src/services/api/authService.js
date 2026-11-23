@@ -14,6 +14,23 @@ export { resetAuthRedirectGuard };
  * Maps to backend AuthController (/api/auth/**)
  */
 
+/**
+ * Earlier builds copied the JWT into `placement_jwt` and `token` cookies so plain links could
+ * open files. The backend now accepts the token only in the Authorization header, so those
+ * cookies are dead weight that would leak the token with every request: expire them.
+ * Called on sign-in, sign-out and app start-up.
+ */
+export const clearLegacyAuthCookies = () => {
+  if (typeof document === 'undefined') return;
+  try {
+    ['placement_jwt', 'token'].forEach((name) => {
+      document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+    });
+  } catch {
+    // A sandboxed document can refuse cookie writes; nothing to clean up then.
+  }
+};
+
 export const storeAuth = (authResponse) => {
   if (!authResponse || !authResponse.token) return;
   // A fresh session re-arms the 401 redirect guard, so the *next* expiry redirects too.
@@ -28,16 +45,15 @@ export const storeAuth = (authResponse) => {
       fullName: authResponse.fullName,
       // True while a student must finish first-login setup; the route guard reads it.
       setupRequired: Boolean(authResponse.setupRequired),
+      // True while a staff member must replace a temporary password.
+      passwordChangeRequired: Boolean(authResponse.passwordChangeRequired),
     })
   );
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(LEGACY_USER_KEY);
-
-  // Set session cookie for native browser downloads and media streaming
-  if (typeof document !== 'undefined') {
-    document.cookie = `placement_jwt=${encodeURIComponent(authResponse.token)}; path=/; SameSite=Lax`;
-    document.cookie = `token=${encodeURIComponent(authResponse.token)}; path=/; SameSite=Lax`;
-  }
+  // The token lives only in localStorage and the Authorization header. Remove any cookie
+  // copy an older build of the app may have left behind.
+  clearLegacyAuthCookies();
 };
 
 export const clearAuth = () => {
@@ -45,11 +61,7 @@ export const clearAuth = () => {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(LEGACY_USER_KEY);
-
-  if (typeof document !== 'undefined') {
-    document.cookie = 'placement_jwt=; path=/; max-age=0; SameSite=Lax';
-    document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
-  }
+  clearLegacyAuthCookies();
 };
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
@@ -185,6 +197,22 @@ export const changePassword = async (data) => {
 };
 
 /**
+ * Change a staff member's password (admin, placement officer, faculty advisor). Also clears a
+ * forced change after a temporary password. The server returns a fresh AuthResponse, stored here.
+ * POST /api/auth/change-password
+ * @param {{ currentPassword: string, newPassword: string }} data
+ */
+export const changeStaffPassword = async ({ currentPassword, newPassword } = {}) => {
+  const response = await axiosClient.post('/auth/change-password', { currentPassword, newPassword });
+  const authData = response?.data;
+  if (authData?.token) {
+    storeAuth(authData);
+    resetAuthRedirectGuard();
+  }
+  return authData;
+};
+
+/**
  * Register an admin account (Admin-only).
  * POST /api/auth/register/admin
  * @param {Object} adminData - { email, password, fullName, department }
@@ -256,12 +284,14 @@ const authService = {
   login,
   completeFirstLogin,
   changePassword,
+  changeStaffPassword,
   registerAdmin,
   getCurrentUser,
   authFetch,
   logout,
   storeAuth,
   clearAuth,
+  clearLegacyAuthCookies,
   getToken,
   getUser,
   isAuthenticated,

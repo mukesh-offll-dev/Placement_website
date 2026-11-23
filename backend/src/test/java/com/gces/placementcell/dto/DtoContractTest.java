@@ -124,6 +124,10 @@ class DtoContractTest {
                             type.isRecord()
                                     ? Stream.of(type.getRecordComponents()).map(rc -> rc.getName())
                                     : Stream.<String>empty())
+                            // Deliberate exceptions: two boolean flags, and the one-time temporary password
+                            // that staff account creation/reset must return exactly once (never stored).
+                            .filter(name -> !java.util.Set.of("passwordChangeRequired", "mustChangePassword",
+                                    "temporaryPassword").contains(name))
                             .filter(name -> name.toLowerCase().contains("password")
                                     || name.toLowerCase().contains("secret"))
                             .map(name -> type.getSimpleName() + "." + name))
@@ -294,7 +298,7 @@ class DtoContractTest {
         @DisplayName("A job needs a company, role and deadline")
         void testJobRequiredFields() {
             var empty = new JobRequest(null, "  ", null, null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null, null);
             var violated = violatedProperties(empty);
 
             assertTrue(violated.containsAll(Set.of("companyId", "jobRole", "jobType", "applicationDeadline")),
@@ -307,7 +311,7 @@ class DtoContractTest {
             var withBlankSkill = new JobRequest(
                     1L, "SDE", null, EmploymentType.FULL_TIME, "Bangalore", "24 LPA",
                     new BigDecimal("2400000.00"), 10, null, new BigDecimal("8.00"), false,
-                    (short) 2026, LocalDate.now().plusMonths(1), null, List.of("Java", " "), null, null);
+                    (short) 2026, LocalDate.now().plusMonths(1), null, List.of("Java", " "), null, null, null, null);
 
             assertFalse(validator.validate(withBlankSkill).isEmpty(),
                     "A blank skill name must not pass validation");

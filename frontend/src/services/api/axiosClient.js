@@ -30,11 +30,11 @@ export const getIsAuthRedirecting = () => isAuthRedirecting;
 
 /**
  * Reusable Axios Client configured for the Placement Cell Spring Boot backend.
+ * The JWT travels only in the Authorization header (no cookies), so credentials mode is off.
  */
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -93,10 +93,28 @@ axiosClient.interceptors.response.use(
       return Promise.reject(apiError);
     }
 
-    // For blob or arraybuffer responses (e.g. file downloads), return full response data
+    // A caller that needs the headers too (file downloads read content-disposition and
+    // content-type) passes { rawResponse: true } and receives the whole axios response.
+    if (response.config?.rawResponse) {
+      return response;
+    }
+
+    // Otherwise the body: the ApiResponse envelope, or the Blob itself for a blob request.
     return response.data ?? null;
   },
-  (error) => {
+  async (error) => {
+    // A failed blob request carries its JSON error body as a Blob; decode it so the
+    // server's message reaches the user instead of a generic fallback.
+    const errorBody = error?.response?.data;
+    if (typeof Blob !== 'undefined' && errorBody instanceof Blob
+        && /json/i.test(errorBody.type || '')) {
+      try {
+        error.response.data = JSON.parse(await errorBody.text());
+      } catch {
+        // Leave the body as it is; the status-based fallback message still applies.
+      }
+    }
+
     // 0. Deliberately aborted request (AbortController, e.g. a component unmounting or React
     // StrictMode re-running an effect). Pass it through untouched so callers can recognise
     // code === 'ERR_CANCELED' and ignore it instead of showing an error.

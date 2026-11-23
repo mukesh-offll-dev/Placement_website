@@ -19,4 +19,9 @@ public interface JobEligibleDepartmentRepository extends JpaRepository<JobEligib
     boolean existsByDepartmentCodeIgnoreCase(String departmentCode);
 
     void deleteByJobId(Long jobId);
+
+    /** Distinct jobs (any status, deleted ones included) that list this department. */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT COUNT(DISTINCT d.job.id) FROM JobEligibleDepartment d WHERE UPPER(d.departmentCode) = UPPER(:code)")
+    long countJobsByDepartmentCode(@org.springframework.data.repository.query.Param("code") String departmentCode);
 }

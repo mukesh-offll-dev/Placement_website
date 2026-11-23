@@ -17,19 +17,27 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 /**
- * Locks an account to first-login setup until its initial password has been replaced.
+ * Locks an account until its initial (or temporary) password has been replaced.
  *
  * AdminAuthFilter and CustomUserDetailsService mark such an account's UserDetails as
  * "credentials expired". This filter then refuses every request except the ones needed to
- * finish setup and sign out. Enforcing it here, on the server, means a student cannot skip the
- * setup page by calling the API directly.
+ * finish: students may only do first-login setup; staff (admin, officer, faculty advisor) may only
+ * call POST /auth/change-password. Both may read /auth/me and sign out. Enforcing it here, on the
+ * server, means nobody can skip the step by calling the API directly.
  */
 @Component
 public class PasswordChangeRequiredFilter extends OncePerRequestFilter {
 
-    /** Paths (without the /api context) that stay open while a password change is pending. */
-    private static final Set<String> ALLOWED = Set.of(
+    /** Paths (without the /api context) that stay open while a student's setup is pending. */
+    private static final Set<String> STUDENT_ALLOWED = Set.of(
             "/student/account/setup",
+            "/auth/me",
+            "/auth/logout"
+    );
+
+    /** Paths that stay open while a staff member's password change is pending. */
+    private static final Set<String> STAFF_ALLOWED = Set.of(
+            "/auth/change-password",
             "/auth/me",
             "/auth/logout"
     );
@@ -42,31 +50,32 @@ public class PasswordChangeRequiredFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null
                 && authentication.getPrincipal() instanceof UserDetails principal
-                && !principal.isCredentialsNonExpired()
-                && !isAllowed(request)) {
-            response.setStatus(HttpStatus.FORBIDDEN.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            response.getWriter().write("{\"success\":false,\"code\":\"" + ERROR_CODE + "\","
-                    + "\"message\":\"You must change your password and complete your profile before continuing.\"}");
-            return;
+                && !principal.isCredentialsNonExpired()) {
+            boolean student = principal.getAuthorities().stream().anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()));
+            if (!(student ? STUDENT_ALLOWED : STAFF_ALLOWED).contains(path(request))) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                String message = student
+                        ? "You must change your password and complete your profile before continuing."
+                        : "You must change your password before continuing.";
+                response.getWriter().write("{\"success\":false,\"code\":\"" + ERROR_CODE + "\","
+                        + "\"message\":\"" + message + "\",\"data\":null}");
+                return;
+            }
         }
         chain.doFilter(request, response);
     }
 
-    private static boolean isAllowed(HttpServletRequest request) {
+    private static String path(HttpServletRequest request) {
         String path = request.getRequestURI();
         String context = request.getContextPath();
         if (context != null && !context.isEmpty() && path.startsWith(context)) {
             path = path.substring(context.length());
         }
-        // The API is also reachable as /api/... when no context path is stripped (see SecurityConfig).
-        if (path.startsWith("/api/")) {
-            path = path.substring(4);
-        }
         if (path.length() > 1 && path.endsWith("/")) {
             path = path.substring(0, path.length() - 1);
         }
-        return ALLOWED.contains(path);
+        return path;
     }
 }

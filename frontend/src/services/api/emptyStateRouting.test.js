@@ -36,7 +36,9 @@ describe('Empty States and Not Found API Verification', () => {
   it('propagates 404 error when job id does not exist', async () => {
     const originalGet = axiosClient.get;
     const error404 = new Error('Job not found');
-    error404.response = { status: 404, data: { message: 'Job not found' } };
+    // The response interceptor rejects with err.status (not err.response.status).
+    error404.status = 404;
+    error404.data = { message: 'Job not found' };
     axiosClient.get = async () => Promise.reject(error404);
 
     try {
@@ -45,7 +47,7 @@ describe('Empty States and Not Found API Verification', () => {
           await getJobById(99999);
         },
         (err) => {
-          assert.equal(err.response?.status, 404);
+          assert.equal(err.status, 404);
           return true;
         }
       );

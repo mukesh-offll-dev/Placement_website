@@ -16,20 +16,50 @@ import {
   Award,
   Layers,
   ExternalLink,
+  GitBranch,
+  Link2,
+  Globe,
+  ShieldCheck,
+  Trophy,
+  BadgeCheck,
 } from 'lucide-react';
 import { getStudentById } from '../services/api/adminService';
+import { LifecycleBadge, VerificationBadge } from '../components/students/StatusBadges';
+import { formatDate, formatDateTime } from '../utils/dateFormat';
 import EmptyState from '../components/EmptyState';
 import { ProfileSkeleton } from '../components/Skeleton';
+import { ProtectedFileLink } from '../components/ProtectedMedia';
 import {
   getStudentResume,
-  getResumeViewUrl,
-  getResumeDownloadUrl,
   downloadStudentResumeFile,
+  viewStudentResumeFile,
   formatFileSize,
 } from '../services/fileUploadService';
+import { toastError } from '../utils/toast';
 
-export default function AdminStudentDetail() {
+const NOT_PROVIDED = 'Not provided';
+
+const textOr = (value, fallback = NOT_PROVIDED) =>
+  value !== null && value !== undefined && String(value).trim() !== '' ? String(value) : fallback;
+
+const safeUrl = (url) => (typeof url === 'string' && /^https?:\/\//i.test(url.trim()) ? url.trim() : null);
+
+/**
+ * Official (verified) profile of one student. Never shows pending draft data: everything comes from
+ * the student detail endpoint, which reads official tables only.
+ *
+ * Shared by /admin/students/:id and /faculty/students/:id (props override the data source and links).
+ */
+export default function AdminStudentDetail({
+  fetchStudent = getStudentById,
+  backTo = '/admin/students',
+  backLabel = 'Back to Students',
+  verificationsPath = '/admin/verifications',
+  showVerificationLink = true,
+  resumeFromEndpoint = true,
+}) {
   const { id } = useParams();
+  // The route id is the student PROFILE id (GET /admin/students/{id} looks up the profile).
   const studentId = parseInt(id, 10);
 
   const [student, setStudent] = useState(null);
@@ -37,20 +67,33 @@ export default function AdminStudentDetail() {
   const [resume, setResume] = useState(null);
   const [loadingResume, setLoadingResume] = useState(true);
   const [isDownloadingResume, setIsDownloadingResume] = useState(false);
+  const [isOpeningResume, setIsOpeningResume] = useState(false);
   const [error, setError] = useState(null);
 
+  // Resume endpoints are keyed by the viewed student's profile id, taken from the loaded record.
+  const profileId = student?.id ?? null;
+
   const handleDownloadResume = async () => {
-    if (!studentId) return;
+    if (!profileId) return;
     setIsDownloadingResume(true);
     try {
-      await downloadStudentResumeFile(studentId, resume?.fileName || 'Resume.pdf');
+      await downloadStudentResumeFile(profileId, resume?.fileName || 'Resume.pdf');
     } catch (err) {
-      console.error('Failed to download resume:', err);
-      if (resume?.downloadUrl) {
-        window.open(resume.downloadUrl, '_blank');
-      }
+      toastError(err, 'Failed to download the resume.');
     } finally {
       setIsDownloadingResume(false);
+    }
+  };
+
+  const handleViewResume = async () => {
+    if (!profileId) return;
+    setIsOpeningResume(true);
+    try {
+      await viewStudentResumeFile(profileId);
+    } catch (err) {
+      toastError(err, 'Could not open the resume.');
+    } finally {
+      setIsOpeningResume(false);
     }
   };
 
@@ -61,31 +104,47 @@ export default function AdminStudentDetail() {
       setLoadingStudent(true);
       setError(null);
 
+      let loadedProfileId = null;
       try {
-        const studentData = await getStudentById(studentId);
+        const studentData = await fetchStudent(studentId);
         if (isMounted) {
           if (studentData) {
+            loadedProfileId = studentData.id ?? null;
+            const completion = Number(studentData.profileCompletionPercent);
             setStudent({
               id: studentData.id,
               name: studentData.fullName || 'Student',
-              dept: studentData.department || (studentData.departmentCode ? `${studentData.departmentCode} Dept` : 'General'),
-              cgpa: studentData.cgpa ? Number(studentData.cgpa) : null,
-              sem: studentData.semester || 'N/A',
-              profile: studentData.profileCompletionPercent ?? 75,
-              status: studentData.placementStatus || 'PENDING',
-              email: studentData.email,
-              phone: studentData.phone || 'Not provided',
-              address: studentData.address || 'Not provided',
-              degree: studentData.degree || 'B.E Engineering',
-              college: studentData.college || 'Government College of Engineering, Srirangam',
-              year: studentData.batch || '2022-2026',
-              rollNo: studentData.rollNo || 'N/A',
-              about: studentData.about || 'Student has not filled their summary yet.',
-              skills:
-                Array.isArray(studentData.skills) && studentData.skills.length > 0
-                  ? studentData.skills.map((s) => (typeof s === 'string' ? s : s.skillName || ''))
-                  : ['Computer Science', 'Technical Problem Solving'],
+              dept: studentData.department || studentData.departmentCode || null,
+              cgpa: studentData.cgpa != null && studentData.cgpa !== '' ? Number(studentData.cgpa) : null,
+              sem: studentData.semester ?? null,
+              profile: Number.isFinite(completion) ? Math.min(Math.max(completion, 0), 100) : null,
+              status: studentData.placementStatus || null,
+              email: studentData.email || null,
+              phone: studentData.phone || null,
+              address: studentData.address || null,
+              degree: studentData.degree || null,
+              college: studentData.college || null,
+              year: studentData.batch || null,
+              rollNo: studentData.rollNo || null,
+              activeBacklogs: studentData.activeBacklogs ?? null,
+              about: studentData.about || null,
+              skills: Array.isArray(studentData.skills)
+                ? studentData.skills
+                    .map((s) => (typeof s === 'string' ? s : s?.skillName || ''))
+                    .filter((s) => s.trim())
+                : [],
               projects: Array.isArray(studentData.projects) ? studentData.projects : [],
+              certifications: Array.isArray(studentData.certifications) ? studentData.certifications : [],
+              achievements: Array.isArray(studentData.achievements) ? studentData.achievements : [],
+              lifecycleStatus: studentData.lifecycleStatus || (studentData.isActive === false ? 'DISABLED' : 'ACTIVE'),
+              archivedAt: studentData.archivedAt || null,
+              verificationStatus: studentData.profileVerificationStatus || null,
+              verifiedAt: studentData.profileVerifiedAt || null,
+              pendingVersionId: studentData.pendingVersionId ?? null,
+              githubUrl: safeUrl(studentData.githubUrl),
+              linkedinUrl: safeUrl(studentData.linkedinUrl),
+              portfolioUrl: safeUrl(studentData.portfolioUrl),
+              resumeUrl: studentData.resumeUrl || null,
             });
           } else {
             setError('Student profile not found in backend records.');
@@ -101,20 +160,26 @@ export default function AdminStudentDetail() {
         }
       }
 
-      // Fetch resume
+      // Fetch resume metadata for this profile (only once the profile is known). Faculty read the
+      // official resume through the detail's resumeUrl instead of the admin resume endpoints.
+      if (!loadedProfileId || !resumeFromEndpoint) {
+        if (isMounted) {
+          setResume(null);
+          setLoadingResume(false);
+        }
+        return;
+      }
       setLoadingResume(true);
       try {
-        const res = await getStudentResume(studentId);
+        const res = await getStudentResume(loadedProfileId);
         if (isMounted && res.success && res.data) {
           setResume({
-            fileName: res.data.fileName || 'Student_Resume.pdf',
+            fileName: res.data.fileName || null,
             fileSize: res.data.fileSize,
             uploadedAt: res.data.uploadedAt,
-            status: res.data.status || 'VERIFIED',
-            viewUrl: res.data.downloadUrl || res.data.resumeUrl || getResumeViewUrl(studentId),
-            downloadUrl: res.data.downloadUrl || getResumeDownloadUrl(studentId),
+            status: res.data.status || null,
           });
-        } else {
+        } else if (isMounted) {
           setResume(null);
         }
       } catch {
@@ -131,7 +196,7 @@ export default function AdminStudentDetail() {
     return () => {
       isMounted = false;
     };
-  }, [studentId]);
+  }, [studentId, fetchStudent, resumeFromEndpoint]);
 
   if (loadingStudent) {
     return <ProfileSkeleton />;
@@ -147,8 +212,8 @@ export default function AdminStudentDetail() {
             title={error || 'Student Profile Not Found'}
             description={`Unable to locate student records with ID "${studentId}" in the Placement Cell system.`}
             action={{
-              label: 'Back to Students Directory',
-              to: '/admin/students',
+              label: backLabel,
+              to: backTo,
               icon: ArrowLeft,
             }}
           />
@@ -160,10 +225,10 @@ export default function AdminStudentDetail() {
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
       <Link
-        to="/admin/students"
+        to={backTo}
         className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-5 font-medium"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to Students
+        <ArrowLeft className="w-4 h-4" /> {backLabel}
       </Link>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -181,9 +246,9 @@ export default function AdminStudentDetail() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
-                    <p className="text-gray-600 text-sm">{student.degree}</p>
+                    <p className="text-gray-600 text-sm">{textOr(student.degree, 'Degree not provided')}</p>
                     <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-blue-500" /> {student.college}
+                      <GraduationCap className="w-3.5 h-3.5 text-blue-500" /> {textOr(student.college, 'College not provided')}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -194,19 +259,21 @@ export default function AdminStudentDetail() {
                           : 'bg-blue-100 text-blue-700'
                       }`}
                     >
-                      {student.status}
+                      {textOr(student.status, 'Status unknown')}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-100">
+                  <LifecycleBadge status={student.lifecycleStatus} className="text-xs px-2.5 py-1" />
+                  <VerificationBadge status={student.verificationStatus} className="text-xs px-2.5 py-1" />
                   <span className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full font-medium">
-                    Roll No: {student.rollNo}
+                    Roll No: {textOr(student.rollNo)}
                   </span>
                   <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
-                    {student.dept}
+                    {textOr(student.dept, 'Department not provided')}
                   </span>
-                  {student.cgpa && (
+                  {student.cgpa !== null && (
                     <span className="text-xs bg-green-50 text-green-700 px-2.5 py-1 rounded-full font-medium">
                       CGPA: {student.cgpa}
                     </span>
@@ -237,7 +304,7 @@ export default function AdminStudentDetail() {
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-gray-900 break-all">
-                      {resume.fileName}
+                      {resume.fileName || 'Uploaded resume'}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-0.5">
                       {resume.fileSize && <span>{formatFileSize(resume.fileSize)}</span>}
@@ -266,17 +333,15 @@ export default function AdminStudentDetail() {
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  {resume.viewUrl && (
-                    <a
-                      href={resume.viewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg transition"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> View
-                    </a>
-                  )}
-                  {resume.downloadUrl && (
+                  <button
+                    type="button"
+                    onClick={handleViewResume}
+                    disabled={isOpeningResume}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                  >
+                    {isOpeningResume ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />} View
+                  </button>
+                  {profileId && (
                     <button
                       type="button"
                       onClick={handleDownloadResume}
@@ -297,6 +362,20 @@ export default function AdminStudentDetail() {
                   )}
                 </div>
               </div>
+            ) : !resumeFromEndpoint && student.resumeUrl ? (
+              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/70 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600"><FileText className="w-6 h-6" /></div>
+                  <p className="font-semibold text-sm text-gray-900">Verified resume</p>
+                </div>
+                <ProtectedFileLink
+                  url={student.resumeUrl}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg"
+                  title="Open resume"
+                >
+                  <Eye className="w-3.5 h-3.5" /> View
+                </ProtectedFileLink>
+              </div>
             ) : (
               <EmptyState
                 type="empty"
@@ -315,32 +394,70 @@ export default function AdminStudentDetail() {
             <div className="grid sm:grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
                 <p className="flex items-center gap-2 text-gray-600">
-                  <Mail className="w-4 h-4 text-blue-500 shrink-0" /> {student.email}
+                  <Mail className="w-4 h-4 text-blue-500 shrink-0" /> {textOr(student.email)}
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
-                  <Phone className="w-4 h-4 text-blue-500 shrink-0" /> {student.phone}
+                  <Phone className="w-4 h-4 text-blue-500 shrink-0" /> {textOr(student.phone)}
                 </p>
                 <p className="flex items-center gap-2 text-gray-600">
-                  <MapPin className="w-4 h-4 text-blue-500 shrink-0" /> {student.address}
+                  <MapPin className="w-4 h-4 text-blue-500 shrink-0" /> {textOr(student.address)}
                 </p>
               </div>
               <div className="space-y-2">
                 <p className="text-gray-600">
-                  <span className="font-medium text-gray-700">Batch:</span> {student.year}
+                  <span className="font-medium text-gray-700">Batch:</span> {textOr(student.year)}
                 </p>
                 <p className="text-gray-600">
-                  <span className="font-medium text-gray-700">Department:</span> {student.dept}
+                  <span className="font-medium text-gray-700">Department:</span> {textOr(student.dept)}
                 </p>
                 <p className="text-gray-600">
                   <span className="font-medium text-gray-700">CGPA:</span>{' '}
-                  {student.cgpa !== null ? student.cgpa : 'N/A'}
+                  {student.cgpa !== null ? student.cgpa : NOT_PROVIDED}
+                </p>
+                <p className="text-gray-600">
+                  <span className="font-medium text-gray-700">Active backlogs:</span>{' '}
+                  {textOr(student.activeBacklogs)}
                 </p>
               </div>
             </div>
 
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-xs font-semibold text-gray-500 uppercase mb-1">About</p>
-              <p className="text-sm text-gray-700 leading-relaxed">{student.about}</p>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                {student.about || <span className="text-gray-400">Not provided</span>}
+              </p>
+            </div>
+
+            {(student.githubUrl || student.linkedinUrl || student.portfolioUrl) && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Links</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { url: student.githubUrl, label: 'GitHub', Icon: GitBranch },
+                    { url: student.linkedinUrl, label: 'LinkedIn', Icon: Link2 },
+                    { url: student.portfolioUrl, label: 'Portfolio', Icon: Globe },
+                  ].filter((l) => l.url).map(({ url, label, Icon }) => (
+                    <a key={label} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-2.5 py-1 rounded-full">
+                      <Icon className="w-3.5 h-3.5" /> {label} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Skills</p>
+              {student.skills.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {student.skills.map((skill) => (
+                    <span key={skill} className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Not provided</p>
+              )}
             </div>
           </div>
 
@@ -365,21 +482,32 @@ export default function AdminStudentDetail() {
                         <h4 className="font-bold text-sm text-gray-900">{proj.title}</h4>
                         <p className="text-xs text-gray-500 mt-1 leading-relaxed">{proj.description}</p>
                       </div>
-                      {proj.liveUrl && (
-                        <a
-                          href={proj.liveUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-700 p-1 shrink-0"
-                          title="View Live Project"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {proj.mediaUrl && (
+                          <ProtectedFileLink
+                            url={proj.mediaUrl}
+                            className="text-purple-600 hover:text-purple-700 p-1 text-xs font-medium"
+                            title="Open project media"
+                          >
+                            Media
+                          </ProtectedFileLink>
+                        )}
+                        {proj.liveUrl && (
+                          <a
+                            href={proj.liveUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 p-1"
+                            title="View Live Project"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    {proj.technologies && proj.technologies.length > 0 && (
+                    {Array.isArray(proj.techStack || proj.technologies) && (proj.techStack || proj.technologies).length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2.5">
-                        {proj.technologies.map((tech) => (
+                        {(proj.techStack || proj.technologies).map((tech) => (
                           <span
                             key={tech}
                             className="text-[11px] bg-white border border-gray-200 text-gray-700 px-2 py-0.5 rounded-md font-medium"
@@ -403,22 +531,88 @@ export default function AdminStudentDetail() {
               />
             )}
           </div>
+
+          {/* Certifications & achievements (official only) */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-semibold text-lg text-gray-900 mb-3">Certifications</h3>
+            {student.certifications.length > 0 ? (
+              <ul className="space-y-2.5">
+                {student.certifications.map((c, i) => (
+                  <li key={c.id ?? i} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-gray-900 flex items-center gap-1.5"><BadgeCheck className="w-4 h-4 text-blue-600 shrink-0" /> {c.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {[c.issuer, c.issueDate && `Issued ${formatDate(c.issueDate)}`, c.expiryDate && `Expires ${formatDate(c.expiryDate)}`, c.credentialId && `ID ${c.credentialId}`].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 text-xs">
+                      {safeUrl(c.credentialUrl) && (
+                        <a href={safeUrl(c.credentialUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Verify <ExternalLink className="w-3 h-3" /></a>
+                      )}
+                      {c.fileUrl && <ProtectedFileLink url={c.fileUrl} className="text-blue-600 hover:underline">File</ProtectedFileLink>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-400">No verified certifications.</p>
+            )}
+
+            <h3 className="font-semibold text-lg text-gray-900 mt-6 mb-3">Achievements</h3>
+            {student.achievements.length > 0 ? (
+              <ul className="space-y-2.5">
+                {student.achievements.map((a, i) => (
+                  <li key={a.id ?? i} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-gray-900 flex items-center gap-1.5"><Trophy className="w-4 h-4 text-amber-500 shrink-0" /> {a.title}</p>
+                      {a.achievedOn && <p className="text-xs text-gray-500 mt-0.5">{formatDate(a.achievedOn)}</p>}
+                      {a.description && <p className="text-xs text-gray-600 mt-1 leading-relaxed">{a.description}</p>}
+                    </div>
+                    {a.fileUrl && <ProtectedFileLink url={a.fileUrl} className="text-xs text-blue-600 hover:underline shrink-0">Proof</ProtectedFileLink>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-400">No verified achievements.</p>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-5">
+          {/* Profile verification */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="font-semibold text-sm text-gray-900 mb-3 flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-blue-600" /> Profile verification</h3>
+            <VerificationBadge status={student.verificationStatus} className="text-xs px-2.5 py-1" />
+            {student.verifiedAt && <p className="text-xs text-gray-500 mt-2">Last verified {formatDateTime(student.verifiedAt)}</p>}
+            {student.lifecycleStatus === 'ARCHIVED' && student.archivedAt && (
+              <p className="text-xs text-amber-700 mt-2">Archived {formatDate(student.archivedAt)}</p>
+            )}
+            <p className="text-xs text-gray-500 mt-2">This page shows the official profile only. Changes waiting for review are not shown here.</p>
+            {showVerificationLink && student.verificationStatus === 'PENDING' && (
+              <Link
+                to={student.pendingVersionId ? `${verificationsPath}/${student.pendingVersionId}` : `${verificationsPath}?search=${encodeURIComponent(student.rollNo || '')}`}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg"
+              >
+                Review pending request <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            )}
+          </div>
+
           {/* Profile Completion */}
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex justify-between text-sm font-semibold mb-2">
               <span className="text-gray-900">Profile Completion</span>
-              <span className="text-blue-600">{student.profile}%</span>
+              <span className="text-blue-600">{student.profile !== null ? `${student.profile}%` : NOT_PROVIDED}</span>
             </div>
-            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-600 h-full rounded-full"
-                style={{ width: `${student.profile}%` }}
-              />
-            </div>
+            {student.profile !== null && (
+              <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-blue-600 h-full rounded-full"
+                  style={{ width: `${student.profile}%` }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Placement Status */}
@@ -433,7 +627,7 @@ export default function AdminStudentDetail() {
             >
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Award className="w-4 h-4" />
-                <span>{student.status}</span>
+                <span>{textOr(student.status, 'Status unknown')}</span>
               </div>
             </div>
           </div>

@@ -23,6 +23,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
     }
 
     @Override
+    public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
+        registry.addInterceptor(new com.gces.placementcell.security.VerifiedProfileWriteInterceptor());
+    }
+
+    @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         Path uploadDir = Paths.get(fileStorageProperties.getUploadDir()).toAbsolutePath().normalize();
         String uploadPath = uploadDir.toUri().toString();

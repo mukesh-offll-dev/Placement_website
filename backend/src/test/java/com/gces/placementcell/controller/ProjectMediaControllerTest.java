@@ -48,6 +48,7 @@ class ProjectMediaControllerTest {
     private com.gces.placementcell.repository.UserRepository userRepository;
 
     @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "student@gces.edu", roles = "STUDENT")
     void testUploadStandalone_Success() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -68,13 +69,16 @@ class ProjectMediaControllerTest {
 
         when(projectMediaService.uploadMediaStandalone(any())).thenReturn(mockResponse);
 
+        // Project media is part of the verified profile: a student's direct write is refused (409)
+        // and the student uploads through /student/verification/files instead.
         mockMvc.perform(multipart("/projects/media/upload").file(file))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.fileName").value("stored_screenshot.png"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+        org.mockito.Mockito.verify(projectMediaService, org.mockito.Mockito.never()).uploadMediaStandalone(any());
     }
 
     @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "student@gces.edu", roles = "STUDENT")
     void testUploadProjectMedia_Success() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -93,11 +97,11 @@ class ProjectMediaControllerTest {
                 .uploadedAt(LocalDateTime.now())
                 .build();
 
-        when(projectMediaService.uploadProjectMedia(eq(5L), any())).thenReturn(mockResponse);
+        when(projectMediaService.uploadProjectMedia(eq("student@gces.edu"), eq(5L), any())).thenReturn(mockResponse);
 
         mockMvc.perform(multipart("/projects/5/media").file(file))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.projectId").value(5));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+        org.mockito.Mockito.verify(projectMediaService, org.mockito.Mockito.never()).uploadProjectMedia(any(), any(), any());
     }
 }

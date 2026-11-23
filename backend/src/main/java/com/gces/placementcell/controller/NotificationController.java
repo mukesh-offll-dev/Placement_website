@@ -41,7 +41,8 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "false") boolean unreadOnly,
             @AuthenticationPrincipal UserDetails userDetails) {
-        Pageable pageable = PageRequest.of(page, size);
+        // Clamp: a negative page throws IllegalArgumentException; a huge size loads everything.
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100));
         PagedResponse<NotificationResponse> response = notificationService.getMyNotifications(
                 userDetails.getUsername(), unreadOnly, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));

@@ -77,6 +77,16 @@ public record JobRequest(
         List<@NotBlank(message = "Requirement cannot be blank")
              @Size(max = 300, message = "Requirement cannot exceed 300 characters") String> requirements,
 
+        /** Department codes (e.g. "CSE"), stored uppercase. Null or empty = open to every department. */
+        @Size(max = 50, message = "A job cannot list more than 50 departments")
+        List<@NotBlank(message = "Department code cannot be blank")
+             @Size(max = 10, message = "Department code cannot exceed 10 characters") String> eligibleDepartments,
+
+        /** Degrees (e.g. "B.E."). Null or empty = open to every degree. */
+        @Size(max = 20, message = "A job cannot list more than 20 degrees")
+        List<@NotBlank(message = "Degree cannot be blank")
+             @Size(max = 60, message = "Degree cannot exceed 60 characters") String> eligibleDegrees,
+
         /**
          * When true, eligible students are emailed as the job goes live. Not stored on the job;
          * null is treated as false so API callers never trigger mail by accident.

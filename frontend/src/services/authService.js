@@ -18,6 +18,7 @@ export {
 export {
   storeAuth,
   clearAuth,
+  clearLegacyAuthCookies,
   getToken,
   getUser,
   isAuthenticated,
@@ -26,6 +27,7 @@ export {
   login,
   completeFirstLogin,
   changePassword,
+  changeStaffPassword,
   registerAdmin,
   getCurrentUser,
   logout,

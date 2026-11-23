@@ -216,17 +216,20 @@ class StudentProfileAndProjectControllerTest {
         );
 
         StudentProfileResponse mockResponse = createSampleProfileResponse();
-        when(studentProfileService.updateProfile(eq("student@gces.edu"), any(StudentProfileRequest.class)))
-                .thenReturn(mockResponse);
+        when(studentProfileService.updateOpenToOpportunities("student@gces.edu", false)).thenReturn(mockResponse);
 
+        // Since profile verification, PUT /student/profile applies only the immediate preference
+        // (isOpenToOpportunities); every verified field in the body is ignored.
         profileMockMvc.perform(put("/student/profile")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(request).replace("}", ",\"isOpenToOpportunities\":false}")
+                                .replace("\"isOpenToOpportunities\":null,", "")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
-                .andExpect(jsonPath("$.message", is("Profile updated successfully")));
+                .andExpect(jsonPath("$.message", is("Preference updated")));
 
-        verify(studentProfileService).updateProfile(eq("student@gces.edu"), any(StudentProfileRequest.class));
+        verify(studentProfileService).updateOpenToOpportunities("student@gces.edu", false);
+        verify(studentProfileService, org.mockito.Mockito.never()).updateProfile(any(), any());
     }
 
     @Test
@@ -252,10 +255,9 @@ class StudentProfileAndProjectControllerTest {
         profileMockMvc.perform(put("/student/profile")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidSemesterJson))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.message", is("Validation failed")))
-                .andExpect(jsonPath("$.data.semester", containsString("cannot exceed 8")));
+                // Verified fields are ignored here now (they go through the draft, which validates them).
+                .andExpect(status().isOk());
+        verify(studentProfileService, org.mockito.Mockito.never()).updateProfile(any(), any());
     }
 
     @Test

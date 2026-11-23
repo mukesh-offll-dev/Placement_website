@@ -42,14 +42,34 @@ public class JobNotificationService {
     private final boolean enabled;
     private final String frontendUrl;
     private final NotificationDispatcher notificationDispatcher;
+    /**
+     * Pause between consecutive EmailJS calls. EmailJS rate-limits bursts (roughly one request
+     * per second), and this runs on an async thread, so sleeping here blocks no request.
+     */
+    private final long sendDelayMs;
 
+    /** Without pacing; used by tests. */
+    public JobNotificationService(JobRepository jobRepository,
+                                  StudentProfileRepository studentProfileRepository,
+                                  TransactionTemplate transactionTemplate,
+                                  EmailJsMailer mailer,
+                                  boolean enabled,
+                                  String frontendUrl,
+                                  NotificationDispatcher notificationDispatcher) {
+        this(jobRepository, studentProfileRepository, transactionTemplate, mailer, enabled, frontendUrl,
+                notificationDispatcher, 0L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public JobNotificationService(JobRepository jobRepository,
                                   StudentProfileRepository studentProfileRepository,
                                   TransactionTemplate transactionTemplate,
                                   EmailJsMailer mailer,
                                   @Value("${app.mail.enabled:false}") boolean enabled,
                                   @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl,
-                                  NotificationDispatcher notificationDispatcher) {
+                                  NotificationDispatcher notificationDispatcher,
+                                  @Value("${app.mail.send-delay-ms:1100}") long sendDelayMs) {
+        this.sendDelayMs = Math.max(0L, sendDelayMs);
         this.notificationDispatcher = notificationDispatcher;
         this.jobRepository = jobRepository;
         this.studentProfileRepository = studentProfileRepository;
@@ -126,11 +146,17 @@ public class JobNotificationService {
 
         int sent = 0;
         int failed = 0;
+        boolean first = true;
         for (Recipient recipient : alert.recipients()) {
             // A student who has not done first-login setup has only a stand-in address.
             if (StudentIdentity.isPlaceholderEmail(recipient.email())) {
                 continue;
             }
+            if (!first && !pause(sendDelayMs)) {
+                log.warn("Job {} alert emails interrupted after {} sent.", jobId, sent);
+                break;
+            }
+            first = false;
             try {
                 // Admin-typed text is in the subject; the mailer keeps it on one line.
                 mailer.send(recipient.email(), recipient.firstName(),
@@ -143,6 +169,20 @@ public class JobNotificationService {
         }
         log.info("Job {} alert emails: {} sent, {} failed.", jobId, sent, failed);
         return sent;
+    }
+
+    /** Sleeps for the pacing delay; false if the thread was interrupted. */
+    static boolean pause(long millis) {
+        if (millis <= 0) {
+            return true;
+        }
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     private Alert buildAlert(Long jobId) {

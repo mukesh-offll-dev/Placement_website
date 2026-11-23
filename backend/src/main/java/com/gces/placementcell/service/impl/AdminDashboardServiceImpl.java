@@ -47,15 +47,15 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
         long totalCompanies = jobRepository.countDistinctCompanies();
         long totalApplications = jobApplicationRepository.count();
-        long selectedStudents = jobApplicationRepository.countByStatus(ApplicationStatus.SELECTED);
+        // Distinct students, not applications: a student with two offers is one selected student.
+        long selectedStudents = jobApplicationRepository.countDistinctStudentsByStatus(ApplicationStatus.SELECTED);
 
-        long totalActiveJobs = jobRepository.countByStatusAndIsDeletedFalse(JobStatus.ACTIVE);
+        long totalActiveJobs = jobRepository.countByStatusInAndIsDeletedFalse(JobStatus.OPEN_STATUSES);
         long totalJobs = jobRepository.countByIsDeletedFalse();
 
         LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
-        long jobsPostedThisWeek = jobRepository.findByStatusAndIsDeletedFalse(JobStatus.ACTIVE).stream()
-                .filter(j -> j.getCreatedAt() != null && j.getCreatedAt().isAfter(weekAgo))
-                .count();
+        long jobsPostedThisWeek = jobRepository.countByStatusInAndIsDeletedFalseAndCreatedAtAfter(
+                JobStatus.OPEN_STATUSES, weekAgo);
 
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         long applicationsToday = jobApplicationRepository.countByAppliedOnGreaterThanEqual(todayStart);
@@ -94,10 +94,8 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         }
 
         // Recent Jobs
-        List<Job> activeJobs = jobRepository.findByStatusAndIsDeletedFalse(JobStatus.ACTIVE);
-        List<RecentJobDto> recentJobs = activeJobs.stream()
-                .sorted(Comparator.comparing(Job::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                .limit(5)
+        List<RecentJobDto> recentJobs = jobRepository
+                .findTop5ByStatusInAndIsDeletedFalseOrderByCreatedAtDesc(JobStatus.OPEN_STATUSES).stream()
                 .map(j -> RecentJobDto.builder()
                         .id(j.getId())
                         .company(j.getCompanyName())
@@ -113,7 +111,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .collect(Collectors.toList());
 
         // Recent Applications
-        List<RecentApplicationDto> recentApplications = jobApplicationRepository.findTop10ByOrderByAppliedOnDesc().stream()
+        List<RecentApplicationDto> recentApplications = jobApplicationRepository.findTop10ByOrderByAppliedOnDescIdDesc().stream()
                 .map(app -> {
                     StudentProfile sp = app.getStudentProfile();
                     Job j = app.getJob();

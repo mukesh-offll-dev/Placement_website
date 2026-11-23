@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Outlet, useLocation, Link } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   Menu,
   Bell,
@@ -16,6 +16,8 @@ import { useAuth } from '../context/AuthContext';
 import { toastSuccess, toastError } from '../utils/toast';
 import notificationService from '../services/api/notificationService';
 import useUnreadNotifications, { notifyNotificationsChanged } from '../hooks/useUnreadNotifications';
+import usePendingVerifications from '../hooks/usePendingVerifications';
+import { getAdminVerificationSummary } from '../services/api/adminService';
 
 const breadcrumbMap = {
   '/admin/dashboard': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Dashboard' }],
@@ -28,6 +30,9 @@ const breadcrumbMap = {
   ],
   '/admin/jobs': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Job Drives' }],
   '/admin/notifications': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Notifications' }],
+  '/admin/departments': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Departments & Faculty' }],
+  '/admin/verifications': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Verifications' }],
+  '/admin/audit-logs': [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Audit Log' }],
 };
 
 const timeAgo = (timestamp) => {
@@ -48,7 +53,9 @@ export default function AdminLayout() {
   const { count: unreadCount } = useUnreadNotifications();
   const location = useLocation();
   const notifRef = useRef(null);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const navigate = useNavigate();
+  const { count: pendingCount } = usePendingVerifications(role === 'ADMIN' ? getAdminVerificationSummary : null);
 
   // Load the latest few whenever the dropdown opens or the unread count changes.
   useEffect(() => {
@@ -65,6 +72,7 @@ export default function AdminLayout() {
             title: n.title,
             time: timeAgo(n.createdAt || n.publishedAt),
             unread: !n.isRead,
+            actionUrl: typeof n.actionUrl === 'string' && n.actionUrl.startsWith('/') ? n.actionUrl : null,
           }))
         );
       })
@@ -90,6 +98,13 @@ export default function AdminLayout() {
     if (breadcrumbMap[location.pathname]) {
       return breadcrumbMap[location.pathname];
     }
+    if (location.pathname.startsWith('/admin/verifications/')) {
+      return [
+        { label: 'Admin', to: '/admin/dashboard' },
+        { label: 'Verifications', to: '/admin/verifications' },
+        { label: 'Review' },
+      ];
+    }
     if (location.pathname.startsWith('/admin/students/')) {
       return [
         { label: 'Admin', to: '/admin/dashboard' },
@@ -101,6 +116,20 @@ export default function AdminLayout() {
   };
 
   const breadcrumbs = getBreadcrumbs();
+
+  const openNotification = async (n) => {
+    if (!n.actionUrl) return;
+    setNotifOpen(false);
+    if (n.unread) {
+      try {
+        await notificationService.markAsRead(n.id);
+        notifyNotificationsChanged();
+      } catch {
+        // Navigation matters more than the read flag.
+      }
+    }
+    navigate(n.actionUrl);
+  };
   const markAllAsRead = async () => {
     try {
       await notificationService.markAllAsRead();
@@ -119,6 +148,7 @@ export default function AdminLayout() {
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
         unreadCount={unreadCount}
+        pendingCount={pendingCount}
       />
 
       {/* Main Content Area */}
@@ -211,7 +241,14 @@ export default function AdminLayout() {
                       <p className="py-4 text-center text-xs text-gray-400">No notifications yet.</p>
                     )}
                     {notifs.map((n) => (
-                      <div key={n.id} className="py-2.5 px-1 flex items-start gap-2.5 hover:bg-gray-50 rounded-lg">
+                      <div
+                        key={n.id}
+                        className={`py-2.5 px-1 flex items-start gap-2.5 hover:bg-gray-50 rounded-lg ${n.actionUrl ? 'cursor-pointer' : ''}`}
+                        role={n.actionUrl ? 'link' : undefined}
+                        tabIndex={n.actionUrl ? 0 : undefined}
+                        onClick={() => openNotification(n)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') openNotification(n); }}
+                      >
                         <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.unread ? 'bg-blue-600' : 'bg-gray-300'}`} />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-gray-900 leading-tight">{n.title}</p>

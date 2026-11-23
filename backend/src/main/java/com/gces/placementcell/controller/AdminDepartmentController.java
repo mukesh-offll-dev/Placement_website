@@ -3,7 +3,9 @@ package com.gces.placementcell.controller;
 import com.gces.placementcell.dto.request.DepartmentRequest;
 import com.gces.placementcell.dto.request.DepartmentUpdateRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
+import com.gces.placementcell.dto.response.DepartmentCreateResponse;
 import com.gces.placementcell.dto.response.DepartmentResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.gces.placementcell.service.DepartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,13 +29,16 @@ public class AdminDepartmentController {
         return ResponseEntity.ok(ApiResponse.success(departmentService.list()));
     }
 
+    /** Optionally creates the department's faculty advisor; the temporary password is returned only here. */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<ApiResponse<DepartmentResponse>> create(@Valid @RequestBody DepartmentRequest request) {
+    public ResponseEntity<ApiResponse<DepartmentCreateResponse>> create(@Valid @RequestBody DepartmentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Department added", departmentService.create(request)));
+                .body(ApiResponse.success("Department added", departmentService.createWithFaculty(request)));
     }
 
     /** PUT /api/admin/departments/{id}: rename, or switch on or off. */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<DepartmentResponse>> update(
             @PathVariable Long id, @Valid @RequestBody DepartmentUpdateRequest request) {
@@ -41,6 +46,7 @@ public class AdminDepartmentController {
     }
 
     /** DELETE /api/admin/departments/{id}: only while nothing refers to it. */
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         departmentService.delete(id);

@@ -5,6 +5,10 @@ import com.gces.placementcell.dto.response.ProjectMediaResponse;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * Project media. Every project-scoped operation takes the signed-in student's email and only
+ * touches that student's own projects; another student's project id answers 404.
+ */
 public interface ProjectMediaService {
 
     /**
@@ -22,7 +26,7 @@ public interface ProjectMediaService {
      * @param file      Media file
      * @return Project media response
      */
-    ProjectMediaResponse uploadProjectMedia(Long projectId, MultipartFile file);
+    ProjectMediaResponse uploadProjectMedia(String studentEmail, Long projectId, MultipartFile file);
 
     /**
      * Gets media metadata for a specific project.
@@ -30,7 +34,7 @@ public interface ProjectMediaService {
      * @param projectId ID of the project
      * @return Project media response
      */
-    ProjectMediaResponse getProjectMedia(Long projectId);
+    ProjectMediaResponse getProjectMedia(String studentEmail, Long projectId);
 
     /**
      * Loads the project media as a downloadable resource.
@@ -38,12 +42,12 @@ public interface ProjectMediaService {
      * @param projectId ID of the project
      * @return Spring Resource
      */
-    Resource downloadProjectMedia(Long projectId);
+    Resource downloadProjectMedia(String studentEmail, Long projectId);
 
     /**
      * Deletes media associated with a project.
      *
      * @param projectId ID of the project
      */
-    void deleteProjectMedia(Long projectId);
+    void deleteProjectMedia(String studentEmail, Long projectId);
 }

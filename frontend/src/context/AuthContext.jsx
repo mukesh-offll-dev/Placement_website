@@ -8,6 +8,7 @@ import {
   login as authServiceLogin,
   getCurrentUser as authServiceGetCurrentUser,
 } from '../services/authService.js';
+import { isStaffRole } from '../utils/roles.js';
 
 // Exported as the default only: a named context export trips the react-refresh
 // lint rule, and useAuth below is the supported way to read it.
@@ -20,6 +21,18 @@ const getSessionUser = (authData) => ({
   fullName: authData.fullName,
   // A new student is held on the first-login setup page until this clears.
   setupRequired: Boolean(authData.setupRequired),
+  // A staff member signed in with a temporary password is held on the change-password page.
+  passwordChangeRequired: Boolean(authData.passwordChangeRequired),
+});
+
+const persistSession = (token, user) => storeAuth({
+  token,
+  userId: user.id,
+  email: user.email,
+  role: user.role,
+  fullName: user.fullName,
+  setupRequired: user.setupRequired,
+  passwordChangeRequired: user.passwordChangeRequired,
 });
 
 const getStoredSession = () => {
@@ -49,12 +62,15 @@ export function AuthProvider({ children }) {
     };
 
     // The server refused a request because setup is pending (a stale tab, a reset password):
-    // mark the session so the route guard sends the student to the setup page.
+    // mark the session so the route guard sends a student to the setup page, or a staff member
+    // (admin, officer, faculty) to the change-password page.
     const handleSetupRequired = () => {
       setSession((prev) => {
-        if (!prev.user || prev.user.setupRequired) return prev;
-        const user = { ...prev.user, setupRequired: true };
-        storeAuth({ token: prev.token, userId: user.id, email: user.email, role: user.role, fullName: user.fullName, setupRequired: true });
+        if (!prev.user) return prev;
+        const flag = isStaffRole(prev.user.role) ? 'passwordChangeRequired' : 'setupRequired';
+        if (prev.user[flag]) return prev;
+        const user = { ...prev.user, [flag]: true };
+        persistSession(prev.token, user);
         return { ...prev, user };
       });
     };
@@ -134,14 +150,7 @@ export function AuthProvider({ children }) {
         const merged = { ...(prev.user || {}), ...userData, id: userData.id ?? prev.user?.id };
         // storeAuth reads userId, while the session keeps it as id — map it back
         // so a reload does not lose the user's id.
-        storeAuth({
-          token: currentToken,
-          userId: merged.id,
-          email: merged.email,
-          role: merged.role,
-          fullName: merged.fullName,
-          setupRequired: merged.setupRequired,
-        });
+        persistSession(currentToken, merged);
         return { token: currentToken, user: merged };
       });
 

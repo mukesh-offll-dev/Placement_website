@@ -1,5 +1,7 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.security.VerifiedProfileWrite;
+
 import com.gces.placementcell.dto.request.StudentExperienceRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.StudentExperienceResponse;
@@ -43,6 +45,7 @@ public class StudentExperienceController {
      * POST /api/student/experience
      * Adds an experience / internship entry to the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PostMapping
     public ResponseEntity<ApiResponse<StudentExperienceResponse>> addExperience(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -56,6 +59,7 @@ public class StudentExperienceController {
      * PUT /api/student/experience/{experienceId}
      * Updates an experience / internship entry on the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PutMapping("/{experienceId}")
     public ResponseEntity<ApiResponse<StudentExperienceResponse>> updateExperience(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -69,6 +73,7 @@ public class StudentExperienceController {
      * DELETE /api/student/experience/{experienceId}
      * Deletes an experience / internship entry from the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/{experienceId}")
     public ResponseEntity<ApiResponse<Void>> deleteExperience(
             @AuthenticationPrincipal UserDetails userDetails,

@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
 
   // If already authenticated as ADMIN, redirect straight to dashboard
   useEffect(() => {
-    if (isAuthenticated && role === 'ADMIN') {
+    if (isAuthenticated && (role === 'ADMIN' || role === 'PLACEMENT_OFFICER')) {
       navigate('/admin/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate, role]);
@@ -61,12 +61,17 @@ export default function AdminLoginPage() {
 
       if (!result.success) {
         const errMsg = result.error?.startsWith('Unauthorized:')
-          ? 'This portal is for administrators only. Please use the Student Login.'
+          ? 'This portal is for administrators and placement officers only. Students and faculty advisors have their own login pages.'
           : result.error;
         setApiError(errMsg);
         toastError(errMsg);
         setCaptcha(generateCaptcha());
         setForm((f) => ({ ...f, captchaInput: '' }));
+        return;
+      }
+      if (result.user?.passwordChangeRequired) {
+        toastSuccess('Signed in. Please set a new password to continue.');
+        navigate('/admin/change-password', { replace: true });
         return;
       }
       toastSuccess(`Welcome, ${result.user?.fullName || 'Administrator'}!`);

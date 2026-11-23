@@ -14,12 +14,20 @@ import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.*;
 import com.gces.placementcell.exception.DuplicateResourceException;
-import com.gces.placementcell.security.CustomUserDetailsService;
 import com.gces.placementcell.security.LoginAttemptLimiter;
 import com.gces.placementcell.security.TokenProvider;
 import com.gces.placementcell.service.AdminStudentService;
 import com.gces.placementcell.service.DepartmentService;
 import com.gces.placementcell.service.StudentIdentity;
+import com.gces.placementcell.service.StudentScope;
+import com.gces.placementcell.service.AuditService;
+import com.gces.placementcell.dto.profile.ProfileData;
+import com.gces.placementcell.dto.request.ArchiveBatchRequest;
+import com.gces.placementcell.dto.request.BulkStudentActionRequest;
+import com.gces.placementcell.entity.enums.BulkStudentAction;
+import com.gces.placementcell.entity.enums.DocumentType;
+import com.gces.placementcell.entity.enums.LifecycleStatus;
+import com.gces.placementcell.exception.ConflictException;
 import jakarta.persistence.criteria.Fetch;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -59,30 +67,41 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
-    private final CustomUserDetailsService userDetailsService;
     private final LoginAttemptLimiter loginAttemptLimiter;
     private final DepartmentService departmentService;
+    private final StudentCertificationRepository certificationRepository;
+    private final StudentAchievementRepository achievementRepository;
+    private final StudentDocumentRepository documentRepository;
+    private final AuditService auditService;
+    private final StudentProfileVersionRepository versionRepository;
+
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_IDS = 5000;
+    private static final java.util.Set<String> SORTABLE_FIELDS = java.util.Set.of(
+            "createdAt", "updatedAt", "fullName", "rollNo", "email", "cgpa", "department",
+            "departmentCode", "batch", "placementStatus", "placedCtc", "placedOn",
+            "activeBacklogs", "profileCompletionPercent");
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<StudentSummaryDto> getStudents(
-            String search,
-            String department,
-            PlacementStatus status,
-            BigDecimal minCgpa,
+            StudentListFilter filter,
             int page,
             int size,
             String sortBy,
-            String sortDir) {
+            String sortDir,
+            StudentScope scope) {
 
         int validPage = Math.max(0, page);
-        int validSize = size > 0 ? size : 10;
+        int validSize = size > 0 ? Math.min(size, MAX_PAGE_SIZE) : 10;
 
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        String validSortBy = StringUtils.hasText(sortBy) ? sortBy : "createdAt";
+        // Only known columns: an arbitrary property name would fail the query with a 500.
+        String validSortBy = StringUtils.hasText(sortBy) && SORTABLE_FIELDS.contains(sortBy.trim())
+                ? sortBy.trim() : "createdAt";
         Pageable pageable = PageRequest.of(validPage, validSize, Sort.by(direction, validSortBy));
 
-        Specification<StudentProfile> spec = createStudentSpecification(search, department, status, minCgpa);
+        Specification<StudentProfile> spec = createStudentSpecification(filter, scope);
         Page<StudentProfile> profilePage = studentProfileRepository.findAll(spec, pageable);
 
         Map<Long, String> companyNames = fetchCompanyNames(profilePage.getContent());
@@ -102,10 +121,72 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .build();
     }
 
+    // Scope-less variants (all departments). Overridden here, not left as interface defaults, so the
+    // calls go through the transactional proxy.
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<StudentSummaryDto> getStudents(String search, String department, PlacementStatus status,
+                                                       BigDecimal minCgpa, int page, int size, String sortBy, String sortDir) {
+        return getStudents(new StudentListFilter(search, department, status, minCgpa, null, null, null),
+                page, size, sortBy, sortDir, StudentScope.officer());
+    }
+
     @Override
     @Transactional(readOnly = true)
     public StudentDetailDto getStudentById(Long id) {
+        return getStudentById(id, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional
+    public StudentDetailDto updateStudent(Long id, UpdateStudentRequest request) {
+        return updateStudent(id, request, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional
+    public void deleteStudent(Long id) {
+        deleteStudent(id, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional
+    public StudentSummaryDto provisionStudent(ProvisionStudentRequest request) {
+        return provisionStudent(request, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional
+    public BulkProvisionResult provisionStudents(BulkProvisionStudentsRequest request) {
+        return provisionStudents(request, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional
+    public StudentSummaryDto setStudentActive(Long id, boolean active) {
+        return setStudentActive(id, active, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional
+    public void resetStudentPassword(Long id) {
+        resetStudentPassword(id, StudentScope.officer());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> getStudentIds(StudentListFilter filter, StudentScope scope) {
+        Specification<StudentProfile> spec = createStudentSpecification(filter, scope);
+        return studentProfileRepository.findAll(spec, PageRequest.of(0, MAX_IDS, Sort.by(Sort.Direction.ASC, "id")))
+                .getContent().stream().map(StudentProfile::getId).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StudentDetailDto getStudentById(Long id, StudentScope scope) {
         StudentProfile profile = studentProfileRepository.findById(id)
+                .filter(scope::allows)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + id));
 
         if (profile.getUser() != null && Boolean.TRUE.equals(profile.getUser().getIsDeleted())) {
@@ -208,8 +289,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
 
     @Override
     @Transactional
-    public StudentDetailDto updateStudent(Long id, UpdateStudentRequest request) {
+    public StudentDetailDto updateStudent(Long id, UpdateStudentRequest request, StudentScope scope) {
         StudentProfile profile = studentProfileRepository.findById(id)
+                .filter(scope::allows)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + id));
 
         String oldEmail = profile.getEmail();
@@ -270,7 +352,10 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         if (request.getDegree() != null) {
             profile.setDegree(request.getDegree());
         }
-        if (StringUtils.hasText(request.getDepartment())) {
+        if (scope.isDepartmentScoped()) {
+            // A faculty advisor cannot move a student out of (or into) their department.
+            log.debug("Department change ignored for a department-scoped caller");
+        } else if (StringUtils.hasText(request.getDepartment())) {
             Department department = departmentService.resolve(request.getDepartment());
             boolean changed = !department.getCode().equalsIgnoreCase(profile.getDepartmentCode());
             // A student may stay in a department that was later switched off, but cannot be moved into one.
@@ -329,6 +414,10 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         if (profile.getUser() != null) {
             if (request.getIsActive() != null) {
                 profile.getUser().setIsActive(request.getIsActive());
+                // Kept in sync with the lifecycle: inactive = DISABLED (archived students stay archived).
+                if (profile.effectiveLifecycle() != LifecycleStatus.ARCHIVED) {
+                    profile.setLifecycleStatus(request.getIsActive() ? LifecycleStatus.ACTIVE : LifecycleStatus.DISABLED);
+                }
             }
             if (request.getAccountStatus() != null) {
                 profile.getUser().setAccountStatus(request.getAccountStatus());
@@ -339,8 +428,12 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         // Update skills if provided
         if (request.getSkills() != null) {
             studentSkillRepository.deleteByStudentProfileId(profile.getId());
+            // Hibernate runs inserts before deletes at flush; push the deletes out first or a
+            // kept skill collides with the unique (student_id, skill_name) constraint.
+            studentSkillRepository.flush();
+            java.util.Set<String> seenSkills = new java.util.HashSet<>();
             for (String s : request.getSkills()) {
-                if (StringUtils.hasText(s)) {
+                if (StringUtils.hasText(s) && seenSkills.add(s.trim().toLowerCase(java.util.Locale.ROOT))) {
                     studentSkillRepository.save(StudentSkill.builder()
                             .studentProfile(profile)
                             .skillName(s.trim())
@@ -354,16 +447,22 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         if (updated.getUser() != null) {
             forgetCachedUser(updated.getUser(), oldEmail);
         }
+        auditService.record("STUDENT_UPDATE", "STUDENT", updated.getId(), "rollNo=" + updated.getRollNo());
         return buildStudentDetailDto(updated);
     }
 
     @Override
     @Transactional
-    public void deleteStudent(Long id) {
+    public void deleteStudent(Long id, StudentScope scope) {
         StudentProfile profile = studentProfileRepository.findById(id)
+                .filter(scope::allows)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + id));
+        softDelete(profile);
+        auditService.record("STUDENT_DELETE", "STUDENT", profile.getId(), "rollNo=" + profile.getRollNo());
+    }
 
-        // Soft delete the user and deactivate profile
+    /** Soft delete: the login is removed and blocked; applications and history are kept. */
+    private void softDelete(StudentProfile profile) {
         if (profile.getUser() != null) {
             User user = profile.getUser();
             user.setIsDeleted(true);
@@ -379,22 +478,26 @@ public class AdminStudentServiceImpl implements AdminStudentService {
 
     @Override
     @Transactional
-    public StudentSummaryDto provisionStudent(ProvisionStudentRequest request) {
+    public StudentSummaryDto provisionStudent(ProvisionStudentRequest request, StudentScope scope) {
         String registerNumber = StudentIdentity.requireValid(request.registerNumber());
-        Department department = departmentService.requireActive(request.department());
+        Department department = departmentService.requireActive(
+                scope.isDepartmentScoped() ? scope.departmentCode() : request.department());
         if (studentProfileRepository.existsByRollNo(registerNumber)) {
             throw new DuplicateResourceException("A student with register number " + registerNumber + " already exists");
         }
         StudentProfile created = createProvisionedStudent(registerNumber, department, request.year());
         log.info("Student provisioned: registerNumber={}", registerNumber);
+        auditService.record("STUDENT_PROVISION", "STUDENT", created.getId(),
+                "rollNo=" + registerNumber + ", department=" + department.getCode());
         return mapToSummaryDto(created, null);
     }
 
     @Override
     @Transactional
-    public BulkProvisionResult provisionStudents(BulkProvisionStudentsRequest request) {
+    public BulkProvisionResult provisionStudents(BulkProvisionStudentsRequest request, StudentScope scope) {
         List<String> numbers = StudentIdentity.expandRange(request.registerNumberFrom(), request.registerNumberTo());
-        Department department = departmentService.requireActive(request.department());
+        Department department = departmentService.requireActive(
+                scope.isDepartmentScoped() ? scope.departmentCode() : request.department());
         // One query for the whole range instead of one per number.
         Set<String> existing = new HashSet<>(studentProfileRepository.findExistingRollNos(numbers));
 
@@ -410,30 +513,48 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         }
         log.info("Bulk student provisioning: requested={} created={} skipped={}",
                 numbers.size(), created.size(), skipped.size());
+        auditService.record("STUDENT_PROVISION_BULK", "STUDENT", null, "department=" + department.getCode()
+                + ", range=" + request.registerNumberFrom() + ".." + request.registerNumberTo()
+                + ", created=" + created.size() + ", skipped=" + skipped.size());
         return new BulkProvisionResult(numbers.size(), created.size(), skipped.size(), created, skipped);
     }
 
     @Override
     @Transactional
-    public StudentSummaryDto setStudentActive(Long id, boolean active) {
-        StudentProfile profile = findLiveStudent(id);
+    public StudentSummaryDto setStudentActive(Long id, boolean active, StudentScope scope) {
+        StudentProfile profile = findLiveStudent(id, scope);
         User user = profile.getUser();
         if (user == null) {
             throw new BadRequestException("This student has no login account to change");
         }
-        user.setIsActive(active);
-        user.setAccountStatus(active ? AccountStatus.ACTIVE : AccountStatus.INACTIVE);
-        userRepository.save(user);
-        // Takes effect on the next request rather than after the auth cache window.
-        forgetCachedUser(user, user.getEmail());
+        if (profile.effectiveLifecycle() == LifecycleStatus.ARCHIVED) {
+            throw new ConflictException(active ? "This student is archived. Restore them instead."
+                    : "This student is archived and cannot be disabled.");
+        }
+        applyActive(profile, active);
+        auditService.record(active ? "STUDENT_ENABLE" : "STUDENT_DISABLE", "STUDENT", profile.getId(), null);
         log.info("Student {}: id={}", active ? "reactivated" : "deactivated", id);
         return mapToSummaryDto(profile, null);
     }
 
+    /** DISABLED = login blocked; ACTIVE = login allowed. users.is_active and the lifecycle stay in sync. */
+    private void applyActive(StudentProfile profile, boolean active) {
+        User user = profile.getUser();
+        if (user != null) {
+            user.setIsActive(active);
+            user.setAccountStatus(active ? AccountStatus.ACTIVE : AccountStatus.INACTIVE);
+            userRepository.save(user);
+            // Takes effect on the next request rather than after the auth cache window.
+            forgetCachedUser(user, user.getEmail());
+        }
+        profile.setLifecycleStatus(active ? LifecycleStatus.ACTIVE : LifecycleStatus.DISABLED);
+        studentProfileRepository.save(profile);
+    }
+
     @Override
     @Transactional
-    public void resetStudentPassword(Long id) {
-        StudentProfile profile = findLiveStudent(id);
+    public void resetStudentPassword(Long id, StudentScope scope) {
+        StudentProfile profile = findLiveStudent(id, scope);
         User user = profile.getUser();
         if (user == null || !StringUtils.hasText(profile.getRollNo())) {
             throw new BadRequestException("This student needs a register number before the password can be reset");
@@ -443,7 +564,165 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         userRepository.save(user);
         loginAttemptLimiter.recordSuccess("rn:" + profile.getRollNo());
         forgetCachedUser(user, user.getEmail());
+        auditService.record("STUDENT_RESET_PASSWORD", "STUDENT", profile.getId(), "reset to register number");
         log.info("Student password reset: id={}", id);
+    }
+
+    // ------------------------------------------------------------------ bulk actions and archive
+
+    @Override
+    @Transactional
+    public BulkActionResult bulkAction(BulkStudentActionRequest request, StudentScope scope) {
+        if (request.action() == BulkStudentAction.RESTORE && !scope.adminCapable()) {
+            throw new org.springframework.security.access.AccessDeniedException("Only an admin can restore archived students");
+        }
+        List<Long> ids = request.studentIds().stream().filter(Objects::nonNull).distinct().toList();
+        Map<Long, StudentProfile> found = studentProfileRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(StudentProfile::getId, p -> p));
+        User actor = auditService.currentUser().orElse(null);
+        String reason = StringUtils.hasText(request.reason()) ? request.reason().trim() : null;
+
+        int succeeded = 0;
+        List<BulkActionResult.Item> failed = new ArrayList<>();
+        List<BulkActionResult.Item> skipped = new ArrayList<>();
+        for (Long id : ids) {
+            StudentProfile profile = found.get(id);
+            // Out of scope, unknown and deleted ids all read "Not found": nothing leaks about other departments.
+            if (profile == null || !scope.allows(profile) || isDeleted(profile)) {
+                failed.add(new BulkActionResult.Item(id, "Not found"));
+                continue;
+            }
+            String skipReason = applyBulk(profile, request.action(), actor, reason);
+            if (skipReason != null) {
+                skipped.add(new BulkActionResult.Item(id, skipReason));
+                continue;
+            }
+            succeeded++;
+            auditService.record(actor, "STUDENT_" + request.action().name(), "STUDENT", id,
+                    "bulk" + (reason != null ? "; reason=" + reason : ""));
+        }
+        log.info("Bulk {}: requested={} succeeded={} skipped={} failed={}", request.action(), ids.size(),
+                succeeded, skipped.size(), failed.size());
+        return new BulkActionResult(ids.size(), succeeded, skipped.size(), failed, skipped);
+    }
+
+    /** Applies one action; returns why it was skipped, or null when it was applied. */
+    private String applyBulk(StudentProfile profile, BulkStudentAction action, User actor, String reason) {
+        LifecycleStatus lifecycle = profile.effectiveLifecycle();
+        switch (action) {
+            case DELETE -> softDelete(profile);
+            case DISABLE -> {
+                if (lifecycle == LifecycleStatus.ARCHIVED) {
+                    return "Archived";
+                }
+                if (lifecycle == LifecycleStatus.DISABLED) {
+                    return "Already disabled";
+                }
+                applyActive(profile, false);
+            }
+            case ENABLE -> {
+                if (lifecycle == LifecycleStatus.ARCHIVED) {
+                    return "Archived — restore instead";
+                }
+                if (lifecycle == LifecycleStatus.ACTIVE
+                        && (profile.getUser() == null || Boolean.TRUE.equals(profile.getUser().getIsActive()))) {
+                    return "Already active";
+                }
+                applyActive(profile, true);
+            }
+            case ARCHIVE -> {
+                if (lifecycle == LifecycleStatus.ARCHIVED) {
+                    return "Already archived";
+                }
+                archive(profile, actor, reason);
+            }
+            case RESTORE -> {
+                if (lifecycle != LifecycleStatus.ARCHIVED) {
+                    return "Not archived";
+                }
+                profile.setArchivedAt(null);
+                profile.setArchivedBy(null);
+                profile.setArchiveReason(null);
+                applyActive(profile, true);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Archived students keep every record. The login's active flag is left as it is, so a student who
+     * was disabled stays unable to sign in until restored.
+     */
+    private void archive(StudentProfile profile, User actor, String reason) {
+        profile.setLifecycleStatus(LifecycleStatus.ARCHIVED);
+        profile.setArchivedAt(java.time.LocalDateTime.now());
+        profile.setArchivedBy(actor != null ? actor.getId() : null);
+        profile.setArchiveReason(reason);
+        studentProfileRepository.save(profile);
+        if (profile.getUser() != null) {
+            forgetCachedUser(profile.getUser(), profile.getUser().getEmail());
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ArchivePreviewResponse previewBatchArchive(String batch, String departmentCode) {
+        String value = requireBatch(batch);
+        String code = StringUtils.hasText(departmentCode) ? departmentCode.trim().toUpperCase(Locale.ROOT) : null;
+        long count = studentProfileRepository.count(batchArchiveSpecification(value, code));
+        return new ArchivePreviewResponse(count, value, code);
+    }
+
+    @Override
+    @Transactional
+    public BulkActionResult archiveBatch(ArchiveBatchRequest request, StudentScope scope) {
+        if (!scope.adminCapable()) {
+            throw new org.springframework.security.access.AccessDeniedException("Only an admin can archive a batch");
+        }
+        String value = requireBatch(request.batch());
+        String code = StringUtils.hasText(request.departmentCode())
+                ? request.departmentCode().trim().toUpperCase(Locale.ROOT) : null;
+        String reason = StringUtils.hasText(request.reason()) ? request.reason().trim() : "Batch " + value + " archived";
+        User actor = auditService.currentUser().orElse(null);
+        List<StudentProfile> students = studentProfileRepository.findAll(batchArchiveSpecification(value, code));
+        for (StudentProfile profile : students) {
+            archive(profile, actor, reason);
+            auditService.record(actor, "STUDENT_ARCHIVE", "STUDENT", profile.getId(), "batch archive " + value);
+        }
+        auditService.record(actor, "BATCH_ARCHIVE", "STUDENT_BATCH", null,
+                "batch=" + value + (code != null ? ", department=" + code : "") + ", archived=" + students.size()
+                        + "; reason=" + reason);
+        return new BulkActionResult(students.size(), students.size(), 0, List.of(), List.of());
+    }
+
+    private static String requireBatch(String batch) {
+        if (!StringUtils.hasText(batch)) {
+            throw new BadRequestException("Batch is required");
+        }
+        String value = batch.trim();
+        if (value.length() > 20) {
+            throw new BadRequestException("Batch cannot exceed 20 characters");
+        }
+        return value;
+    }
+
+    /** Live ACTIVE/DISABLED students whose batch is the value or ends with "-value" (the graduation year). */
+    private Specification<StudentProfile> batchArchiveSpecification(String batch, String departmentCode) {
+        return (root, query, cb) -> {
+            Join<StudentProfile, User> user = root.join("user", JoinType.INNER);
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(user.get("isDeleted"), false));
+            predicates.add(root.get("lifecycleStatus").in(LifecycleStatus.ACTIVE, LifecycleStatus.DISABLED));
+            predicates.add(cb.or(cb.equal(root.get("batch"), batch), cb.like(root.get("batch"), "%-" + batch)));
+            if (departmentCode != null) {
+                predicates.add(cb.equal(cb.upper(root.get("departmentCode")), departmentCode));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private static boolean isDeleted(StudentProfile profile) {
+        return profile.getUser() != null && Boolean.TRUE.equals(profile.getUser().getIsDeleted());
     }
 
     /** A new student: login account (password = register number) plus an empty profile awaiting setup. */
@@ -473,8 +752,9 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .build());
     }
 
-    private StudentProfile findLiveStudent(Long id) {
+    private StudentProfile findLiveStudent(Long id, StudentScope scope) {
         StudentProfile profile = studentProfileRepository.findById(id)
+                .filter(scope::allows)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + id));
         if (profile.getUser() != null && Boolean.TRUE.equals(profile.getUser().getIsDeleted())) {
             throw new ResourceNotFoundException("Student with ID " + id + " has been deleted");
@@ -483,8 +763,6 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     }
 
     private void forgetCachedUser(User user, String oldEmail) {
-        userDetailsService.evict(oldEmail);
-        userDetailsService.evict(user.getEmail());
         tokenProvider.evictUser(user.getId(), oldEmail);
         tokenProvider.evictUser(user.getId(), user.getEmail());
     }
@@ -492,7 +770,8 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     @Override
     @Transactional(readOnly = true)
     public byte[] exportStudentsCsv(String search, String department, PlacementStatus status) {
-        Specification<StudentProfile> spec = createStudentSpecification(search, department, status, null);
+        Specification<StudentProfile> spec = createStudentSpecification(
+                new StudentListFilter(search, department, status, null, null, null, null), StudentScope.officer());
         List<StudentProfile> students = studentProfileRepository.findAll(spec, Sort.by(Sort.Direction.ASC, "rollNo", "fullName"));
 
         Map<Long, String> companyNames = fetchCompanyNames(students);
@@ -533,8 +812,12 @@ public class AdminStudentServiceImpl implements AdminStudentService {
     }
 
     // Helper methods
-    private Specification<StudentProfile> createStudentSpecification(
-            String search, String department, PlacementStatus status, BigDecimal minCgpa) {
+    private Specification<StudentProfile> createStudentSpecification(StudentListFilter filter, StudentScope scope) {
+        String search = filter.search();
+        String department = filter.department();
+        PlacementStatus status = filter.status();
+        BigDecimal minCgpa = filter.minCgpa();
+        Set<LifecycleStatus> lifecycles = lifecycleFilter(filter.lifecycle());
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -591,8 +874,43 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("cgpa"), minCgpa));
             }
 
+            // Scope: a faculty advisor only ever sees their own department.
+            if (scope.isDepartmentScoped()) {
+                predicates.add(cb.equal(cb.upper(root.get("departmentCode")), scope.departmentCode()));
+            }
+
+            // Lifecycle: archived students are hidden unless asked for.
+            if (lifecycles != null) {
+                predicates.add(root.get("lifecycleStatus").in(lifecycles));
+            }
+
+            if (filter.verificationStatus() != null) {
+                predicates.add(cb.equal(root.get("profileVerificationStatus"), filter.verificationStatus()));
+            }
+
+            if (StringUtils.hasText(filter.batch())) {
+                String batch = filter.batch().trim();
+                predicates.add(cb.or(cb.equal(root.get("batch"), batch), cb.like(root.get("batch"), "%-" + batch)));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    /** null = every lifecycle (ALL); default (blank) = ACTIVE and DISABLED. */
+    private static Set<LifecycleStatus> lifecycleFilter(String lifecycle) {
+        if (!StringUtils.hasText(lifecycle)) {
+            return EnumSet.of(LifecycleStatus.ACTIVE, LifecycleStatus.DISABLED);
+        }
+        String value = lifecycle.trim().toUpperCase(Locale.ROOT);
+        if ("ALL".equals(value)) {
+            return null;
+        }
+        try {
+            return EnumSet.of(LifecycleStatus.valueOf(value));
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("lifecycle must be ACTIVE, DISABLED, ARCHIVED or ALL");
+        }
     }
 
     private Map<Long, String> fetchCompanyNames(List<StudentProfile> profiles) {
@@ -640,6 +958,13 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .isDeleted(u != null ? u.getIsDeleted() : false)
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
+                .lifecycleStatus(p.effectiveLifecycle())
+                .archivedAt(p.getArchivedAt())
+                .profileVerificationStatus(p.getProfileVerificationStatus())
+                .profileVerifiedAt(p.getProfileVerifiedAt())
+                .githubUrl(p.getGithubUrl())
+                .linkedinUrl(p.getLinkedinUrl())
+                .portfolioUrl(p.getPortfolioUrl())
                 .build();
     }
 
@@ -771,6 +1096,30 @@ public class AdminStudentServiceImpl implements AdminStudentService {
                 .applications(appDtos)
                 .totalApplications(totalApps)
                 .shortlistedCount(shortlistedCount)
+                .githubUrl(profile.getGithubUrl())
+                .linkedinUrl(profile.getLinkedinUrl())
+                .portfolioUrl(profile.getPortfolioUrl())
+                .certifications(certificationRepository.findByStudentProfileIdOrderByIdAsc(profileId).stream()
+                        .map(c -> new ProfileData.CertificationItem(c.getId(), c.getName(), c.getIssuer(), c.getIssueDate(),
+                                c.getExpiryDate(), c.getCredentialId(), c.getCredentialUrl(), c.getFileUrl()))
+                        .toList())
+                .achievements(achievementRepository.findByStudentProfileIdOrderByIdAsc(profileId).stream()
+                        .map(a -> new ProfileData.AchievementItem(a.getId(), a.getTitle(), a.getDescription(),
+                                a.getAchievedOn(), a.getFileUrl()))
+                        .toList())
+                .documents(documentRepository.findByStudentId(profileId).stream()
+                        .filter(d -> d.getDocumentType() != DocumentType.RESUME)
+                        .map(d -> new ProfileData.DocumentItem(d.getId(), d.getDocumentName(), d.getDocumentType().name(),
+                                d.getFileUrl(), d.getFileSize()))
+                        .toList())
+                .lifecycleStatus(profile.effectiveLifecycle())
+                .archivedAt(profile.getArchivedAt())
+                .archiveReason(profile.getArchiveReason())
+                .profileVerificationStatus(profile.getProfileVerificationStatus())
+                .profileVerifiedAt(profile.getProfileVerifiedAt())
+                .pendingVersionId(versionRepository.findFirstByStudentIdAndStatusInOrderByVersionNumberDesc(profileId,
+                                java.util.EnumSet.of(com.gces.placementcell.entity.enums.ProfileVersionStatus.PENDING))
+                        .map(com.gces.placementcell.entity.StudentProfileVersion::getId).orElse(null))
                 .build();
     }
 

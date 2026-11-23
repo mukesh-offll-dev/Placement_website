@@ -76,6 +76,13 @@ public class ApplicationService {
     @Transactional
     public JobApplicationResponse apply(String email, JobApplicationRequest request) {
         StudentProfile student = findStudent(email);
+        // Archived (and disabled) students keep their history but cannot apply.
+        if (student.effectiveLifecycle() != com.gces.placementcell.entity.enums.LifecycleStatus.ACTIVE) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    student.effectiveLifecycle() == com.gces.placementcell.entity.enums.LifecycleStatus.ARCHIVED
+                            ? "Your account is archived. Only active students can apply."
+                            : "Only active students can apply");
+        }
         Job job = jobRepository.findWithDetailsByIdAndIsDeletedFalse(request.jobId())
                 .filter(Job::isOpen)
                 .orElseThrow(() -> new ResourceNotFoundException("Open job", "id", request.jobId()));
@@ -84,13 +91,18 @@ public class ApplicationService {
             throw new DuplicateResourceException("You have already applied to this job");
         }
 
+        String ineligible = JobEligibility.ineligibilityReason(student, job);
+        if (ineligible != null) {
+            throw new BadRequestException("You are not eligible for this job: " + ineligible);
+        }
+
         JobApplication application = JobApplication.builder()
                 .job(job)
                 .studentProfile(student)
                 .coverLetter(request.coverLetter())
-                .resumeUrl(request.resumeUrl() == null || request.resumeUrl().isBlank()
-                        ? student.getResumeUrl()
-                        : request.resumeUrl().trim())
+                // Always the resume stored on the student's own profile: a client-supplied URL
+                // could point at another student's file. request.resumeUrl() is ignored.
+                .resumeUrl(student.getResumeUrl())
                 .consentGiven(true)
                 .status(ApplicationStatus.APPLIED)
                 .currentStage("Application Submitted")
@@ -137,7 +149,8 @@ public class ApplicationService {
         if (application.getStatus() == ApplicationStatus.SELECTED
                 || application.getStatus() == ApplicationStatus.REJECTED
                 || application.getStatus() == ApplicationStatus.WITHDRAWN) {
-            throw new BadRequestException("This application can no longer be withdrawn");
+            throw new BadRequestException("This application can no longer be withdrawn (status: "
+                    + application.getStatus() + ")");
         }
 
         application.setStatus(ApplicationStatus.WITHDRAWN);
@@ -175,6 +188,11 @@ public class ApplicationService {
         }
 
         JobApplication application = findApplicationWithTimeline(applicationId);
+        ApplicationStatus previous = application.getStatus();
+        if (!isAllowedTransition(previous, request.status())) {
+            throw new BadRequestException("Cannot change an application from " + previous
+                    + " to " + request.status());
+        }
         User reviewer = userRepository.findByEmailAndIsDeletedFalse(adminEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", adminEmail));
 
@@ -209,6 +227,13 @@ public class ApplicationService {
             }
         }
 
+        // Moving away from SELECTED (offer revoked/declined): undo the placement it recorded,
+        // unless another application of the student is still SELECTED.
+        if (previous == ApplicationStatus.SELECTED && request.status() != ApplicationStatus.SELECTED
+                && application.getStudentProfile() != null) {
+            revertPlacement(application);
+        }
+
         JobApplication saved = applicationRepository.save(application);
 
         String role = describeJob(saved.getJob());
@@ -220,6 +245,55 @@ public class ApplicationService {
         notifyStudent(saved.getStudentProfile(), reviewer, "Application update: " + stage + " - " + role,
                 message.toString());
         return JobApplicationResponse.withTimeline(saved);
+    }
+
+    /**
+     * Allowed status changes made by an admin / placement officer:
+     * <ul>
+     *   <li>WITHDRAWN is terminal: only the student can enter it and nothing leaves it.</li>
+     *   <li>While in progress (APPLIED, UNDER_REVIEW, SHORTLISTED, INTERVIEW) the application may
+     *       move to any in-progress stage (re-saving the same one updates stage/remarks) or be
+     *       decided as SELECTED or REJECTED. Nothing moves back to APPLIED.</li>
+     *   <li>SELECTED and REJECTED are final decisions, with two corrections: SELECTED -> REJECTED
+     *       (offer revoked or declined; the placement is reverted) and REJECTED -> UNDER_REVIEW /
+     *       SHORTLISTED (reopened after a mistaken rejection).</li>
+     * </ul>
+     */
+    static boolean isAllowedTransition(ApplicationStatus from, ApplicationStatus to) {
+        if (from == null || to == null || to == ApplicationStatus.WITHDRAWN) {
+            return false;
+        }
+        return switch (from) {
+            case WITHDRAWN -> false;
+            case APPLIED, UNDER_REVIEW, SHORTLISTED, INTERVIEW -> to != ApplicationStatus.APPLIED || from == ApplicationStatus.APPLIED;
+            case SELECTED -> to == ApplicationStatus.REJECTED;
+            case REJECTED -> to == ApplicationStatus.UNDER_REVIEW || to == ApplicationStatus.SHORTLISTED;
+        };
+    }
+
+    private void revertPlacement(JobApplication application) {
+        StudentProfile profile = application.getStudentProfile();
+        if (profile.getPlacementStatus() != PlacementStatus.PLACED) {
+            return;
+        }
+        JobApplication otherSelected = applicationRepository
+                .findByStudentProfileIdAndStatus(profile.getId(), ApplicationStatus.SELECTED).stream()
+                .filter(other -> !other.getId().equals(application.getId()))
+                .findFirst()
+                .orElse(null);
+        if (otherSelected != null) {
+            // Still placed through another offer: record that one instead.
+            if (otherSelected.getJob() != null) {
+                profile.setPlacedCompany(otherSelected.getJob().getCompany());
+                profile.setPlacedCtc(otherSelected.getJob().getCtcValue());
+            }
+        } else {
+            profile.setPlacementStatus(PlacementStatus.ACTIVE);
+            profile.setPlacedCompany(null);
+            profile.setPlacedCtc(null);
+            profile.setPlacedOn(null);
+        }
+        studentProfileRepository.save(profile);
     }
 
     @Transactional

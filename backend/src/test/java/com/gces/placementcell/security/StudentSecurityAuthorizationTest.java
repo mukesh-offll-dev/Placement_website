@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = {StudentProfileController.class, StudentProjectController.class})
-@Import({SecurityConfig.class, CorsConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class,
+@Import({SecurityConfig.class, CorsConfig.class, AdminAuthFilter.class, PasswordChangeRequiredFilter.class,
         CustomAccessDeniedHandler.class, CustomAuthenticationEntryPoint.class})
 @DisplayName("Spring Security Role Authorization Tests for Student APIs")
 class StudentSecurityAuthorizationTest {
@@ -48,9 +48,6 @@ class StudentSecurityAuthorizationTest {
 
     @MockBean
     private CustomUserDetailsService customUserDetailsService;
-
-    @MockBean
-    private JwtService jwtService;
 
     // SecurityConfig wires AdminAuthFilter, the live bearer-token filter.
     @MockBean

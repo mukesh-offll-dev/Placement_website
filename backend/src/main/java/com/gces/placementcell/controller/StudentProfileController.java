@@ -1,5 +1,7 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.security.VerifiedProfileWrite;
+
 import com.gces.placementcell.dto.request.StudentEducationRequest;
 import com.gces.placementcell.dto.request.StudentExperienceRequest;
 import com.gces.placementcell.dto.request.StudentProfileRequest;
@@ -49,6 +51,7 @@ public class StudentProfileController {
      * POST /api/student/profile
      * Creates a profile for the authenticated student if not already present.
      */
+    @VerifiedProfileWrite
     @PostMapping
     public ResponseEntity<ApiResponse<StudentProfileResponse>> createProfile(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -65,9 +68,26 @@ public class StudentProfileController {
     @PutMapping
     public ResponseEntity<ApiResponse<StudentProfileResponse>> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
-            @Valid @RequestBody StudentProfileRequest request) {
-        StudentProfileResponse response = studentProfileService.updateProfile(userDetails.getUsername(), request);
-        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", response));
+            @RequestBody(required = false) com.fasterxml.jackson.databind.JsonNode body) {
+        // Verified sections change only through the draft and a faculty advisor's approval. This endpoint
+        // now applies just the immediate preference (isOpenToOpportunities) and ignores every other field.
+        Boolean open = body != null && body.hasNonNull("isOpenToOpportunities")
+                && body.get("isOpenToOpportunities").isBoolean() ? body.get("isOpenToOpportunities").asBoolean() : null;
+        StudentProfileResponse response = open != null
+                ? studentProfileService.updateOpenToOpportunities(userDetails.getUsername(), open)
+                : studentProfileService.getProfile(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(open != null ? "Preference updated"
+                : "No changes applied. Profile changes are made through your draft and verified by your faculty advisor.",
+                response));
+    }
+
+    /** PATCH /api/student/profile/preferences: immediate preferences (no verification needed). */
+    @PatchMapping("/preferences")
+    public ResponseEntity<ApiResponse<StudentProfileResponse>> updatePreferences(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody com.gces.placementcell.dto.request.StudentPreferencesRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Preference updated",
+                studentProfileService.updateOpenToOpportunities(userDetails.getUsername(), request.isOpenToOpportunities())));
     }
 
     /**
@@ -85,6 +105,7 @@ public class StudentProfileController {
      * PUT /api/student/profile/skills
      * Updates/replaces all skills of the authenticated student.
      */
+    @VerifiedProfileWrite
     @PutMapping("/skills")
     public ResponseEntity<ApiResponse<List<StudentSkillResponse>>> updateSkills(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -97,6 +118,7 @@ public class StudentProfileController {
      * POST /api/student/profile/skills
      * Adds a single skill to the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PostMapping("/skills")
     public ResponseEntity<ApiResponse<StudentSkillResponse>> addSkill(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -110,6 +132,7 @@ public class StudentProfileController {
      * PUT /api/student/profile/skills/{skillId}
      * Updates a single skill on the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PutMapping("/skills/{skillId}")
     public ResponseEntity<ApiResponse<StudentSkillResponse>> updateSkill(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -123,6 +146,7 @@ public class StudentProfileController {
      * DELETE /api/student/profile/skills/{skillId}
      * Deletes a skill from the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/skills/{skillId}")
     public ResponseEntity<ApiResponse<Void>> deleteSkill(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -146,6 +170,7 @@ public class StudentProfileController {
      * POST /api/student/profile/education
      * Adds an education entry to the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PostMapping("/education")
     public ResponseEntity<ApiResponse<StudentEducationResponse>> addEducation(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -159,6 +184,7 @@ public class StudentProfileController {
      * PUT /api/student/profile/education/{educationId}
      * Updates an education entry on the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PutMapping("/education/{educationId}")
     public ResponseEntity<ApiResponse<StudentEducationResponse>> updateEducation(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -172,6 +198,7 @@ public class StudentProfileController {
      * DELETE /api/student/profile/education/{educationId}
      * Deletes an education entry from the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/education/{educationId}")
     public ResponseEntity<ApiResponse<Void>> deleteEducation(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -195,6 +222,7 @@ public class StudentProfileController {
      * POST /api/student/profile/experience
      * Adds an experience / internship entry to the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PostMapping("/experience")
     public ResponseEntity<ApiResponse<StudentExperienceResponse>> addExperience(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -208,6 +236,7 @@ public class StudentProfileController {
      * PUT /api/student/profile/experience/{experienceId}
      * Updates an experience / internship entry on the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PutMapping("/experience/{experienceId}")
     public ResponseEntity<ApiResponse<StudentExperienceResponse>> updateExperience(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -221,6 +250,7 @@ public class StudentProfileController {
      * DELETE /api/student/profile/experience/{experienceId}
      * Deletes an experience / internship entry from the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/experience/{experienceId}")
     public ResponseEntity<ApiResponse<Void>> deleteExperience(
             @AuthenticationPrincipal UserDetails userDetails,

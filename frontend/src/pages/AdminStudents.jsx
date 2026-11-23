@@ -84,7 +84,7 @@ export default function AdminStudents() {
         dept: s.departmentCode || s.department || 'General',
         cgpa: s.cgpa ? Number(s.cgpa) : 0,
         sem: s.semester ? `Sem ${s.semester}` : 'N/A',
-        profile: s.profileCompletionPercent ?? 75,
+        profile: Number.isFinite(Number(s.profileCompletionPercent)) && s.profileCompletionPercent !== null ? Number(s.profileCompletionPercent) : 0,
         status: s.placementStatus || 'PENDING',
         email: s.email,
         rollNo: s.rollNo,

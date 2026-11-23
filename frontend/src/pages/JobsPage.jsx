@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -10,10 +10,23 @@ import {
   Clock,
   AlertCircle,
   RotateCw,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { jobService } from '../services/api';
 import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { JobCardSkeleton } from '../components/Skeleton';
+import { toastError, toastSuccess } from '../utils/toast';
+
+const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
+
+const JOB_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  ACTIVE: 'Open',
+  CLOSING_SOON: 'Closing Soon',
+  CLOSED: 'Closed',
+};
 
 const PAGE_SIZE = 5;
 
@@ -67,21 +80,18 @@ export default function JobsPage({ isAdmin = false }) {
   const [jobs, setJobs] = useState(() => jobsCache.get(cacheKey) || []);
   const [loading, setLoading] = useState(() => !jobsCache.has(cacheKey));
   const [error, setError] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
 
   const fetchJobs = useCallback(async (signal) => {
     // Only show the skeleton when there is nothing to show yet.
     if (!jobsCache.has(cacheKey)) setLoading(true);
     setError(null);
     try {
-      const fetcher = isAdmin ? jobService.getAdminJobs : jobService.getJobs;
-      const responseData = await fetcher({ page: 0, size: 100 }, { signal });
-
-      // Spring Data Page returns { content: [...] }; array returned directly is also handled safely
-      const rawList = Array.isArray(responseData)
-        ? responseData
-        : Array.isArray(responseData?.content)
-          ? responseData.content
-          : [];
+      // Every page: the backend caps a page at 100 rows, and search/pagination here run on
+      // the full list in the browser.
+      const rawList = await jobService.getAllJobs({ admin: isAdmin }, { signal });
 
       const normalized = rawList.map((j) => {
         const companyName =
@@ -92,7 +102,8 @@ export default function JobsPage({ isAdmin = false }) {
           j.company?.shortName ||
           (companyName && companyName.length >= 2 ? companyName.slice(0, 2) : 'JB')
         ).toUpperCase();
-        const logoColor = j.company?.logoColor || 'bg-blue-100 text-blue-700';
+        // CompanyResponse.logoColor is a hex colour; anything else falls back to the default badge.
+        const logoHex = HEX_COLOR.test(j.company?.logoColor || '') ? j.company.logoColor : null;
         const role = j.jobRole || j.role || 'Job Opening';
         const location = j.location || 'Location Not Specified';
         const ctc = j.ctcText || (j.ctcValue ? `${j.ctcValue} LPA` : j.ctc || 'Not Disclosed');
@@ -100,20 +111,22 @@ export default function JobsPage({ isAdmin = false }) {
         const type = formatJobType(j.jobType || j.type);
         const deadline = j.applicationDeadline ? formatDate(j.applicationDeadline) : j.deadline || 'No Deadline';
 
-        let status = j.status || 'Open';
+        let status = JOB_STATUS_LABELS[j.status] || j.status || 'Open';
         if (j.expired) {
           status = 'Expired';
-        } else if (j.applicationDeadline && isDeadlineClosingSoon(j.applicationDeadline)) {
+        } else if (
+          (j.status === 'ACTIVE' || j.status === 'CLOSING_SOON') &&
+          j.applicationDeadline &&
+          isDeadlineClosingSoon(j.applicationDeadline)
+        ) {
           status = 'Closing Soon';
-        } else if (j.status === 'ACTIVE') {
-          status = 'Open';
         }
 
         return {
           id: j.id,
           company: companyName,
           companyShort,
-          logoColor,
+          logoHex,
           role,
           location,
           ctc,
@@ -157,7 +170,31 @@ export default function JobsPage({ isAdmin = false }) {
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  // A window of up to five page buttons around the current page.
+  const firstPageButton = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  const pageButtons = Array.from(
+    { length: Math.min(totalPages, 5) },
+    (_, i) => firstPageButton + i
+  );
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await jobService.deleteJob(deleteTarget.id);
+      toastSuccess(`${deleteTarget.role} at ${deleteTarget.company} deleted.`);
+      setDeleteTarget(null);
+      jobsCache.delete(cacheKey);
+      setJobs((prev) => prev.filter((j) => j.id !== deleteTarget.id));
+      await fetchJobs();
+    } catch (err) {
+      toastError(err, 'Could not delete this job drive.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
 
   return (
@@ -264,7 +301,8 @@ export default function JobsPage({ isAdmin = false }) {
           {paginated.map((job) => (
             <div key={job.id} className="bg-white rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
               <div
-                className={`w-14 h-14 ${job.logoColor} rounded-xl flex items-center justify-center font-bold text-sm shrink-0`}
+                className={`w-14 h-14 ${job.logoHex ? 'text-white' : 'bg-blue-100 text-blue-700'} rounded-xl flex items-center justify-center font-bold text-sm shrink-0`}
+                style={job.logoHex ? { backgroundColor: job.logoHex } : undefined}
               >
                 {job.companyShort}
               </div>
@@ -276,7 +314,9 @@ export default function JobsPage({ isAdmin = false }) {
                     className={`text-xs px-2.5 py-0.5 rounded-full ${
                       job.status === 'Closing Soon' || job.status === 'Expired'
                         ? 'bg-red-100 text-red-600'
-                        : 'bg-green-100 text-green-600'
+                        : job.status === 'Draft' || job.status === 'Closed'
+                          ? 'bg-gray-100 text-gray-600'
+                          : 'bg-green-100 text-green-600'
                     }`}
                   >
                     {job.status}
@@ -297,9 +337,23 @@ export default function JobsPage({ isAdmin = false }) {
 
               <div className="shrink-0">
                 {isAdmin ? (
-                  <button className="bg-gray-100 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
-                    Manage
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/jobs/${job.id}/edit`)}
+                      className="bg-gray-100 text-gray-700 text-sm px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Pencil className="w-4 h-4" /> Manage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(job)}
+                      className="text-red-600 text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors inline-flex items-center gap-1.5"
+                      aria-label={`Delete ${job.role} at ${job.company}`}
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </button>
+                  </div>
                 ) : (
                   <Link
                     to={`/student/jobs/${job.id}`}
@@ -318,29 +372,29 @@ export default function JobsPage({ isAdmin = false }) {
       {!loading && !error && filtered.length > 0 && (
         <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
           <p>
-            Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
-            {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+            Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}–
+            {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-1">
             <button
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
+              disabled={currentPage === 1}
+              onClick={() => setPage(currentPage - 1)}
               className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+            {pageButtons.map((p) => (
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`w-8 h-8 rounded text-sm ${page === p ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                className={`w-8 h-8 rounded text-sm ${currentPage === p ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
               >
                 {p}
               </button>
             ))}
             <button
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              disabled={currentPage === totalPages}
+              onClick={() => setPage(currentPage + 1)}
               className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4" />
@@ -349,6 +403,22 @@ export default function JobsPage({ isAdmin = false }) {
         </div>
       )}
 
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete job drive?"
+        message={
+          deleteTarget ? (
+            <>
+              <strong>{deleteTarget.role}</strong> at <strong>{deleteTarget.company}</strong> will be
+              removed from the portal and students will no longer see it.
+            </>
+          ) : null
+        }
+        confirmLabel="Delete"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </main>
   );
 }

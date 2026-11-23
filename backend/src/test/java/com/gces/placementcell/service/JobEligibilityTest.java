@@ -86,4 +86,21 @@ class JobEligibilityTest {
         job.getEligibleDegrees().add(JobEligibleDegree.builder().job(job).degree("B.Tech IT").build());
         assertFalse(JobEligibility.isEligible(student(), job));
     }
+
+    @Test
+    @DisplayName("A degree matches the whole stored value or its first word, ignoring case and dots")
+    void degreeMatchesFirstWord() {
+        Job job = job().build();
+        job.getEligibleDegrees().add(JobEligibleDegree.builder().job(job).degree("be").build());
+        assertTrue(JobEligibility.isEligible(student(), job), "BE matches B.E CSE");
+
+        Job exact = job().build();
+        exact.getEligibleDegrees().add(JobEligibleDegree.builder().job(exact).degree("B.E  cse").build());
+        assertTrue(JobEligibility.isEligible(student(), exact), "whole value matches");
+
+        Job other = job().build();
+        other.getEligibleDegrees().add(JobEligibleDegree.builder().job(other).degree("B.E ECE").build());
+        other.getEligibleDegrees().add(JobEligibleDegree.builder().job(other).degree("M.E").build());
+        assertFalse(JobEligibility.isEligible(student(), other), "different branch or degree does not match");
+    }
 }

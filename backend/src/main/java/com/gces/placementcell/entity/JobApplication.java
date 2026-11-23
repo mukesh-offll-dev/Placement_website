@@ -85,6 +85,13 @@ public class JobApplication {
     @Column(name = "status", nullable = false, length = 50)
     private ApplicationStatus status = ApplicationStatus.APPLIED;
 
+    /** Optimistic lock: concurrent status updates fail with 409 instead of overwriting each other. */
+    // Left null on new rows: Spring Data treats a null version as "new" (persist, not merge),
+    // and Hibernate sets it to 0 on insert.
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @Size(max = 80, message = "Current stage label cannot exceed 80 characters")
     @Column(name = "current_stage", length = 80)
     private String currentStage;

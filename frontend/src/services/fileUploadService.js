@@ -6,8 +6,7 @@ import {
   deleteResume as apiDeleteResume,
   downloadResumeBlob,
   downloadStudentResumeFile,
-  getResumeViewUrl,
-  getResumeDownloadUrl,
+  viewStudentResumeFile,
 } from './api/fileService.js';
 
 import {
@@ -18,8 +17,7 @@ import {
 export {
   validateFile,
   formatFileSize,
-  getResumeViewUrl,
-  getResumeDownloadUrl,
+  viewStudentResumeFile,
   downloadResumeBlob,
   downloadStudentResumeFile,
 };
@@ -92,8 +90,7 @@ const fileUploadService = {
   deleteStudentResume,
   uploadProjectMediaStandalone,
   uploadProjectMedia,
-  getResumeViewUrl,
-  getResumeDownloadUrl,
+  viewStudentResumeFile,
   downloadResumeBlob,
   downloadStudentResumeFile,
 };

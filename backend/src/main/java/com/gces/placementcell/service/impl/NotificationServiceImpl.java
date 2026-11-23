@@ -82,9 +82,13 @@ public class NotificationServiceImpl implements NotificationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
 
+    /**
+     * {id} in the API is always the notification id (NotificationResponse.id). It is resolved only
+     * through the current user's own recipient row, never as a recipient id, so one number cannot
+     * mean two different rows.
+     */
     private NotificationRecipient findRecipientForUser(Long id, Long userId) {
         return recipientRepository.findByNotificationIdAndUserId(id, userId)
-                .or(() -> recipientRepository.findByIdAndUserId(id, userId))
                 .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", id));
     }
 }

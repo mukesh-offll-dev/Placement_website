@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { GraduationCap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { GraduationCap, ShieldCheck, ArrowRight, UserCheck } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
 
 export default function LoginPage() {
@@ -21,7 +21,7 @@ export default function LoginPage() {
           Select your role to access the placement portal
         </p>
 
-        <div className="grid md:grid-cols-2 gap-6 w-full max-w-3xl">
+        <div className="grid md:grid-cols-3 gap-6 w-full max-w-5xl">
           {/* Student Card */}
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
             <div className="bg-green-100 p-5 rounded-full mb-5">
@@ -37,6 +37,24 @@ export default function LoginPage() {
               className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors w-full justify-center"
             >
               Student Login <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Faculty Advisor Card */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-indigo-100 p-5 rounded-full mb-5">
+              <UserCheck className="w-10 h-10 text-indigo-700" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3 text-gray-900">Faculty Portal</h3>
+            <p className="text-gray-500 text-sm leading-relaxed mb-8">
+              Review and verify your department&apos;s student profiles, and manage your students&apos;
+              accounts.
+            </p>
+            <Link
+              to="/faculty/login"
+              className="mt-auto flex items-center gap-2 border-2 border-blue-600 text-blue-600 font-semibold px-6 py-3 rounded-lg hover:bg-blue-600 hover:text-white transition-colors w-full justify-center"
+            >
+              Faculty Login <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 

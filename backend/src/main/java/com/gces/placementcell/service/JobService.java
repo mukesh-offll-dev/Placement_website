@@ -5,6 +5,8 @@ import com.gces.placementcell.dto.response.JobResponse;
 import com.gces.placementcell.dto.response.JobSummaryResponse;
 import com.gces.placementcell.entity.Company;
 import com.gces.placementcell.entity.Job;
+import com.gces.placementcell.entity.JobEligibleDegree;
+import com.gces.placementcell.entity.JobEligibleDepartment;
 import com.gces.placementcell.entity.JobRequirement;
 import com.gces.placementcell.entity.JobSkill;
 import com.gces.placementcell.entity.User;
@@ -22,6 +24,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class JobService {
@@ -44,7 +51,7 @@ public class JobService {
     @Transactional(readOnly = true)
     public Page<JobSummaryResponse> listOpenJobs(int page, int size) {
         Pageable pageable = pageRequest(page, size);
-        return jobRepository.findOpenJobs(JobStatus.ACTIVE, LocalDate.now(), pageable)
+        return jobRepository.findOpenJobs(JobStatus.OPEN_STATUSES, LocalDate.now(), pageable)
                 .map(JobSummaryResponse::from);
     }
 
@@ -146,14 +153,26 @@ public class JobService {
         job.setGraduationYear(request.graduationYear());
         job.setApplicationDeadline(request.applicationDeadline());
         job.setStatus(status);
-        job.setIsActive(status == JobStatus.ACTIVE || status == JobStatus.CLOSING_SOON);
+        job.setIsActive(JobStatus.isOpenStatus(status));
 
+        // Child rows carry unique (job_id, value) constraints. Orphan deletes run after
+        // inserts at flush time, so re-adding a kept value would collide: delete first.
         job.getSkills().clear();
-        if (request.skills() != null) {
-            request.skills().forEach(skill -> job.addSkill(JobSkill.builder().skillName(skill).build()));
+        job.getRequirements().clear();
+        job.getEligibleDepartments().clear();
+        job.getEligibleDegrees().clear();
+        if (job.getId() != null) {
+            jobRepository.flush();
         }
 
-        job.getRequirements().clear();
+        if (request.skills() != null) {
+            request.skills().stream()
+                    .map(String::trim)
+                    .filter(skill -> !skill.isEmpty())
+                    .distinct()
+                    .forEach(skill -> job.addSkill(JobSkill.builder().skillName(skill).build()));
+        }
+
         if (request.requirements() != null) {
             for (int index = 0; index < request.requirements().size(); index++) {
                 job.addRequirement(JobRequirement.builder()
@@ -162,6 +181,31 @@ public class JobService {
                         .build());
             }
         }
+
+        // Empty or null = open to every department / degree.
+        normalizeDistinct(request.eligibleDepartments(), true).forEach(code ->
+                job.getEligibleDepartments().add(JobEligibleDepartment.builder().job(job).departmentCode(code).build()));
+        normalizeDistinct(request.eligibleDegrees(), false).forEach(degree ->
+                job.getEligibleDegrees().add(JobEligibleDegree.builder().job(job).degree(degree).build()));
+    }
+
+    private static List<String> normalizeDistinct(List<String> values, boolean upperCase) {
+        if (values == null) {
+            return List.of();
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        List<String> result = new ArrayList<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            String trimmed = value.trim();
+            String normalized = upperCase ? trimmed.toUpperCase(Locale.ROOT) : trimmed;
+            if (seen.add(normalized.toLowerCase(Locale.ROOT))) {
+                result.add(normalized);
+            }
+        }
+        return result;
     }
 
     private Pageable pageRequest(int page, int size) {

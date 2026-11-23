@@ -300,3 +300,49 @@ describe('Frontend Authentication Service & Credentials Verification', () => {
     }
   });
 });
+
+describe('token is never put in cookies', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('storeAuth keeps the token in localStorage only and expires legacy cookies', async () => {
+    const writes = [];
+    globalThis.document = {
+      set cookie(value) { writes.push(value); },
+      get cookie() { return ''; },
+    };
+    try {
+      const { storeAuth } = await import('./authService.js');
+      storeAuth({ token: 'a.b.c', userId: 1, email: 'x@y.z', role: 'STUDENT', fullName: 'X' });
+
+      assert.equal(localStorage.getItem(TOKEN_KEY), 'a.b.c');
+      assert.ok(writes.length > 0, 'legacy cookies are expired');
+      for (const cookie of writes) {
+        assert.doesNotMatch(cookie, /a\.b\.c/, 'the token must not be written to a cookie');
+        assert.match(cookie, /max-age=0/);
+      }
+    } finally {
+      delete globalThis.document;
+    }
+  });
+
+  it('changePassword posts currentPassword/newPassword and stores the fresh token', async () => {
+    const { changePassword } = await import('./authService.js');
+    const originalPost = axiosClient.post;
+    let captured = null;
+    axiosClient.post = async (url, body) => {
+      captured = { url, body };
+      return { success: true, data: { token: 'new.jwt.token', userId: 5, email: 's@x.y', role: 'STUDENT', fullName: 'S' } };
+    };
+    try {
+      const auth = await changePassword({ currentPassword: 'Old1pass', newPassword: 'New1pass' });
+      assert.equal(captured.url, '/student/account/change-password');
+      assert.deepEqual(captured.body, { currentPassword: 'Old1pass', newPassword: 'New1pass' });
+      assert.equal(auth.token, 'new.jwt.token');
+      assert.equal(localStorage.getItem(TOKEN_KEY), 'new.jwt.token');
+    } finally {
+      axiosClient.post = originalPost;
+    }
+  });
+});

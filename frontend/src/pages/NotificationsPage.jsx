@@ -8,8 +8,10 @@ import {
   X,
   RefreshCw,
   AlertTriangle,
+  ShieldCheck,
+  ArrowRight,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import notificationService from '../services/api/notificationService';
 import EmptyState from '../components/EmptyState';
 import { ListRowSkeleton } from '../components/Skeleton';
@@ -22,20 +24,28 @@ const typeConfig = {
   application: { icon: GraduationCap, color: 'text-green-600', bg: 'bg-green-100' },
   alert: { icon: AlertCircle, color: 'text-yellow-600', bg: 'bg-yellow-100' },
   success: { icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  verification: { icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-100' },
 };
 
-const FILTERS = ['All', 'Unread', 'Job Drives', 'Applications', 'Alerts'];
+const FILTERS = ['All', 'Unread', 'Job Drives', 'Applications', 'Verification', 'Alerts'];
+
+/** Only same-app paths are followed, so a notification can never send someone off-site. */
+const safeActionUrl = (url) =>
+  typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') ? url : null;
 
 const mapNotificationType = (rawType) => {
   const type = (rawType || '').toUpperCase();
   if (type === 'JOB' || type === 'PLACEMENT_DRIVE') return 'job';
   if (type === 'APPLICATION' || type === 'INTERVIEW') return 'application';
   if (type === 'ANNOUNCEMENT' || type === 'GENERAL') return 'success';
+  if (type === 'VERIFICATION') return 'verification';
   return 'alert';
 };
 
 /** Where "View details" should go. Students and admins have different pages for the same record. */
-const linkFor = (item, isAdmin) => {
+const linkFor = (item, isAdmin, isFaculty) => {
+  if (item.actionUrl) return item.actionUrl;
+  if (isFaculty) return null;
   const type = (item.rawType || '').toUpperCase();
   if (type === 'APPLICATION' || type === 'INTERVIEW') {
     return isAdmin ? '/admin/applications' : '/student/applications';
@@ -74,7 +84,9 @@ const formatRelativeTime = (timestamp) => {
 
 export default function NotificationsPage() {
   const { role } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = role === 'ADMIN' || role === 'PLACEMENT_OFFICER';
+  const isFaculty = role === 'FACULTY_ADVISOR';
   const [notifs, setNotifs] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -97,6 +109,7 @@ export default function NotificationsPage() {
           type: mapNotificationType(item.notificationType),
           rawType: item.notificationType,
           relatedJobId: item.relatedJobId,
+          actionUrl: safeActionUrl(item.actionUrl),
           title: item.title || 'Notification',
           message: item.message || '',
           time: formatRelativeTime(item.createdAt || item.publishedAt),
@@ -107,7 +120,6 @@ export default function NotificationsPage() {
     } catch (err) {
       console.error('Failed to load notifications:', err);
       const msg =
-        err?.response?.data?.message ||
         err?.message ||
         'Unable to load notifications. Please check your connection and try again.';
       setError(msg);
@@ -180,11 +192,22 @@ export default function NotificationsPage() {
     if (activeFilter === 'Unread') return !n.read;
     if (activeFilter === 'Job Drives') return n.type === 'job';
     if (activeFilter === 'Applications') return n.type === 'application';
+    if (activeFilter === 'Verification') return n.type === 'verification';
     if (activeFilter === 'Alerts') return n.type === 'alert' || n.type === 'success';
     return true;
   });
 
   const unreadCount = notifs.filter((n) => !n.read).length;
+
+  /** Clicking a notification that points somewhere marks it read and opens that page. */
+  const openNotification = (n) => {
+    if (!n.actionUrl) return;
+    if (!n.read) {
+      setNotifs((current) => current.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+      notificationService.markAsRead(n.id).then(notifyNotificationsChanged).catch(() => {});
+    }
+    navigate(n.actionUrl);
+  };
 
   return (
     <main className="flex-1 px-4 md:px-8 py-6">
@@ -288,12 +311,25 @@ export default function NotificationsPage() {
         <div className="space-y-3">
           {filtered.map((n) => {
             const { icon: Icon, color, bg } = typeConfig[n.type] || typeConfig.alert;
+            const clickable = Boolean(n.actionUrl);
+            const target = linkFor(n, isAdmin, isFaculty);
             return (
               <div
                 key={n.id}
-                className={`bg-white rounded-xl p-4 shadow-sm flex gap-4 items-start transition-opacity ${
+                onClick={clickable ? (e) => {
+                  // Buttons and links inside the card keep their own behaviour.
+                  if (e.target.closest('button, a')) return;
+                  openNotification(n);
+                } : undefined}
+                onKeyDown={clickable ? (e) => {
+                  if (e.key === 'Enter' && e.target === e.currentTarget) openNotification(n);
+                } : undefined}
+                role={clickable ? 'link' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                aria-label={clickable ? `${n.title}. Open` : undefined}
+                className={`bg-white rounded-xl p-4 shadow-sm flex gap-4 items-start transition ${
                   n.read ? 'opacity-70' : ''
-                }`}
+                } ${clickable ? 'cursor-pointer hover:shadow-md hover:ring-1 hover:ring-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-400' : ''}`}
               >
                 <div className={`shrink-0 w-10 h-10 rounded-full ${bg} flex items-center justify-center`}>
                   <Icon className={`w-5 h-5 ${color}`} />
@@ -326,15 +362,16 @@ export default function NotificationsPage() {
                   <p className="text-gray-500 text-xs mt-1 leading-relaxed">{n.message}</p>
                   <div className="flex items-center gap-3 mt-1.5">
                     <p className="text-gray-400 text-xs">{n.time}</p>
-                    {linkFor(n, isAdmin) && (
+                    {target && (
                       <Link
-                        to={linkFor(n, isAdmin)}
+                        to={target}
                         onClick={() => {
                           if (!n.read) toggleRead(n.id);
                         }}
-                        className="text-xs font-medium text-blue-600 hover:underline"
+                        className="text-xs font-medium text-blue-600 hover:underline inline-flex items-center gap-1"
                       >
-                        View details
+                        {n.type === 'verification' ? 'Open request' : 'View details'}
+                        {clickable && <ArrowRight className="w-3 h-3" />}
                       </Link>
                     )}
                   </div>

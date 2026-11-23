@@ -177,7 +177,6 @@ class NotificationServiceImplTest {
     void testMarkAsReadNotFoundThrows() {
         when(userRepository.findIdByEmailAndIsDeletedFalse("user@gces.edu")).thenReturn(Optional.of(testUser.getId()));
         when(recipientRepository.findByNotificationIdAndUserId(999L, 1L)).thenReturn(Optional.empty());
-        when(recipientRepository.findByIdAndUserId(999L, 1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> notificationService.markAsRead("user@gces.edu", 999L));
     }

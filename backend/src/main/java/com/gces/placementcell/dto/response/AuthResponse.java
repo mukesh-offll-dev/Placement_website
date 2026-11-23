@@ -29,4 +29,9 @@ public class AuthResponse {
      * phone) before anything else. The API refuses other requests until they do.
      */
     private boolean setupRequired;
+    /**
+     * A staff account (admin, officer, faculty advisor) still has its temporary password and must
+     * call POST /auth/change-password before anything else.
+     */
+    private boolean passwordChangeRequired;
 }

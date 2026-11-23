@@ -29,6 +29,8 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
 
     boolean existsByJobIdAndStudentProfileId(Long jobId, Long studentProfileId);
 
+    boolean existsByStudentProfileIdAndResumeUrlEndingWith(Long studentProfileId, String suffix);
+
     List<JobApplication> findByStatus(ApplicationStatus status);
 
     List<JobApplication> findByStudentProfileIdAndStatus(Long studentProfileId, ApplicationStatus status);
@@ -46,6 +48,14 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     long countByAppliedOnGreaterThanEqual(java.time.LocalDateTime since);
 
     List<JobApplication> findTop10ByOrderByAppliedOnDesc();
+
+    /** Recent applications with student, job and company loaded in the same query (dashboard). */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"studentProfile", "job", "job.company"})
+    List<JobApplication> findTop10ByOrderByAppliedOnDescIdDesc();
+
+    /** Students with at least one SELECTED application (a student with two offers counts once). */
+    @Query("SELECT COUNT(DISTINCT a.studentProfile.id) FROM JobApplication a WHERE a.status = :status")
+    long countDistinctStudentsByStatus(@Param("status") ApplicationStatus status);
 
     // -- Paged views with their joins pre-fetched, so listing pages cost one query.
 

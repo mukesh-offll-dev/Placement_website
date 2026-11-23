@@ -1,5 +1,7 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.security.VerifiedProfileWrite;
+
 import com.gces.placementcell.dto.request.StudentEducationRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.StudentEducationResponse;
@@ -43,6 +45,7 @@ public class StudentEducationController {
      * POST /api/student/education
      * Adds an education entry to the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PostMapping
     public ResponseEntity<ApiResponse<StudentEducationResponse>> addEducation(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -56,6 +59,7 @@ public class StudentEducationController {
      * PUT /api/student/education/{educationId}
      * Updates an education entry on the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PutMapping("/{educationId}")
     public ResponseEntity<ApiResponse<StudentEducationResponse>> updateEducation(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -69,6 +73,7 @@ public class StudentEducationController {
      * DELETE /api/student/education/{educationId}
      * Deletes an education entry from the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/{educationId}")
     public ResponseEntity<ApiResponse<Void>> deleteEducation(
             @AuthenticationPrincipal UserDetails userDetails,

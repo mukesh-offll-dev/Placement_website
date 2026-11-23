@@ -56,7 +56,7 @@ public class AdminController {
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getAdminDashboard(Authentication authentication) {
         long registeredStudents = userRepository.countByRoleAndIsDeletedFalse(UserRole.STUDENT);
-        long activeJobs = jobRepository.findByStatus(JobStatus.ACTIVE).size();
+        long activeJobs = jobRepository.countByStatusInAndIsDeletedFalse(JobStatus.OPEN_STATUSES);
         long totalApplications = jobApplicationRepository.count();
 
         Map<String, Object> stats = new HashMap<>();

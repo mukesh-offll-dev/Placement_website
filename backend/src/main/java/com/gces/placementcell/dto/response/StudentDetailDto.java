@@ -1,7 +1,10 @@
 package com.gces.placementcell.dto.response;
 
 import com.gces.placementcell.entity.enums.AccountStatus;
+import com.gces.placementcell.dto.profile.ProfileData;
+import com.gces.placementcell.entity.enums.LifecycleStatus;
 import com.gces.placementcell.entity.enums.PlacementStatus;
+import com.gces.placementcell.entity.enums.ProfileVerificationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -64,4 +67,21 @@ public class StudentDetailDto {
     private List<ApplicationSummaryDto> applications;
     private long totalApplications;
     private long shortlistedCount;
+
+    // Verified links and sections
+    private String githubUrl;
+    private String linkedinUrl;
+    private String portfolioUrl;
+    private List<ProfileData.CertificationItem> certifications;
+    private List<ProfileData.AchievementItem> achievements;
+    private List<ProfileData.DocumentItem> documents;
+
+    // Lifecycle and verification
+    private LifecycleStatus lifecycleStatus;
+    private LocalDateTime archivedAt;
+    private String archiveReason;
+    private ProfileVerificationStatus profileVerificationStatus;
+    private LocalDateTime profileVerifiedAt;
+    /** Id of the student's PENDING verification request, or null. */
+    private Long pendingVersionId;
 }

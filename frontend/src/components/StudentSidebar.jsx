@@ -7,6 +7,7 @@ import {
   Bell,
   LogOut,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from './BrandLogo';
@@ -18,9 +19,21 @@ const navItems = [
   { to: '/student/applications', icon: FileText, label: 'My Applications' },
   { to: '/student/notifications', icon: Bell, label: 'Notifications', showUnread: true },
   { to: '/student/profile', icon: User, label: 'My Profile' },
+  { to: '/student/verification', icon: ShieldCheck, label: 'Verification', showVerification: true },
 ];
 
-export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () => {}, unreadCount = 0 }) {
+const VERIFICATION_BADGE = {
+  PENDING: { text: 'Pending', cls: 'bg-amber-100 text-amber-700', label: 'Verification pending review' },
+  REJECTED: { text: 'Action', cls: 'bg-red-100 text-red-700', label: 'Verification changes requested' },
+};
+
+export default function StudentSidebar({
+  mobileOpen = false,
+  onCloseMobile = () => {},
+  unreadCount = 0,
+  verificationStatus = null,
+}) {
+  const verificationBadge = VERIFICATION_BADGE[verificationStatus] || null;
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
 
@@ -58,7 +71,7 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
         <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
           Student Menu
         </p>
-        {navItems.map(({ to, icon: NavIcon, label, showUnread }) => (
+        {navItems.map(({ to, icon: NavIcon, label, showUnread, showVerification }) => (
           <NavLink
             key={to}
             to={to}
@@ -85,6 +98,16 @@ export default function StudentSidebar({ mobileOpen = false, onCloseMobile = () 
                     aria-label={`${unreadCount} unread notifications`}
                   >
                     {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+                {showVerification && verificationBadge && (
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : verificationBadge.cls
+                    }`}
+                    aria-label={verificationBadge.label}
+                  >
+                    {verificationBadge.text}
                   </span>
                 )}
               </>

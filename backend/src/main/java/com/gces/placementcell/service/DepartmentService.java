@@ -2,8 +2,15 @@ package com.gces.placementcell.service;
 
 import com.gces.placementcell.dto.request.DepartmentRequest;
 import com.gces.placementcell.dto.request.DepartmentUpdateRequest;
+import com.gces.placementcell.dto.request.CreateFacultyRequest;
+import com.gces.placementcell.dto.response.DepartmentCreateResponse;
 import com.gces.placementcell.dto.response.DepartmentResponse;
+import com.gces.placementcell.dto.response.FacultyCredentialsResponse;
 import com.gces.placementcell.entity.Department;
+import com.gces.placementcell.entity.FacultyProfile;
+import com.gces.placementcell.exception.ConflictException;
+import com.gces.placementcell.repository.FacultyProfileRepository;
+import java.util.stream.Collectors;
 import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.DuplicateResourceException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
@@ -33,6 +40,9 @@ public class DepartmentService {
     private final DepartmentRepository departmentRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final JobEligibleDepartmentRepository jobEligibleDepartmentRepository;
+    private final FacultyProfileRepository facultyProfileRepository;
+    private final FacultyService facultyService;
+    private final AuditService auditService;
 
     @Transactional
     public List<DepartmentResponse> list() {
@@ -41,9 +51,31 @@ public class DepartmentService {
             counts.put(String.valueOf(row[0]), ((Number) row[1]).longValue());
         }
         addRowsForCodesStudentsAlreadyUse(counts.keySet());
-        return departmentRepository.findAllByOrderByCodeAsc().stream()
-                .map(d -> DepartmentResponse.from(d, counts.getOrDefault(d.getCode(), 0L)))
+        List<Department> departments = departmentRepository.findAllByOrderByCodeAsc();
+        Map<Long, List<FacultyProfile>> advisors = facultyProfileRepository
+                .findLiveByDepartmentIds(departments.stream().map(Department::getId).toList()).stream()
+                .collect(Collectors.groupingBy(f -> f.getDepartment().getId()));
+        return departments.stream()
+                .map(d -> DepartmentResponse.from(d, counts.getOrDefault(d.getCode(), 0L),
+                        facultyService.advisorOf(advisors.getOrDefault(d.getId(), List.of()))))
                 .toList();
+    }
+
+    /** Creates the department and, when asked, its faculty advisor account, in one transaction. */
+    @Transactional
+    public DepartmentCreateResponse createWithFaculty(DepartmentRequest request) {
+        DepartmentResponse department = create(request);
+        if (!Boolean.TRUE.equals(request.createFacultyAccount())) {
+            return new DepartmentCreateResponse(department, null, null);
+        }
+        String name = request.facultyName() == null || request.facultyName().isBlank()
+                ? department.code() + " Faculty Advisor" : request.facultyName().trim();
+        FacultyCredentialsResponse created = facultyService.create(new CreateFacultyRequest(
+                name, request.facultyEmail(), null, "Faculty Advisor", department.id(), false));
+        Department saved = find(department.id());
+        return new DepartmentCreateResponse(
+                DepartmentResponse.from(saved, 0, facultyProfileRepository.findById(created.faculty().id()).orElse(null)),
+                created.faculty(), created.temporaryPassword());
     }
 
     @Transactional
@@ -57,6 +89,7 @@ public class DepartmentService {
             throw new DuplicateResourceException("A department named '" + name + "' already exists");
         }
         Department saved = departmentRepository.save(Department.builder().code(code).name(name).build());
+        auditService.record("DEPARTMENT_CREATE", "DEPARTMENT", saved.getId(), "code=" + code + ", name=" + name);
         log.info("Department created: {}", code);
         return DepartmentResponse.from(saved, 0);
     }
@@ -77,20 +110,32 @@ public class DepartmentService {
             department.setIsActive(request.isActive());
         }
         Department saved = departmentRepository.save(department);
+        auditService.record("DEPARTMENT_UPDATE", "DEPARTMENT", saved.getId(),
+                "name=" + saved.getName() + ", active=" + saved.getIsActive());
         log.info("Department updated: {} (active={})", saved.getCode(), saved.getIsActive());
-        return DepartmentResponse.from(saved, studentCount(saved.getCode()));
+        // Deactivating keeps the faculty assignment.
+        return DepartmentResponse.from(saved, studentCount(saved.getCode()),
+                facultyService.advisorOf(facultyProfileRepository.findLiveByDepartmentId(saved.getId())));
     }
 
-    /** Only a department nothing refers to can be deleted; otherwise it can be deactivated instead. */
+    /**
+     * Only a department nothing refers to can be deleted (409 with counts otherwise, so history stays
+     * intact; deactivate it instead). Its faculty advisor is unassigned and disabled.
+     */
     @Transactional
     public void delete(Long id) {
         Department department = find(id);
-        if (studentProfileRepository.existsByDepartmentCodeIgnoreCase(department.getCode())
-                || jobEligibleDepartmentRepository.existsByDepartmentCodeIgnoreCase(department.getCode())) {
-            throw new BadRequestException("Department " + department.getCode()
-                    + " is used by students or job drives and cannot be deleted. Deactivate it instead.");
+        long students = studentProfileRepository.countByDepartmentCodeIgnoreCase(department.getCode());
+        long jobs = jobEligibleDepartmentRepository.countJobsByDepartmentCode(department.getCode());
+        if (students > 0 || jobs > 0) {
+            throw new ConflictException("Department " + department.getCode() + " is used by " + students
+                    + " student(s) and " + jobs + " job drive(s) and cannot be deleted. "
+                    + "Deactivate it instead so their history is preserved.");
         }
+        facultyService.unassignAndDisable(department);
+        facultyProfileRepository.flush();
         departmentRepository.delete(department);
+        auditService.record("DEPARTMENT_DELETE", "DEPARTMENT", department.getId(), "code=" + department.getCode());
         log.info("Department deleted: {}", department.getCode());
     }
 

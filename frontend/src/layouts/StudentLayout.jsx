@@ -11,6 +11,7 @@ import StudentSidebar from '../components/StudentSidebar';
 import { useAuth } from '../context/AuthContext';
 import { toastInfo } from '../utils/toast';
 import useUnreadNotifications from '../hooks/useUnreadNotifications';
+import useVerificationStatus from '../components/student/useVerificationStatus';
 
 const breadcrumbMap = {
   '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
@@ -18,6 +19,7 @@ const breadcrumbMap = {
   '/student/applications': [{ label: 'Student', to: '/student/dashboard' }, { label: 'My Applications' }],
   '/student/profile': [{ label: 'Student', to: '/student/dashboard' }, { label: 'My Profile' }],
   '/student/notifications': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Notifications' }],
+  '/student/verification': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Profile Verification' }],
   '/student/add-project': [
     { label: 'Student', to: '/student/dashboard' },
     { label: 'My Profile', to: '/student/profile' },
@@ -31,6 +33,13 @@ export default function StudentLayout() {
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
   const { count: unreadCount } = useUnreadNotifications();
+  const { status: draftStatus, profileVerificationStatus } = useVerificationStatus();
+  const verificationStatus =
+    draftStatus === 'PENDING'
+      ? 'PENDING'
+      : draftStatus === 'REJECTED' || profileVerificationStatus === 'REJECTED'
+      ? 'REJECTED'
+      : null;
 
   // Compute breadcrumbs
   const getBreadcrumbs = () => {
@@ -56,6 +65,7 @@ export default function StudentLayout() {
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
         unreadCount={unreadCount}
+        verificationStatus={verificationStatus}
       />
 
       {/* Main Content Area */}

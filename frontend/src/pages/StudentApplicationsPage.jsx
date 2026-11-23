@@ -10,15 +10,19 @@ import {
   Calendar,
   MapPin,
   Briefcase,
+  Undo2,
 } from 'lucide-react';
 import studentService from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { ApplicationCardSkeleton } from '../components/Skeleton';
+import { toastError, toastSuccess } from '../utils/toast';
 
 const STATUS_LABELS = {
   APPLIED: 'Applied',
   UNDER_REVIEW: 'Under Review',
   SHORTLISTED: 'Shortlisted',
+  INTERVIEW: 'Interview',
   REJECTED: 'Rejected',
   SELECTED: 'Selected',
   WITHDRAWN: 'Withdrawn',
@@ -28,6 +32,7 @@ const STATUS_CONFIG = {
   APPLIED: { bg: 'bg-blue-100', text: 'text-blue-700', icon: FileText },
   UNDER_REVIEW: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
   SHORTLISTED: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
+  INTERVIEW: { bg: 'bg-purple-100', text: 'text-purple-700', icon: Clock },
   REJECTED: { bg: 'bg-red-100', text: 'text-red-600', icon: XCircle },
   SELECTED: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: CheckCircle },
   WITHDRAWN: { bg: 'bg-gray-100', text: 'text-gray-600', icon: XCircle },
@@ -78,6 +83,22 @@ const getStatusLabel = (status) => {
   return status.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
+/** Applications in these states are final; anything else can still be withdrawn. */
+const NON_WITHDRAWABLE = new Set(['WITHDRAWN', 'REJECTED', 'SELECTED']);
+const canWithdraw = (status) => typeof status === 'string' && !NON_WITHDRAWABLE.has(status);
+
+/** Timeline stages in the order the placement cell added them (displayOrder), then by date. */
+const sortTimeline = (timeline) =>
+  [...(Array.isArray(timeline) ? timeline : [])].sort((a, b) => {
+    const orderA = Number.isFinite(a?.displayOrder) ? a.displayOrder : Number.MAX_SAFE_INTEGER;
+    const orderB = Number.isFinite(b?.displayOrder) ? b.displayOrder : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    const dateA = String(a?.stageDate || a?.createdAt || '');
+    const dateB = String(b?.stageDate || b?.createdAt || '');
+    if (dateA !== dateB) return dateA.localeCompare(dateB);
+    return (Number(a?.id) || 0) - (Number(b?.id) || 0);
+  });
+
 const getTimelineState = (status) => ({
   done: status === 'DONE',
   upcoming: status === 'UPCOMING',
@@ -92,6 +113,8 @@ export default function StudentApplicationsPage() {
   const [activeFilter, setActiveFilter] = useState('All');
   const [expanded, setExpanded] = useState(null);
   const [timelineDetails, setTimelineDetails] = useState({});
+  const [withdrawTarget, setWithdrawTarget] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(false);
   const applicationsRequest = useRef(null);
   const timelineRequests = useRef(new Map());
 
@@ -152,7 +175,7 @@ export default function StudentApplicationsPage() {
       if (!controller.signal.aborted) {
         setTimelineDetails((current) => ({
           ...current,
-          [application.id]: { status: 'success', timeline: detail.timeline },
+          [application.id]: { status: 'success', timeline: sortTimeline(detail.timeline) },
         }));
       }
     } catch {
@@ -168,6 +191,21 @@ export default function StudentApplicationsPage() {
       }
     }
   }, []);
+
+  const confirmWithdraw = async () => {
+    if (!withdrawTarget) return;
+    setWithdrawing(true);
+    try {
+      await studentService.withdrawApplication(withdrawTarget.id);
+      toastSuccess('Application withdrawn.');
+      setWithdrawTarget(null);
+      await loadApplications();
+    } catch (err) {
+      toastError(err, 'Could not withdraw this application. Please try again.');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -380,6 +418,17 @@ export default function StudentApplicationsPage() {
                     </div>
                   </div>
 
+                  <div className="flex items-center gap-3 shrink-0">
+                  {canWithdraw(application.status) && (
+                    <button
+                      type="button"
+                      onClick={() => setWithdrawTarget({ id: application.id, companyName, role })}
+                      className="flex items-center gap-1 text-red-600 text-sm hover:underline"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      Withdraw
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -400,6 +449,7 @@ export default function StudentApplicationsPage() {
                       className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                     />
                   </button>
+                  </div>
                 </div>
 
                 {isExpanded && (
@@ -489,6 +539,24 @@ export default function StudentApplicationsPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(withdrawTarget)}
+        title="Withdraw application?"
+        message={
+          withdrawTarget ? (
+            <>
+              You are withdrawing your application for <strong>{withdrawTarget.role}</strong> at{' '}
+              <strong>{withdrawTarget.companyName}</strong>. This cannot be undone and you will not be
+              considered for this drive any further.
+            </>
+          ) : null
+        }
+        confirmLabel="Withdraw"
+        busy={withdrawing}
+        onConfirm={confirmWithdraw}
+        onCancel={() => setWithdrawTarget(null)}
+      />
     </main>
   );
 }

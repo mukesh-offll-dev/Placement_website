@@ -1,5 +1,7 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.security.VerifiedProfileWrite;
+
 import com.gces.placementcell.dto.request.StudentProjectRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.StudentProjectResponse;
@@ -32,6 +34,7 @@ public class StudentProjectController {
      * POST /api/student/projects
      * Creates a new project for the authenticated student.
      */
+    @VerifiedProfileWrite
     @PostMapping
     public ResponseEntity<ApiResponse<StudentProjectResponse>> createProject(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -68,6 +71,7 @@ public class StudentProjectController {
      * PUT /api/student/projects/{projectId}
      * Updates an existing project belonging to the authenticated student.
      */
+    @VerifiedProfileWrite
     @PutMapping("/{projectId}")
     public ResponseEntity<ApiResponse<StudentProjectResponse>> updateProject(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -81,6 +85,7 @@ public class StudentProjectController {
      * DELETE /api/student/projects/{projectId}
      * Deletes a project belonging to the authenticated student.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/{projectId}")
     public ResponseEntity<ApiResponse<Void>> deleteProject(
             @AuthenticationPrincipal UserDetails userDetails,

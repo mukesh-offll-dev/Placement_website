@@ -8,5 +8,7 @@ public enum NotificationType {
     INTERVIEW,
     DEADLINE,
     ANNOUNCEMENT,
-    SYSTEM
+    SYSTEM,
+    /** Profile verification requests and decisions. */
+    VERIFICATION
 }

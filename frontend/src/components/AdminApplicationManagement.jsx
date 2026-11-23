@@ -26,7 +26,45 @@ import {
   HelpCircle,
   Send,
 } from 'lucide-react';
-import { getApplications, updateApplicationStatus, getApplicationById } from '../services/api/adminService';
+import {
+  getAllApplications,
+  updateApplicationStatus,
+  getApplicationById,
+  addTimeline,
+} from '../services/api/adminService';
+
+const TIMELINE_STATUSES = [
+  { value: 'DONE', label: 'Done' },
+  { value: 'UPCOMING', label: 'Upcoming' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'FAILED', label: 'Failed / Not cleared' },
+  { value: 'SKIPPED', label: 'Skipped' },
+];
+
+const TIMELINE_DOT = {
+  DONE: 'bg-emerald-500 ring-emerald-50',
+  UPCOMING: 'bg-blue-600 ring-blue-50',
+  PENDING: 'bg-amber-400 ring-amber-50',
+  FAILED: 'bg-rose-500 ring-rose-50',
+  SKIPPED: 'bg-gray-300 ring-gray-50',
+};
+
+const TIMELINE_STATUS_LABEL = Object.fromEntries(TIMELINE_STATUSES.map((s) => [s.value, s.label]));
+
+const EMPTY_TIMELINE_FORM = { stageLabel: '', stageDate: '', status: 'UPCOMING', remarks: '' };
+
+/** Timeline stages in the order they were added (displayOrder), then by date. */
+function sortTimeline(timeline) {
+  return [...(Array.isArray(timeline) ? timeline : [])].sort((a, b) => {
+    const orderA = Number.isFinite(a?.displayOrder) ? a.displayOrder : Number.MAX_SAFE_INTEGER;
+    const orderB = Number.isFinite(b?.displayOrder) ? b.displayOrder : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    const dateA = String(a?.stageDate || a?.createdAt || '');
+    const dateB = String(b?.stageDate || b?.createdAt || '');
+    if (dateA !== dateB) return dateA.localeCompare(dateB);
+    return (Number(a?.id) || 0) - (Number(b?.id) || 0);
+  });
+}
 
 // Standard stage definitions required by placement workflow
 const STAGES = [
@@ -155,20 +193,20 @@ export default function AdminApplicationManagement({
     data: null,
   });
 
+  // "Add stage / note" form inside the detail modal
+  const [timelineForm, setTimelineForm] = useState(EMPTY_TIMELINE_FORM);
+  const [timelineError, setTimelineError] = useState('');
+  const [timelineSaving, setTimelineSaving] = useState(false);
+
   // Fetch real applications from Spring Boot backend
   const fetchApplications = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await getApplications({ size: 100 });
-      // response is ApiResponse from backend: { success: true, data: Page<JobApplicationResponse> }
-      // axiosClient unwraps response.data, so response is { success, data: { content, ... } }
-      const content =
-        response?.data?.content ||
-        response?.content ||
-        (Array.isArray(response?.data) ? response.data : []) ||
-        (Array.isArray(response) ? response : []);
-      setApplications(content);
+      // Every page, not just the first 100: search and the stage counters run on the client,
+      // so they must see the whole set.
+      const content = await getAllApplications();
+      setApplications(Array.isArray(content) ? content : []);
     } catch (err) {
       console.error('Failed to fetch job applications:', err);
       setError(
@@ -210,12 +248,20 @@ export default function AdminApplicationManagement({
       fetchApplications();
     } catch (err) {
       console.error('Failed to update application status:', err);
+      // 400: the server refused the transition; 409: someone else changed this application
+      // meanwhile. Show the server's message and reload so the dropdown shows the real status.
+      const conflict = err?.status === 409;
       setFeedback({
         type: 'error',
         message:
-          err.message ||
+          (conflict
+            ? `${err.message || 'This application was changed by someone else.'} The list has been refreshed.`
+            : err.message) ||
           'Failed to update application status. Please check authorization or server logs.',
       });
+      if (err?.status === 400 || conflict) {
+        fetchApplications();
+      }
     } finally {
       setUpdatingId(null);
     }
@@ -252,6 +298,8 @@ export default function AdminApplicationManagement({
 
   // View detail modal
   const handleOpenDetailModal = async (application) => {
+    setTimelineForm(EMPTY_TIMELINE_FORM);
+    setTimelineError('');
     setDetailModal({ isOpen: true, loading: true, data: application });
     try {
       const fullDetails = await getApplicationById(application.id);
@@ -259,6 +307,55 @@ export default function AdminApplicationManagement({
     } catch (err) {
       console.warn('Could not fetch expanded application details, using cached row:', err);
       setDetailModal({ isOpen: true, loading: false, data: application });
+    }
+  };
+
+  const closeDetailModal = () => {
+    if (timelineSaving) return;
+    setDetailModal({ isOpen: false, loading: false, data: null });
+  };
+
+  const handleAddTimeline = async (e) => {
+    e.preventDefault();
+    const applicationId = detailModal.data?.id;
+    if (!applicationId) return;
+
+    const stageLabel = timelineForm.stageLabel.trim();
+    if (!stageLabel) {
+      setTimelineError('Enter a stage name or note title.');
+      return;
+    }
+    if (stageLabel.length > 80) {
+      setTimelineError('Stage name cannot exceed 80 characters.');
+      return;
+    }
+    if (timelineForm.remarks.length > 255) {
+      setTimelineError('Remarks cannot exceed 255 characters.');
+      return;
+    }
+
+    setTimelineSaving(true);
+    setTimelineError('');
+    try {
+      await addTimeline(applicationId, {
+        stageLabel,
+        stageDate: timelineForm.stageDate || null,
+        status: timelineForm.status,
+        remarks: timelineForm.remarks.trim() || null,
+      });
+      const fresh = await getApplicationById(applicationId);
+      setDetailModal((prev) =>
+        prev.data?.id === applicationId ? { ...prev, data: fresh?.data || fresh || prev.data } : prev
+      );
+      setTimelineForm(EMPTY_TIMELINE_FORM);
+      setFeedback({
+        type: 'success',
+        message: `Timeline entry "${stageLabel}" added to application #${applicationId}.`,
+      });
+    } catch (err) {
+      setTimelineError(err?.message || 'Could not add the timeline entry. Please try again.');
+    } finally {
+      setTimelineSaving(false);
     }
   };
 
@@ -709,15 +806,20 @@ export default function AdminApplicationManagement({
                             <select
                               value={app.status || 'APPLIED'}
                               onChange={(e) => handleInitiateStatusChange(app, e.target.value)}
-                              disabled={isUpdating}
+                              disabled={isUpdating || app.status === 'WITHDRAWN'}
+                              title={app.status === 'WITHDRAWN' ? 'The student withdrew this application' : undefined}
                               aria-label={`Change status for ${studentName}`}
                               className="text-xs font-semibold bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
                             >
                               <option value="APPLIED">Applied</option>
+                              <option value="UNDER_REVIEW">Under Review</option>
                               <option value="SHORTLISTED">Shortlisted</option>
                               <option value="INTERVIEW">Interview</option>
                               <option value="SELECTED">Selected</option>
                               <option value="REJECTED">Rejected</option>
+                              {app.status === 'WITHDRAWN' && (
+                                <option value="WITHDRAWN" disabled>Withdrawn</option>
+                              )}
                             </select>
                             {isUpdating && (
                               <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -895,7 +997,7 @@ export default function AdminApplicationManagement({
                 </div>
               </div>
               <button
-                onClick={() => setDetailModal({ isOpen: false, loading: false, data: null })}
+                onClick={closeDetailModal}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
               >
                 <X className="w-4 h-4" />
@@ -971,15 +1073,26 @@ export default function AdminApplicationManagement({
                   <Clock className="w-3.5 h-3.5 text-blue-600" />
                   Application Stage Timeline
                 </h4>
-                {detailModal.data.timeline && detailModal.data.timeline.length > 0 ? (
+                {detailModal.loading ? (
+                  <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-xl text-center flex items-center justify-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading timeline...
+                  </p>
+                ) : detailModal.data.timeline && detailModal.data.timeline.length > 0 ? (
                   <div className="space-y-3 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
-                    {detailModal.data.timeline.map((stage, idx) => (
+                    {sortTimeline(detailModal.data.timeline).map((stage, idx) => (
                       <div key={stage.id || idx} className="relative pl-8 flex items-start gap-2">
-                        <div className="absolute left-2 top-1 w-3.5 h-3.5 -translate-x-1/2 rounded-full bg-blue-600 ring-4 ring-blue-50" />
+                        <div
+                          className={`absolute left-2 top-1 w-3.5 h-3.5 -translate-x-1/2 rounded-full ring-4 ${
+                            TIMELINE_DOT[stage.status] || TIMELINE_DOT.UPCOMING
+                          }`}
+                        />
                         <div className="flex-1 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="font-bold text-xs text-gray-900">{stage.stageLabel}</span>
-                            <span className="text-[11px] text-gray-400">{formatDate(stage.stageDate)}</span>
+                            <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                              {TIMELINE_STATUS_LABEL[stage.status] ? `${TIMELINE_STATUS_LABEL[stage.status]} · ` : ''}
+                              {formatDate(stage.stageDate)}
+                            </span>
                           </div>
                           {stage.remarks && (
                             <p className="text-[11px] text-gray-600 mt-1">{stage.remarks}</p>
@@ -994,6 +1107,88 @@ export default function AdminApplicationManagement({
                   </p>
                 )}
               </div>
+
+              {/* Add stage / note */}
+              <form onSubmit={handleAddTimeline} className="border border-gray-200 rounded-xl p-4 space-y-3">
+                <h4 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                  Add Stage / Note
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="timeline-stage-label" className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Stage / note <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="timeline-stage-label"
+                      type="text"
+                      value={timelineForm.stageLabel}
+                      onChange={(e) => setTimelineForm((prev) => ({ ...prev, stageLabel: e.target.value }))}
+                      maxLength={80}
+                      placeholder="e.g. Technical Interview Round 1"
+                      className="w-full text-xs p-2.5 bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="timeline-stage-date" className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Date
+                    </label>
+                    <input
+                      id="timeline-stage-date"
+                      type="date"
+                      value={timelineForm.stageDate}
+                      onChange={(e) => setTimelineForm((prev) => ({ ...prev, stageDate: e.target.value }))}
+                      className="w-full text-xs p-2.5 bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="timeline-stage-status" className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Status
+                    </label>
+                    <select
+                      id="timeline-stage-status"
+                      value={timelineForm.status}
+                      onChange={(e) => setTimelineForm((prev) => ({ ...prev, status: e.target.value }))}
+                      className="w-full text-xs p-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    >
+                      {TIMELINE_STATUSES.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="timeline-remarks" className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Remarks
+                    </label>
+                    <textarea
+                      id="timeline-remarks"
+                      rows={2}
+                      maxLength={255}
+                      value={timelineForm.remarks}
+                      onChange={(e) => setTimelineForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                      placeholder="Visible to the student on their application timeline."
+                      className="w-full text-xs p-2.5 bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                {timelineError && (
+                  <p className="text-xs text-rose-600 flex items-center gap-1.5" role="alert">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {timelineError}
+                  </p>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={timelineSaving || detailModal.loading}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs disabled:opacity-60"
+                  >
+                    {timelineSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    Add to Timeline
+                  </button>
+                </div>
+              </form>
             </div>
 
             {/* Footer */}
@@ -1002,7 +1197,7 @@ export default function AdminApplicationManagement({
                 Placement Cell Application Record
               </span>
               <button
-                onClick={() => setDetailModal({ isOpen: false, loading: false, data: null })}
+                onClick={closeDetailModal}
                 className="px-4 py-2 text-xs font-bold bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl"
               >
                 Close

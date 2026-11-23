@@ -58,18 +58,29 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     @EntityGraph(attributePaths = {"company", "postedBy"})
     Page<Job> findByCompanyId(Long companyId, Pageable pageable);
 
-    /** Jobs a student can still apply to: active, not deleted, deadline not passed. */
+    /**
+     * Jobs a student can still apply to: an open status (ACTIVE or CLOSING_SOON, see
+     * {@link JobStatus#OPEN_STATUSES}), not deleted, deadline not passed.
+     */
     @EntityGraph(attributePaths = {"company"})
     @Query("""
             SELECT j FROM Job j
             WHERE j.isDeleted = false
               AND j.isActive = true
-              AND j.status = :status
+              AND j.status IN :statuses
               AND j.applicationDeadline >= :today
             """)
-    Page<Job> findOpenJobs(@Param("status") JobStatus status,
+    Page<Job> findOpenJobs(@Param("statuses") java.util.Collection<JobStatus> statuses,
                            @Param("today") LocalDate today,
                            Pageable pageable);
+
+    long countByStatusInAndIsDeletedFalse(java.util.Collection<JobStatus> statuses);
+
+    long countByStatusInAndIsDeletedFalseAndCreatedAtAfter(java.util.Collection<JobStatus> statuses,
+                                                            java.time.LocalDateTime since);
+
+    @EntityGraph(attributePaths = {"company"})
+    List<Job> findTop5ByStatusInAndIsDeletedFalseOrderByCreatedAtDesc(java.util.Collection<JobStatus> statuses);
 
     /**
      * Job detail with company, poster and skills. Only one collection is fetched:

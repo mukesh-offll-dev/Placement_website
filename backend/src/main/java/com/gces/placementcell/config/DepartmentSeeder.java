@@ -18,6 +18,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@org.springframework.core.annotation.Order(50)
 @RequiredArgsConstructor
 public class DepartmentSeeder implements ApplicationRunner {
 

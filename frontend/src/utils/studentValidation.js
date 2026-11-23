@@ -162,6 +162,28 @@ export const validateSetupForm = (form, registerNumber = '') => {
   return errors;
 };
 
+/**
+ * Change-password form for a signed-in student: { currentPassword, newPassword, confirmPassword }.
+ * Same password rules as first-login setup, plus the new password must differ from the current one.
+ */
+export const validateChangePasswordForm = (form, registerNumber = '') => {
+  const errors = {};
+  if (!form.currentPassword) errors.currentPassword = 'Current password is required';
+
+  if (!form.newPassword) errors.newPassword = 'New password is required';
+  else if (passwordChecks(form.newPassword, registerNumber).some((c) => !c.ok)) {
+    errors.newPassword = 'The password does not meet all the rules below';
+  } else if (new TextEncoder().encode(form.newPassword).length > 72) {
+    errors.newPassword = 'Password cannot be longer than 72 bytes';
+  } else if (form.currentPassword && form.newPassword === form.currentPassword) {
+    errors.newPassword = 'Choose a password different from your current one';
+  }
+
+  if (!form.confirmPassword) errors.confirmPassword = 'Confirm your new password';
+  else if (form.confirmPassword !== form.newPassword) errors.confirmPassword = 'Passwords do not match';
+  return errors;
+};
+
 const decimalError = (value, label, min, max, maxDecimals = 2) => {
   if (value === '' || value == null) return '';
   const text = String(value).trim();

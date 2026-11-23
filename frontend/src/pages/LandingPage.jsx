@@ -10,12 +10,6 @@ import {
   Target,
 } from 'lucide-react';
 
-const stats = [
-  { label: 'Impression Rate', value: '98.4', unit: '%' },
-  { label: 'Top Package', value: '85', unit: 'LPA' },
-  { label: 'Students Placed', value: '500', unit: '+' },
-];
-
 const services = [
   {
     icon: FileText,
@@ -63,19 +57,6 @@ export default function LandingPage() {
         >
           College Login
         </Link>
-
-        {/* Stats */}
-        <div className="flex flex-wrap justify-center gap-12 mt-20">
-          {stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <p className="text-gray-400 text-sm mb-1">{s.label}</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {s.value}{' '}
-                <span className="text-blue-700">{s.unit}</span>
-              </p>
-            </div>
-          ))}
-        </div>
       </main>
 
       {/* Vision & Mission */}

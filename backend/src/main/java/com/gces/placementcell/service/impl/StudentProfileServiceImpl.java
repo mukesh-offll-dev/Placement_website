@@ -82,30 +82,22 @@ public class StudentProfileServiceImpl implements StudentProfileService {
             throw new DuplicateResourceException("Profile already exists for this student. Use PUT /api/student/profile to update.");
         }
 
-        String rollNo = (request.rollNo() != null && !request.rollNo().isBlank()) ? request.rollNo().trim() : null;
-        if (rollNo != null && studentProfileRepository.existsByRollNo(rollNo)) {
-            throw new DuplicateResourceException("Roll number already registered: " + rollNo);
-        }
-
+        // Eligibility fields (register number, degree, department, batch, CGPA, backlogs)
+        // are set by the placement cell, never by the student, so they are not read here.
         StudentProfile profile = StudentProfile.builder()
                 .user(user)
-                .rollNo(rollNo)
                 .fullName(request.fullName())
                 .email(user.getEmail())
                 .phone(request.phone())
                 .address(request.address())
                 .about(request.about())
                 .avatarUrl(request.avatarUrl())
-                .resumeUrl(request.resumeUrl())
+                // resumeUrl is not read from the request: it is set only by the resume upload
+                // endpoint, so a student cannot point it at another student's file.
                 .college(request.college())
-                .degree(request.degree())
-                .department(request.department())
-                .departmentCode(request.departmentCode())
-                .batch(request.batch())
                 .semester(request.semester() != null ? request.semester().intValue() : null)
-                .cgpa(request.cgpa())
-                .totalBacklogs(request.totalBacklogs() != null ? request.totalBacklogs() : 0)
-                .activeBacklogs(request.activeBacklogs() != null ? request.activeBacklogs() : 0)
+                .totalBacklogs(0)
+                .activeBacklogs(0)
                 .isOpenToOpportunities(request.isOpenToOpportunities() != null ? request.isOpenToOpportunities() : true)
                 .placementStatus(PlacementStatus.PENDING)
                 .build();
@@ -137,31 +129,17 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         StudentProfile profile = studentProfileRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Student profile not found for user: " + email));
 
-        if (request.rollNo() != null && !request.rollNo().isBlank()) {
-            String newRollNo = request.rollNo().trim();
-            if (profile.getRollNo() == null || !profile.getRollNo().equalsIgnoreCase(newRollNo)) {
-                if (studentProfileRepository.existsByRollNo(newRollNo)) {
-                    throw new DuplicateResourceException("Roll number already registered: " + newRollNo);
-                }
-                profile.setRollNo(newRollNo);
-            }
-        }
-
+        // Register number, degree, department, batch, CGPA and backlogs decide job
+        // eligibility, so only the placement cell may change them (AdminStudentService).
+        // Values for them in a student's request are ignored.
         profile.setFullName(request.fullName());
         if (request.phone() != null) profile.setPhone(request.phone());
         if (request.address() != null) profile.setAddress(request.address());
         if (request.about() != null) profile.setAbout(request.about());
         if (request.avatarUrl() != null) profile.setAvatarUrl(request.avatarUrl());
-        if (request.resumeUrl() != null) profile.setResumeUrl(request.resumeUrl());
+        // resumeUrl is managed only by /students/{id}/resume (upload/delete); request.resumeUrl() is ignored.
         if (request.college() != null) profile.setCollege(request.college());
-        if (request.degree() != null) profile.setDegree(request.degree());
-        if (request.department() != null) profile.setDepartment(request.department());
-        if (request.departmentCode() != null) profile.setDepartmentCode(request.departmentCode());
-        if (request.batch() != null) profile.setBatch(request.batch());
         if (request.semester() != null) profile.setSemester(request.semester());
-        if (request.cgpa() != null) profile.setCgpa(request.cgpa());
-        if (request.totalBacklogs() != null) profile.setTotalBacklogs(request.totalBacklogs());
-        if (request.activeBacklogs() != null) profile.setActiveBacklogs(request.activeBacklogs());
         if (request.isOpenToOpportunities() != null) profile.setIsOpenToOpportunities(request.isOpenToOpportunities());
 
         if (request.education() != null) {
@@ -587,7 +565,50 @@ public class StudentProfileServiceImpl implements StudentProfileService {
         var projects = studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(profile.getId())
                 .stream().map(StudentProjectResponse::from).toList();
 
-        return StudentProfileResponse.withDetails(profile, skills, education, experience, projects);
+        List<com.gces.placementcell.dto.profile.ProfileData.CertificationItem> certifications = certificationRepository == null
+                ? List.of() : certificationRepository.findByStudentProfileIdOrderByIdAsc(profile.getId()).stream()
+                    .map(c -> new com.gces.placementcell.dto.profile.ProfileData.CertificationItem(c.getId(), c.getName(),
+                            c.getIssuer(), c.getIssueDate(), c.getExpiryDate(), c.getCredentialId(), c.getCredentialUrl(),
+                            c.getFileUrl()))
+                    .toList();
+        List<com.gces.placementcell.dto.profile.ProfileData.AchievementItem> achievements = achievementRepository == null
+                ? List.of() : achievementRepository.findByStudentProfileIdOrderByIdAsc(profile.getId()).stream()
+                    .map(a -> new com.gces.placementcell.dto.profile.ProfileData.AchievementItem(a.getId(), a.getTitle(),
+                            a.getDescription(), a.getAchievedOn(), a.getFileUrl()))
+                    .toList();
+        List<com.gces.placementcell.dto.profile.ProfileData.DocumentItem> documents = documentRepository == null
+                ? List.of() : documentRepository.findByStudentId(profile.getId()).stream()
+                    .filter(d -> d.getDocumentType() != com.gces.placementcell.entity.enums.DocumentType.RESUME)
+                    .map(d -> new com.gces.placementcell.dto.profile.ProfileData.DocumentItem(d.getId(), d.getDocumentName(),
+                            d.getDocumentType().name(), d.getFileUrl(), d.getFileSize()))
+                    .toList();
+
+        return StudentProfileResponse.withDetails(profile, skills, education, experience, projects,
+                certifications, achievements, documents);
+    }
+
+    @Override
+    @Transactional
+    public StudentProfileResponse updateOpenToOpportunities(String email, boolean open) {
+        StudentProfile profile = findProfileByEmail(email);
+        profile.setIsOpenToOpportunities(open);
+        profile = studentProfileRepository.save(profile);
+        log.info("Student {} set open-to-opportunities={}", profile.getId(), open);
+        return buildFullProfileResponse(profile);
+    }
+
+    // Official verified sections; optional so the unit tests can build the service without them.
+    private StudentCertificationRepository certificationRepository;
+    private StudentAchievementRepository achievementRepository;
+    private StudentDocumentRepository documentRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setVerifiedSectionRepositories(StudentCertificationRepository certificationRepository,
+                                        StudentAchievementRepository achievementRepository,
+                                        StudentDocumentRepository documentRepository) {
+        this.certificationRepository = certificationRepository;
+        this.achievementRepository = achievementRepository;
+        this.documentRepository = documentRepository;
     }
 
     private short calculateCompletionPercentage(StudentProfile p) {

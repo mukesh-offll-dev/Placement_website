@@ -16,4 +16,7 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
 
     UserResponse getCurrentUser(String email);
+
+    /** Replaces the signed-in user's password and clears the forced-change flag; returns a fresh token. */
+    AuthResponse changePassword(String email, com.gces.placementcell.dto.request.ChangePasswordRequest request);
 }

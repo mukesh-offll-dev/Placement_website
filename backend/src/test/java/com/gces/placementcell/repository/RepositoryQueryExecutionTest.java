@@ -46,7 +46,7 @@ class RepositoryQueryExecutionTest {
         assertNotNull(jobRepository.findByIsDeletedFalse(page));
         assertNotNull(jobRepository.findByStatusAndIsDeletedFalse(JobStatus.ACTIVE, page));
         assertNotNull(jobRepository.findByCompanyId(ABSENT_ID, page));
-        assertNotNull(jobRepository.findOpenJobs(JobStatus.ACTIVE, LocalDate.now(), page));
+        assertNotNull(jobRepository.findOpenJobs(JobStatus.OPEN_STATUSES, LocalDate.now(), page));
 
         // would throw MultipleBagFetchException if the graph joined two bags
         assertDoesNotThrow(() -> jobRepository.findWithDetailsById(ABSENT_ID));

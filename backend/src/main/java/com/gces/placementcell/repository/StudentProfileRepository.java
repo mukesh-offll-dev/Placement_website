@@ -50,13 +50,13 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
 
     long countByIsOpenToOpportunitiesTrue();
 
-    @Query("SELECT s FROM StudentProfile s WHERE " +
+    @Query("SELECT s FROM StudentProfile s LEFT JOIN s.user u WHERE (u IS NULL OR u.isDeleted = false) AND (" +
            "LOWER(s.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(s.rollNo) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(s.email) LIKE LOWER(CONCAT('%', :query, '%'))")
+           "LOWER(s.email) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<StudentProfile> searchStudents(@Param("query") String query);
 
-    @Query("SELECT s FROM StudentProfile s WHERE " +
+    @Query("SELECT s FROM StudentProfile s LEFT JOIN s.user u WHERE (u IS NULL OR u.isDeleted = false) AND " +
            "(:departmentCode IS NULL OR s.departmentCode = :departmentCode) AND " +
            "(:placementStatus IS NULL OR s.placementStatus = :placementStatus) AND " +
            "(:minCgpa IS NULL OR s.cgpa >= :minCgpa)")
@@ -68,13 +68,13 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
 
     // -- Paged variants for the student directory, which grows with every intake.
 
-    @Query("SELECT s FROM StudentProfile s WHERE " +
+    @Query("SELECT s FROM StudentProfile s LEFT JOIN s.user u WHERE (u IS NULL OR u.isDeleted = false) AND (" +
            "LOWER(s.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(s.rollNo) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(s.email) LIKE LOWER(CONCAT('%', :query, '%'))")
+           "LOWER(s.email) LIKE LOWER(CONCAT('%', :query, '%')))")
     Page<StudentProfile> searchStudents(@Param("query") String query, Pageable pageable);
 
-    @Query("SELECT s FROM StudentProfile s WHERE " +
+    @Query("SELECT s FROM StudentProfile s LEFT JOIN s.user u WHERE (u IS NULL OR u.isDeleted = false) AND " +
            "(:departmentCode IS NULL OR s.departmentCode = :departmentCode) AND " +
            "(:placementStatus IS NULL OR s.placementStatus = :placementStatus) AND " +
            "(:minCgpa IS NULL OR s.cgpa >= :minCgpa)")
@@ -102,6 +102,7 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
      * (CGPA, backlogs, batch, department) are applied afterwards by JobEligibility.
      */
     @Query("SELECT s FROM StudentProfile s JOIN s.user u WHERE u.isDeleted = false AND u.isActive = true " +
+           "AND s.lifecycleStatus = com.gces.placementcell.entity.enums.LifecycleStatus.ACTIVE " +
            "AND s.email IS NOT NULL AND s.isOpenToOpportunities = true AND s.placementStatus IN :statuses")
     List<StudentProfile> findNotifiableStudents(@Param("statuses") Collection<PlacementStatus> statuses);
 
@@ -118,6 +119,18 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
     /** Whether any student, deleted ones included, carries this department code. */
     boolean existsByDepartmentCodeIgnoreCase(String departmentCode);
 
+    /** Every student (any lifecycle, deleted ones included) carrying this department code. */
+    long countByDepartmentCodeIgnoreCase(String departmentCode);
+
+    /** [lifecycleStatus, profileVerificationStatus, count] for the live students of one department. */
+    @Query("SELECT s.lifecycleStatus, s.profileVerificationStatus, COUNT(s) FROM StudentProfile s JOIN s.user u " +
+           "WHERE u.isDeleted = false AND UPPER(s.departmentCode) = UPPER(:code) " +
+           "GROUP BY s.lifecycleStatus, s.profileVerificationStatus")
+    List<Object[]> countByLifecycleAndVerificationForDepartment(@Param("code") String departmentCode);
+
+    /** Whether a student of the department has this file as their official resume. */
+    boolean existsByDepartmentCodeIgnoreCaseAndResumeUrlEndingWith(String departmentCode, String suffix);
+
     /** Which of these register numbers already exist, deleted students included (they stay reserved). */
     @Query("SELECT s.rollNo FROM StudentProfile s WHERE s.rollNo IN :rollNos")
     List<String> findExistingRollNos(@Param("rollNos") Collection<String> rollNos);
@@ -128,20 +141,25 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
      * is no address to send to until they complete setup.
      */
     @Query("SELECT s FROM StudentProfile s JOIN FETCH s.user u WHERE u.isDeleted = false AND u.isActive = true " +
+           "AND s.lifecycleStatus = com.gces.placementcell.entity.enums.LifecycleStatus.ACTIVE " +
            "AND s.profileSetupCompleted = true AND s.profileCompletionPercent < 100 " +
            "AND LOWER(s.email) NOT LIKE '%@pending.gces.local' " +
            "AND (s.profileReminderSentAt IS NULL OR s.profileReminderSentAt < :cutoff)")
     List<StudentProfile> findNeedingProfileReminder(@Param("cutoff") java.time.LocalDateTime cutoff);
 
-    @Query("SELECT COUNT(s) FROM StudentProfile s WHERE (s.user.isDeleted = false OR s.user IS NULL)")
+    @Query("SELECT COUNT(s) FROM StudentProfile s LEFT JOIN s.user u WHERE (u IS NULL OR u.isDeleted = false)")
     long countActiveStudents();
 
-    @Query("SELECT COUNT(s) FROM StudentProfile s WHERE (s.user.isDeleted = false OR s.user IS NULL) AND s.placementStatus = com.gces.placementcell.entity.enums.PlacementStatus.PLACED")
+    @Query("SELECT COUNT(s) FROM StudentProfile s LEFT JOIN s.user u WHERE (u IS NULL OR u.isDeleted = false) AND s.placementStatus = com.gces.placementcell.entity.enums.PlacementStatus.PLACED")
     long countPlacedStudents();
 
-    @Query("SELECT s.department, COUNT(s) FROM StudentProfile s WHERE (s.user.isDeleted = false OR s.user IS NULL) AND s.department IS NOT NULL GROUP BY s.department")
+    /** [departmentCode (uppercase), count] for live students; grouped by code, not the free-text name. */
+    @Query("SELECT UPPER(s.departmentCode), COUNT(s) FROM StudentProfile s LEFT JOIN s.user u " +
+           "WHERE (u IS NULL OR u.isDeleted = false) AND s.departmentCode IS NOT NULL GROUP BY UPPER(s.departmentCode)")
     List<Object[]> countStudentsGroupedByDepartment();
 
-    @Query("SELECT s.department, COUNT(s) FROM StudentProfile s WHERE (s.user.isDeleted = false OR s.user IS NULL) AND s.placementStatus = com.gces.placementcell.entity.enums.PlacementStatus.PLACED AND s.department IS NOT NULL GROUP BY s.department")
+    @Query("SELECT UPPER(s.departmentCode), COUNT(s) FROM StudentProfile s LEFT JOIN s.user u " +
+           "WHERE (u IS NULL OR u.isDeleted = false) AND s.placementStatus = com.gces.placementcell.entity.enums.PlacementStatus.PLACED " +
+           "AND s.departmentCode IS NOT NULL GROUP BY UPPER(s.departmentCode)")
     List<Object[]> countPlacedStudentsGroupedByDepartment();
 }

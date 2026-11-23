@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Briefcase, Loader2, Plus, X, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Briefcase, Loader2, Plus, X, AlertCircle, Check } from 'lucide-react';
 
 import jobService from '../services/api/jobService';
-import { toastSuccess, toastError } from '../utils/toast';
+import useDepartments from '../hooks/useDepartments';
+import { toastSuccess, toastError, toastInfo } from '../utils/toast';
 import {
+  DEGREE_SUGGESTIONS,
+  MAX_DEGREE_LENGTH,
   EMPLOYMENT_TYPES,
   JOB_STATUSES,
   buildJobPayload,
@@ -109,6 +112,31 @@ function TagInput({ id, label, placeholder, maxLength, values, error, onChange }
   );
 }
 
+/** Toggle chip used by the department and degree pickers. */
+function ChoiceChip({ label, title, selected, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={selected}
+      title={title}
+      className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors ${
+        selected
+          ? 'bg-blue-600 border-blue-600 text-white'
+          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+      }`}
+    >
+      {selected && <Check className="w-3 h-3" />}
+      {label}
+    </button>
+  );
+}
+
+const normalizeName = (name) => String(name ?? '').trim().toLowerCase();
+
+const sortCompanies = (list) =>
+  [...list].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
 /**
  * Create or edit a job drive.
  *
@@ -129,21 +157,47 @@ export default function AdminJobDriveForm() {
   const [addingCompany, setAddingCompany] = useState(false);
   const [newCompany, setNewCompany] = useState('');
   const [savingCompany, setSavingCompany] = useState(false);
+  const [degreeDraft, setDegreeDraft] = useState('');
+  const { active: activeDepartments, loading: departmentsLoading, error: departmentsError } = useDepartments();
+
+  const selectCompany = (company) => {
+    setForm((prev) => ({ ...prev, companyId: String(company.id) }));
+    setErrors((prev) => ({ ...prev, companyId: undefined }));
+    setNewCompany('');
+    setAddingCompany(false);
+  };
 
   /** Adds the recruiter and selects it, so the drive can be posted in one pass. */
   const handleAddCompany = async () => {
     const name = newCompany.trim();
     if (!name || savingCompany) return;
 
+    // Already on file (names are unique case-insensitively): just pick it.
+    const existing = companies.find((c) => normalizeName(c.name) === normalizeName(name));
+    if (existing) {
+      selectCompany(existing);
+      toastInfo(`${existing.name} is already on file and has been selected.`);
+      return;
+    }
+
     setSavingCompany(true);
     try {
+      // The backend answers 200 with the existing company when the name is taken
+      // (e.g. someone else added it meanwhile), 201 with a new one otherwise.
       const created = await jobService.createCompany({ name });
-      setCompanies((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm((prev) => ({ ...prev, companyId: String(created.id) }));
-      setErrors((prev) => ({ ...prev, companyId: undefined }));
-      setNewCompany('');
-      setAddingCompany(false);
-      toastSuccess(`${created.name} added.`);
+      if (!created || created.id == null) {
+        throw new Error('The server did not return the company.');
+      }
+      const alreadyListed = companies.some(
+        (c) => String(c.id) === String(created.id) || normalizeName(c.name) === normalizeName(created.name)
+      );
+      setCompanies((prev) =>
+        prev.some((c) => String(c.id) === String(created.id))
+          ? prev
+          : sortCompanies([...prev, created])
+      );
+      selectCompany(created);
+      toastSuccess(alreadyListed ? `${created.name} selected.` : `${created.name} added.`);
     } catch (err) {
       toastError(err.message || 'Could not add the company.');
     } finally {
@@ -193,6 +247,48 @@ export default function AdminJobDriveForm() {
     () => companies.map((c) => ({ value: String(c.id), label: c.name })),
     [companies]
   );
+
+  const toggleListValue = (field, value) => {
+    setForm((prev) => {
+      const current = Array.isArray(prev[field]) ? prev[field] : [];
+      const exists = current.some((v) => normalizeName(v) === normalizeName(value));
+      return {
+        ...prev,
+        [field]: exists
+          ? current.filter((v) => normalizeName(v) !== normalizeName(value))
+          : [...current, value],
+      };
+    });
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  };
+
+  const addDegree = () => {
+    const value = degreeDraft.trim();
+    if (!value) return;
+    if (!form.eligibleDegrees.some((d) => normalizeName(d) === normalizeName(value))) {
+      toggleListValue('eligibleDegrees', value);
+    }
+    setDegreeDraft('');
+  };
+
+  // Department codes already on the drive that are no longer active still show, so editing
+  // an old drive does not silently drop them.
+  const departmentChoices = useMemo(() => {
+    const choices = activeDepartments.map((d) => ({ code: d.code, name: d.name }));
+    form.eligibleDepartments.forEach((code) => {
+      if (!choices.some((c) => normalizeName(c.code) === normalizeName(code))) {
+        choices.push({ code, name: `${code} (inactive)` });
+      }
+    });
+    return choices;
+  }, [activeDepartments, form.eligibleDepartments]);
+
+  const degreeChoices = useMemo(() => {
+    const extra = form.eligibleDegrees.filter(
+      (d) => !DEGREE_SUGGESTIONS.some((s) => normalizeName(s) === normalizeName(d))
+    );
+    return [...DEGREE_SUGGESTIONS, ...extra];
+  }, [form.eligibleDegrees]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -493,6 +589,105 @@ export default function AdminJobDriveForm() {
             Students with active backlogs may apply
           </label>
 
+          <div>
+            <p className="block text-sm font-medium text-gray-700 mb-1" id="eligibleDepartments-label">
+              Eligible departments
+            </p>
+            <div
+              id="eligibleDepartments"
+              tabIndex={-1}
+              role="group"
+              aria-labelledby="eligibleDepartments-label"
+              className="flex flex-wrap gap-2"
+            >
+              {departmentsLoading ? (
+                <span className="text-xs text-gray-400 inline-flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading departments…
+                </span>
+              ) : departmentChoices.length === 0 ? (
+                <span className="text-xs text-gray-400">
+                  {departmentsError || 'No departments set up yet.'}
+                </span>
+              ) : (
+                departmentChoices.map((d) => (
+                  <ChoiceChip
+                    key={d.code}
+                    label={d.code}
+                    title={d.name}
+                    selected={form.eligibleDepartments.some((v) => normalizeName(v) === normalizeName(d.code))}
+                    onToggle={() => toggleListValue('eligibleDepartments', d.code)}
+                  />
+                ))
+              )}
+            </div>
+            {errors.eligibleDepartments ? (
+              <p id="eligibleDepartments-error" role="alert" className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {errors.eligibleDepartments}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                {form.eligibleDepartments.length === 0
+                  ? 'None selected: open to every department.'
+                  : `Only ${form.eligibleDepartments.join(', ')} students can apply.`}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="eligibleDegrees" className="block text-sm font-medium text-gray-700 mb-1">
+              Eligible degrees
+            </label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {degreeChoices.map((degree) => (
+                <ChoiceChip
+                  key={degree}
+                  label={degree}
+                  selected={form.eligibleDegrees.some((v) => normalizeName(v) === normalizeName(degree))}
+                  onToggle={() => toggleListValue('eligibleDegrees', degree)}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                id="eligibleDegrees"
+                type="text"
+                value={degreeDraft}
+                maxLength={MAX_DEGREE_LENGTH}
+                placeholder="Another degree (e.g. B.E, or B.E CSE)"
+                onChange={(e) => setDegreeDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addDegree();
+                  }
+                }}
+                className={controlClasses(Boolean(errors.eligibleDegrees))}
+                aria-invalid={Boolean(errors.eligibleDegrees)}
+                aria-describedby={errors.eligibleDegrees ? 'eligibleDegrees-error' : undefined}
+              />
+              <button
+                type="button"
+                onClick={addDegree}
+                className="px-3 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="sr-only">Add degree</span>
+              </button>
+            </div>
+            {errors.eligibleDegrees ? (
+              <p id="eligibleDegrees-error" role="alert" className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {errors.eligibleDegrees}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                {form.eligibleDegrees.length === 0 ? 'None selected: open to every degree. ' : ''}
+                &quot;B.E&quot; matches every B.E student (e.g. B.E CSE); &quot;B.E CSE&quot; matches only that value. Case and dots are ignored.
+              </p>
+            )}
+          </div>
+
           <TagInput
             id="skills"
             label="Skills"
@@ -555,7 +750,7 @@ export default function AdminJobDriveForm() {
             <span>
               Notify eligible students when this drive goes live (in-app and email)
               <span className="block text-xs text-gray-400 mt-0.5">
-                Sent only while the status is Active, to students who meet the CGPA, backlog and batch criteria above.
+                Sent only while the status is Active, to students who meet the CGPA, backlog, batch, department and degree criteria above.
                 A saved draft is announced once, when you later set it to Active.
               </span>
             </span>

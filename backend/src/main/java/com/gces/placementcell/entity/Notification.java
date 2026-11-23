@@ -106,6 +106,11 @@ public class Notification {
     @Column(name = "status", nullable = false, length = 50)
     private NotificationStatus status = NotificationStatus.DRAFT;
 
+    /** App route the notification opens when clicked (e.g. "/faculty/verifications/12"), or null. */
+    @Size(max = 255, message = "Action URL cannot exceed 255 characters")
+    @Column(name = "action_url", length = 255)
+    private String actionUrl;
+
     @Column(name = "scheduled_at")
     private LocalDateTime scheduledAt;
 

@@ -1,7 +1,6 @@
 package com.gces.placementcell.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gces.placementcell.dto.request.LoginRequestDTO;
 import com.gces.placementcell.entity.AdminProfile;
 import com.gces.placementcell.entity.StudentProfile;
 import com.gces.placementcell.entity.User;
@@ -434,5 +433,14 @@ class RoleBasedAccessControlTest {
         mockMvc.perform(get("/admin/dashboard")
                         .with(httpBasic(STUDENT_EMAIL, RAW_PASSWORD)))
                 .andExpect(status().isForbidden());
+    }
+
+    /** Login JSON body (the old LoginRequestDTO was dead production code). */
+    @lombok.Data
+    static class LoginRequestDTO {
+        private String email;
+        private String registerNumber;
+        private String password;
+        private String expectedRole;
     }
 }

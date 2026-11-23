@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -13,13 +13,23 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Send,
+  Lock,
 } from 'lucide-react';
+import { validateFile, formatFileSize } from '../services/api/fileService';
 import {
-  uploadProjectMediaStandalone,
-  validateFile,
-  formatFileSize,
-} from '../services/fileUploadService';
-import { createProject } from '../services/api/projectService';
+  getDraft,
+  saveDraft,
+  submitDraft,
+  uploadVerificationFile,
+} from '../services/api/studentDraftService';
+import { notifyVerificationChanged } from '../components/student/useVerificationStatus';
+import {
+  MAX_ITEMS,
+  isDraftEditable,
+  normalizeProfileData,
+  toDraftPayload,
+} from '../utils/profileDraft';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toastSuccess, toastError } from '../utils/toast';
 
@@ -78,6 +88,38 @@ export default function AddProjectPage() {
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [mediaUploadStatus, setMediaUploadStatus] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Draft availability: the project is appended to the profile DRAFT, so a pending request
+  // or an archived/disabled account means it cannot be added right now.
+  const [draftState, setDraftState] = useState({ status: 'loading', message: '' });
+  const [addedTitle, setAddedTitle] = useState(null);
+  const [submittingDraft, setSubmittingDraft] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getDraft({ signal: controller.signal })
+      .then((draft) => {
+        if (isDraftEditable(draft)) {
+          setDraftState({ status: 'ready', message: '' });
+        } else if (draft?.status === 'PENDING') {
+          setDraftState({
+            status: 'locked',
+            message: 'Your profile is waiting for verification. Withdraw the request on your profile page before adding projects.',
+          });
+        } else {
+          setDraftState({
+            status: 'locked',
+            message: 'Your profile is read-only right now, so projects cannot be added. Contact the placement cell if this is a mistake.',
+          });
+        }
+      })
+      .catch((err) => {
+        if (err?.code === 'ERR_CANCELED') return;
+        setDraftState({ status: 'error', message: err?.message || 'Could not load your profile draft.' });
+      });
+    return () => controller.abort();
+  }, []);
+
+  const formLocked = draftState.status !== 'ready';
 
   /* ── helpers ── */
   const handleChange = (field) => (e) => {
@@ -121,44 +163,45 @@ export default function AddProjectPage() {
     }
 
     const isPdf = file.name.toLowerCase().endsWith('.pdf');
-    const localUrl = URL.createObjectURL(file);
 
     setUploadingMedia(true);
     setMediaUploadStatus(null);
 
-    // Call backend upload endpoint
-    const res = await uploadProjectMediaStandalone(file);
+    // Stored through the verification files endpoint and referenced from the draft.
+    let uploadedUrl = null;
+    let uploadError = null;
+    try {
+      const res = await uploadVerificationFile(file, 'PROJECTS');
+      uploadedUrl = res.fileUrl;
+    } catch (err) {
+      uploadError = err;
+    }
 
     setUploadingMedia(false);
 
-    if (res.success && res.data) {
-      const uploadedUrl = res.data.fileUrl || res.data.downloadUrl;
-      setForm((f) => ({
-        ...f,
-        mediaPreview: isPdf ? 'pdf' : localUrl,
-        mediaUrl: uploadedUrl,
-        mediaFileName: file.name,
-        mediaFileType: isPdf ? 'pdf' : 'image',
-        mediaFileSize: file.size,
-      }));
-      setMediaUploadStatus({
-        type: 'success',
-        text: `Uploaded "${file.name}" to server successfully!`,
+    if (uploadedUrl) {
+      // The local object URL is only a preview of the picked file; mediaUrl is the server's.
+      const localUrl = isPdf ? null : URL.createObjectURL(file);
+      setForm((f) => {
+        if (f.mediaPreview && f.mediaPreview.startsWith('blob:')) URL.revokeObjectURL(f.mediaPreview);
+        return {
+          ...f,
+          mediaPreview: isPdf ? 'pdf' : localUrl,
+          mediaUrl: uploadedUrl,
+          mediaFileName: file.name,
+          mediaFileType: isPdf ? 'pdf' : 'image',
+          mediaFileSize: file.size,
+        };
       });
+      setMediaUploadStatus({ type: 'success', text: `Uploaded "${file.name}".` });
       toastSuccess(`Media "${file.name}" uploaded successfully!`);
     } else {
-      setForm((f) => ({
-        ...f,
-        mediaPreview: isPdf ? 'pdf' : localUrl,
-        mediaUrl: localUrl,
-        mediaFileName: file.name,
-        mediaFileType: isPdf ? 'pdf' : 'image',
-        mediaFileSize: file.size,
-      }));
-      setMediaUploadStatus({
-        type: 'success',
-        text: `File attached: "${file.name}"`,
-      });
+      // Nothing was stored on the server: keep mediaUrl empty so the project is never
+      // saved pointing at a blob: URL that only exists in this browser tab.
+      const message = uploadError?.message || 'The media file could not be uploaded. Please try again.';
+      setForm((f) => ({ ...f, mediaUrl: null }));
+      setMediaUploadStatus({ type: 'error', text: message });
+      toastError(uploadError || message, 'The media file could not be uploaded. Please try again.');
     }
 
     if (mediaRef.current) {
@@ -167,6 +210,9 @@ export default function AddProjectPage() {
   };
 
   const removeMedia = () => {
+    if (form.mediaPreview && form.mediaPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(form.mediaPreview);
+    }
     setForm((f) => ({
       ...f,
       mediaPreview: null,
@@ -228,21 +274,90 @@ export default function AddProjectPage() {
     };
 
     try {
-      await createProject(projectPayload);
-      toastSuccess(`Project "${form.title.trim()}" added to your profile!`);
-      navigate('/student/profile', {
-        state: {
-          message: `Project "${form.title.trim()}" added to your profile showcase!`,
-        },
-      });
+      // Re-read the draft so edits made elsewhere are never overwritten.
+      const draft = await getDraft();
+      if (!isDraftEditable(draft)) {
+        throw new Error(
+          draft?.status === 'PENDING'
+            ? 'Your profile is waiting for verification. Withdraw the request before adding projects.'
+            : 'Your profile cannot be edited right now.'
+        );
+      }
+      const data = normalizeProfileData(draft?.data);
+      const titleKey = projectPayload.title.toLowerCase();
+      if (data.projects.some((p) => String(p.title || '').trim().toLowerCase() === titleKey)) {
+        setErrors({ title: 'You already have a project with this title.' });
+        setIsSubmitting(false);
+        return;
+      }
+      if (data.projects.length >= MAX_ITEMS) {
+        throw new Error(`You can have at most ${MAX_ITEMS} projects.`);
+      }
+      const saved = await saveDraft(
+        toDraftPayload({ ...data, projects: [...data.projects, { id: null, ...projectPayload }] })
+      );
+      notifyVerificationChanged(saved);
+      toastSuccess(`Project "${projectPayload.title}" added to your profile draft.`);
+      setAddedTitle(projectPayload.title);
+      setIsSubmitting(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setErrors({
-        submit: err.message || 'Failed to create project on backend. Please check details.',
+        submit: err.message || 'Failed to add the project to your draft. Please check the details.',
       });
-      toastError(err, 'Failed to create project. Please check your details and try again.');
+      toastError(err, 'Failed to add the project. Please check your details and try again.');
       setIsSubmitting(false);
     }
   };
+
+  const handleSubmitForVerification = async () => {
+    setSubmittingDraft(true);
+    try {
+      const result = await submitDraft();
+      notifyVerificationChanged(result);
+      toastSuccess('Submitted for verification. Your faculty advisor has been notified.');
+      navigate('/student/verification');
+    } catch (err) {
+      toastError(err, 'Could not submit your profile for verification.');
+      setSubmittingDraft(false);
+    }
+  };
+
+  if (addedTitle) {
+    return (
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-10 overflow-x-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">Project added to your draft</h1>
+          <p className="text-sm text-gray-600 mt-2">
+            &ldquo;{addedTitle}&rdquo; is saved in your profile draft. Recruiters will see it after your faculty advisor
+            verifies it. Submit now, or go back to your profile to make more changes first.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={handleSubmitForVerification}
+              disabled={submittingDraft}
+              className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition shadow-sm disabled:opacity-60"
+            >
+              {submittingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Submit for verification
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/student/profile')}
+              disabled={submittingDraft}
+              className="inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-50 transition"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to profile
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   /* ── progress indicator ── */
   const filledFields = [
@@ -277,6 +392,23 @@ export default function AddProjectPage() {
           Showcase your engineering work — fill in the details below to add it to your placement profile.
         </p>
       </div>
+
+      {draftState.status === 'loading' && (
+        <div className="flex items-center gap-2 p-4 rounded-xl mb-6 text-sm bg-gray-50 border border-gray-200 text-gray-600" role="status">
+          <Loader2 className="w-4 h-4 animate-spin" /> Checking your profile draft…
+        </div>
+      )}
+      {(draftState.status === 'locked' || draftState.status === 'error') && (
+        <div className="flex items-start gap-2.5 p-4 rounded-xl mb-6 text-sm bg-amber-50 border border-amber-200 text-amber-800" role="alert">
+          <Lock className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="flex-1 font-medium">{draftState.message}</div>
+        </div>
+      )}
+      {draftState.status === 'ready' && (
+        <p className="text-xs text-gray-500 mb-4">
+          The project is added to your profile draft. It becomes visible to recruiters after your faculty advisor verifies it.
+        </p>
+      )}
 
       {/* Submission error alert */}
       {errors.submit && (
@@ -534,7 +666,7 @@ export default function AddProjectPage() {
               ) : (
                 <button
                   type="button"
-                  disabled={uploadingMedia || isSubmitting}
+                  disabled={uploadingMedia || isSubmitting || formLocked}
                   onClick={() => mediaRef.current?.click()}
                   className="w-full border-2 border-dashed border-gray-300 rounded-xl h-40 flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:bg-blue-50/40 transition group disabled:opacity-60"
                 >
@@ -565,14 +697,14 @@ export default function AddProjectPage() {
             <div className="flex gap-3 pb-6">
               <button
                 type="submit"
-                disabled={isSubmitting || uploadingMedia}
+                disabled={isSubmitting || uploadingMedia || formLocked}
                 aria-busy={isSubmitting}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm text-sm disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <LoadingSpinner size="sm" color="white" label="Saving Project..." showLabel />
                 ) : (
-                  'Add Project to Profile'
+                  'Add Project to Draft'
                 )}
               </button>
               <button

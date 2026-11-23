@@ -23,6 +23,15 @@ export const JOB_STATUSES = [
 
 export const MAX_SKILLS = 50;
 export const MAX_REQUIREMENTS = 50;
+export const MAX_DEGREE_LENGTH = 60;
+export const MAX_DEPARTMENT_CODE_LENGTH = 10;
+
+/**
+ * Degree suggestions for the eligibility picker. The backend compares a student's degree to
+ * these case-insensitively and exactly, and student records store values such as "B.E CSE",
+ * so the admin can also type the exact value.
+ */
+export const DEGREE_SUGGESTIONS = ['B.E', 'B.Tech', 'M.E', 'M.Tech', 'MBA', 'MCA'];
 
 export const emptyJobDrive = () => ({
   companyId: '',
@@ -41,6 +50,9 @@ export const emptyJobDrive = () => ({
   status: 'DRAFT',
   skills: [],
   requirements: [],
+  // Empty means "open to every department / degree".
+  eligibleDepartments: [],
+  eligibleDegrees: [],
   // Ticked by default: students are emailed the moment the drive goes Active.
   notifyEligibleStudents: true,
 });
@@ -189,8 +201,35 @@ export function validateJobDrive(form = {}) {
     errors.requirements = 'Each requirement must be 300 characters or fewer';
   }
 
+  const departments = Array.isArray(form.eligibleDepartments) ? form.eligibleDepartments : [];
+  if (departments.some((d) => isBlank(d))) {
+    errors.eligibleDepartments = 'Remove the blank department entries';
+  } else if (departments.some((d) => d.trim().length > MAX_DEPARTMENT_CODE_LENGTH)) {
+    errors.eligibleDepartments = `Department codes are at most ${MAX_DEPARTMENT_CODE_LENGTH} characters`;
+  }
+
+  const degrees = Array.isArray(form.eligibleDegrees) ? form.eligibleDegrees : [];
+  if (degrees.some((d) => isBlank(d))) {
+    errors.eligibleDegrees = 'Remove the blank degree entries';
+  } else if (degrees.some((d) => d.trim().length > MAX_DEGREE_LENGTH)) {
+    errors.eligibleDegrees = `Each degree must be ${MAX_DEGREE_LENGTH} characters or fewer`;
+  }
+
   return errors;
 }
+
+/** Trim, drop blanks and case-insensitive duplicates, keeping the first spelling. */
+const cleanList = (values) => {
+  const seen = new Set();
+  return (Array.isArray(values) ? values : [])
+    .map((v) => String(v ?? '').trim())
+    .filter((v) => {
+      const key = v.toLowerCase();
+      if (!v || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
 
 /**
  * Converts form state into a JobRequest body.
@@ -220,6 +259,8 @@ export function buildJobPayload(form) {
     status: form.status || 'DRAFT',
     skills: (form.skills || []).map((s) => s.trim()).filter(Boolean),
     requirements: (form.requirements || []).map((r) => r.trim()).filter(Boolean),
+    eligibleDepartments: cleanList(form.eligibleDepartments).map((d) => d.toUpperCase()),
+    eligibleDegrees: cleanList(form.eligibleDegrees),
     notifyEligibleStudents: Boolean(form.notifyEligibleStudents),
   };
 }
@@ -245,5 +286,7 @@ export function jobResponseToForm(job) {
     status: job.status ?? 'DRAFT',
     skills: Array.isArray(job.skills) ? [...job.skills] : [],
     requirements: Array.isArray(job.requirements) ? [...job.requirements] : [],
+    eligibleDepartments: Array.isArray(job.eligibleDepartments) ? [...job.eligibleDepartments] : [],
+    eligibleDegrees: Array.isArray(job.eligibleDegrees) ? [...job.eligibleDegrees] : [],
   };
 }

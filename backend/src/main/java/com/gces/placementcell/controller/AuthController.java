@@ -5,11 +5,14 @@ import com.gces.placementcell.dto.request.RegisterRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.AuthResponse;
 import com.gces.placementcell.dto.response.UserResponse;
+import com.gces.placementcell.dto.request.ChangePasswordRequest;
 import com.gces.placementcell.service.AuthService;
+import com.gces.placementcell.service.StudentAccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,15 +27,25 @@ import org.springframework.web.bind.annotation.RestController;
  * /auth/register/admin, which SecurityConfig restricts to existing admins.
  */
 @RestController
-@RequestMapping({"/auth", "/api/auth"})
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
+    private StudentAccountService studentAccountService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setStudentAccountService(StudentAccountService studentAccountService) {
+        this.studentAccountService = studentAccountService;
+    }
+
     // There is deliberately no student registration endpoint: the placement cell creates student
     // accounts (see AdminStudentController), and SecurityConfig denies the old path outright.
 
+    // Defence in depth: SecurityConfig also restricts this path, but a URL rule can be bypassed
+    // by an alternate mapping (as the old /api/auth duplicate did); method security cannot.
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/register/admin")
     public ResponseEntity<ApiResponse<AuthResponse>> registerAdmin(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.registerAdmin(request);
@@ -56,6 +69,24 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
+    }
+
+    /**
+     * POST /api/auth/change-password: any signed-in user. Staff with a temporary password must call
+     * this before anything else. Students keep their own rules (register number not allowed).
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<AuthResponse>> changePassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        if (userDetails == null) {
+            throw new InsufficientAuthenticationException("Full authentication is required to access this resource");
+        }
+        boolean student = userDetails.getAuthorities().stream().anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()));
+        AuthResponse response = student && studentAccountService != null
+                ? studentAccountService.changePassword(userDetails.getUsername(), request)
+                : authService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", response));
     }
 
     @GetMapping("/me")

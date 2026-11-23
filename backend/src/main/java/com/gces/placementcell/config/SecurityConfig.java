@@ -6,6 +6,8 @@ import com.gces.placementcell.security.CustomAuthenticationEntryPoint;
 import com.gces.placementcell.security.CustomUserDetailsService;
 import com.gces.placementcell.security.PasswordChangeRequiredFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -44,8 +46,20 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler accessDeniedHandler;
     private final CustomUserDetailsService customUserDetailsService;
 
+    /**
+     * HTTP Basic bypasses LoginAttemptLimiter (it authenticates through the provider directly),
+     * so it is off unless explicitly enabled, e.g. for tests or tooling.
+     */
+    @Value("${app.security.http-basic-enabled:false}")
+    private boolean httpBasicEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        if (httpBasicEnabled) {
+            http.httpBasic(Customizer.withDefaults());
+        } else {
+            http.httpBasic(AbstractHttpConfigurer::disable);
+        }
         http
             .cors(cors -> cors.configurationSource(corsConfig.corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
@@ -69,18 +83,22 @@ public class SecurityConfig {
                 .requestMatchers("/auth/register/admin").hasRole("ADMIN")
                 // Students cannot register themselves; the placement cell creates their accounts.
                 .requestMatchers("/auth/register/student", "/auth/register").denyAll()
+                // Any signed-in role may change its own password (must precede the /auth/** permitAll).
+                .requestMatchers("/auth/change-password").authenticated()
                 .requestMatchers("/auth/**").permitAll()
+                // No controller may also be mapped under "/api/...": the context path is
+                // already /api, so such a duplicate arrives as /api/api/... and slips past
+                // every rule here (that is how /api/api/auth/register/admin was open to
+                // students). Deny the doubled prefix outright as a backstop.
+                .requestMatchers("/api/**").denyAll()
                 // Admin endpoints require ADMIN or PLACEMENT_OFFICER authority
-                // AdminStudentController and AdminDashboardController are mapped at both
-                // /admin/... and /api/admin/..., and the context path is already /api, so
-                // the second spelling arrives here as /api/admin/**. Without that matcher
-                // it falls through to anyRequest() and any signed-in student could read
-                // the admin student list. The double @RequestMapping is the real bug.
-                .requestMatchers("/admin/**", "/api/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "PLACEMENT_OFFICER")
                 // Student endpoints – restricted to STUDENT role
-                .requestMatchers("/student/**", "/api/student/**").hasRole("STUDENT")
+                .requestMatchers("/student/**").hasRole("STUDENT")
+                // Faculty advisors: their own department only (scoped again in the services).
+                .requestMatchers("/faculty/**").hasRole("FACULTY_ADVISOR")
                 // Project media is only ever called from the student pages.
-                .requestMatchers("/projects/**", "/api/projects/**").hasRole("STUDENT")
+                .requestMatchers("/projects/**").hasRole("STUDENT")
                 // Job listings are read-only here (posting and editing live under
                 // /admin/jobs), so students can browse drives before signing in.
                 .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/**").permitAll()
@@ -91,21 +109,35 @@ public class SecurityConfig {
                 // admin student detail page reads resumes too.
                 // Note: this proves a caller is signed in, not senseless ownership;
                 // per-owner checks still belong in the services.
-                .requestMatchers("/students/**", "/api/students/**").authenticated()
-                .requestMatchers("/files/**", "/api/files/**").authenticated()
-                .requestMatchers("/notifications/**", "/api/notifications/**").authenticated()
+                .requestMatchers("/students/**").authenticated()
+                .requestMatchers("/files/**").authenticated()
+                .requestMatchers("/notifications/**").authenticated()
                 // Deny by default: a new controller is protected until a rule opens it.
                 .anyRequest().authenticated()
             )
-            // Bearer token is the primary scheme; HTTP Basic is a deliberate fallback for
-            // API clients and tooling (covered by RoleBasedAccessControlTest).
-            .httpBasic(Customizer.withDefaults())
             .addFilterBefore(adminAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(passwordChangeRequiredFilter, AdminAuthFilter.class)
             // Allow H2 console frames in dev
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();
+    }
+
+    // AdminAuthFilter and PasswordChangeRequiredFilter are @Component filters, which Boot would
+    // otherwise also register on the servlet container, running them outside the security chain.
+    @Bean
+    public FilterRegistrationBean<AdminAuthFilter> adminAuthFilterRegistration(AdminAuthFilter filter) {
+        FilterRegistrationBean<AdminAuthFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<PasswordChangeRequiredFilter> passwordChangeRequiredFilterRegistration(
+            PasswordChangeRequiredFilter filter) {
+        FilterRegistrationBean<PasswordChangeRequiredFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

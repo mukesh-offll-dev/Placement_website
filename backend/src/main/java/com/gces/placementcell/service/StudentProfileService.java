@@ -24,6 +24,9 @@ public interface StudentProfileService {
      */
     StudentProfileResponse getProfile(String email);
 
+    /** Sets the "open to opportunities" preference immediately (not part of profile verification). */
+    StudentProfileResponse updateOpenToOpportunities(String email, boolean open);
+
     /**
      * Creates a new profile for the authenticated student if one does not already exist.
      *

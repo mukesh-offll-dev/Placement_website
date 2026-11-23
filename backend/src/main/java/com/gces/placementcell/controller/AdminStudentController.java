@@ -21,9 +21,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
+import com.gces.placementcell.dto.request.ArchiveBatchRequest;
+import com.gces.placementcell.dto.request.BulkStudentActionRequest;
+import com.gces.placementcell.dto.response.ArchivePreviewResponse;
+import com.gces.placementcell.dto.response.BulkActionResult;
+import com.gces.placementcell.entity.enums.ProfileVerificationStatus;
+import com.gces.placementcell.service.AdminStudentService.StudentListFilter;
+import com.gces.placementcell.service.StudentScope;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 
 @RestController
-@RequestMapping({"/admin/students", "/api/admin/students"})
+@RequestMapping("/admin/students")
 @RequiredArgsConstructor
 public class AdminStudentController {
 
@@ -40,16 +50,66 @@ public class AdminStudentController {
             @RequestParam(required = false) String department,
             @RequestParam(required = false) PlacementStatus status,
             @RequestParam(required = false) BigDecimal minCgpa,
+            @RequestParam(required = false) String lifecycle,
+            @RequestParam(required = false) ProfileVerificationStatus verificationStatus,
+            @RequestParam(required = false) String batch,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
+            @RequestParam(defaultValue = "desc") String sortDir,
+            Authentication authentication) {
 
         PageResponse<StudentSummaryDto> response = adminStudentService.getStudents(
-                search, department, status, minCgpa, page, size, sortBy, sortDir
-        );
+                new StudentListFilter(search, department, status, minCgpa, lifecycle, verificationStatus, batch),
+                page, size, sortBy, sortDir, scopeOf(authentication));
 
         return ResponseEntity.ok(ApiResponse.success("Students retrieved successfully", response));
+    }
+
+    /** GET /api/admin/students/ids: every id matching the list filters (max 5000), for "select all". */
+    @GetMapping("/ids")
+    public ResponseEntity<ApiResponse<List<Long>>> getStudentIds(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) PlacementStatus status,
+            @RequestParam(required = false) BigDecimal minCgpa,
+            @RequestParam(required = false) String lifecycle,
+            @RequestParam(required = false) ProfileVerificationStatus verificationStatus,
+            @RequestParam(required = false) String batch,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(adminStudentService.getStudentIds(
+                new StudentListFilter(search, department, status, minCgpa, lifecycle, verificationStatus, batch),
+                scopeOf(authentication))));
+    }
+
+    /** POST /api/admin/students/bulk: officers may do everything except RESTORE (403). */
+    @PostMapping("/bulk")
+    public ResponseEntity<ApiResponse<BulkActionResult>> bulk(@Valid @RequestBody BulkStudentActionRequest request,
+                                                              Authentication authentication) {
+        BulkActionResult result = adminStudentService.bulkAction(request, scopeOf(authentication));
+        return ResponseEntity.ok(ApiResponse.success(result.succeeded() + " student(s) updated", result));
+    }
+
+    /** GET /api/admin/students/archive-batch/preview?batch=2026&departmentCode=CSE (ADMIN). */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/archive-batch/preview")
+    public ResponseEntity<ApiResponse<ArchivePreviewResponse>> previewArchive(
+            @RequestParam String batch, @RequestParam(required = false) String departmentCode) {
+        return ResponseEntity.ok(ApiResponse.success(adminStudentService.previewBatchArchive(batch, departmentCode)));
+    }
+
+    /** POST /api/admin/students/archive-batch (ADMIN). */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/archive-batch")
+    public ResponseEntity<ApiResponse<BulkActionResult>> archiveBatch(@Valid @RequestBody ArchiveBatchRequest request) {
+        BulkActionResult result = adminStudentService.archiveBatch(request, StudentScope.forAdmin());
+        return ResponseEntity.ok(ApiResponse.success(result.succeeded() + " student(s) archived", result));
+    }
+
+    private static StudentScope scopeOf(Authentication authentication) {
+        boolean admin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        return admin ? StudentScope.forAdmin() : StudentScope.officer();
     }
 
     /**

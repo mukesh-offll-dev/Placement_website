@@ -19,11 +19,33 @@ public final class JobEligibility {
     }
 
     public static boolean isEligible(StudentProfile student, Job job) {
-        return meetsCgpa(student, job)
-                && meetsBacklogs(student, job)
-                && meetsBatch(student, job)
-                && meetsDepartment(student, job)
-                && meetsDegree(student, job);
+        return ineligibilityReason(student, job) == null;
+    }
+
+    /**
+     * A message naming the first criterion the student fails, or {@code null} when eligible.
+     */
+    public static String ineligibilityReason(StudentProfile student, Job job) {
+        if (student.effectiveLifecycle() != com.gces.placementcell.entity.enums.LifecycleStatus.ACTIVE) {
+            return "Only active students are eligible";
+        }
+        if (!meetsCgpa(student, job)) {
+            return "This job requires a minimum CGPA of " + job.getMinCgpa().stripTrailingZeros().toPlainString()
+                    + (student.getCgpa() == null ? " and your profile has no CGPA on file" : "");
+        }
+        if (!meetsBacklogs(student, job)) {
+            return "This job does not allow active backlogs";
+        }
+        if (!meetsBatch(student, job)) {
+            return "This job is only open to the " + job.getGraduationYear() + " graduating batch";
+        }
+        if (!meetsDepartment(student, job)) {
+            return "This job is not open to your department";
+        }
+        if (!meetsDegree(student, job)) {
+            return "This job is not open to your degree";
+        }
+        return null;
     }
 
     private static boolean meetsCgpa(StudentProfile student, Job job) {
@@ -64,8 +86,21 @@ public final class JobEligibility {
             return true;
         }
         String degree = student.getDegree();
-        return degree != null && job.getEligibleDegrees().stream()
+        if (degree == null || degree.isBlank()) {
+            return false;
+        }
+        // Student records hold values like "B.E CSE" while a job lists "B.E", so a
+        // job degree matches the whole value or its first word, ignoring case,
+        // dots and spaces ("B.E" = "BE" = "b.e").
+        String whole = normalizeDegree(degree);
+        String firstWord = normalizeDegree(degree.trim().split("[\\s\\-/(,]+")[0]);
+        return job.getEligibleDegrees().stream()
                 .map(JobEligibleDegree::getDegree)
-                .anyMatch(degree::equalsIgnoreCase);
+                .map(JobEligibility::normalizeDegree)
+                .anyMatch(d -> !d.isEmpty() && (d.equals(whole) || d.equals(firstWord)));
+    }
+
+    static String normalizeDegree(String value) {
+        return value == null ? "" : value.replaceAll("[.\\s]", "").toUpperCase(java.util.Locale.ROOT);
     }
 }

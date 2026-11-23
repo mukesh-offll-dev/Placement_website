@@ -546,7 +546,7 @@ class StudentManagementFlowTest {
         String code = "TD" + n;
 
         JsonNode created = call(post("/admin/departments"), adminToken,
-                departmentBody(code.toLowerCase(), "Test Department " + n), 201).path("data");
+                departmentBody(code.toLowerCase(), "Test Department " + n), 201).path("data").path("department");
         assertEquals(code, created.path("code").asText(), "stored uppercase");
         assertTrue(created.path("isActive").asBoolean());
 
@@ -589,7 +589,7 @@ class StudentManagementFlowTest {
     void renamesADepartment() throws Exception {
         int n = SEQUENCE.incrementAndGet();
         long id = call(post("/admin/departments"), adminToken, departmentBody("TR" + n, "Before " + n), 201)
-                .path("data").path("id").asLong();
+                .path("data").path("department").path("id").asLong();
 
         JsonNode renamed = call(put("/admin/departments/" + id), adminToken,
                 json.createObjectNode().put("name", "After " + n), 200).path("data");
@@ -607,7 +607,7 @@ class StudentManagementFlowTest {
         int n = SEQUENCE.incrementAndGet();
         String code = "TA" + n;
         long id = call(post("/admin/departments"), adminToken, departmentBody(code, "Inactive Test " + n), 201)
-                .path("data").path("id").asLong();
+                .path("data").path("department").path("id").asLong();
         long studentId = call(post("/admin/students/provision"), adminToken,
                 provisionBody(freshRegisterNumber()).put("department", code), 201).path("data").path("id").asLong();
 
@@ -631,13 +631,14 @@ class StudentManagementFlowTest {
     void deletingADepartment() throws Exception {
         int n = SEQUENCE.incrementAndGet();
         long used = call(post("/admin/departments"), adminToken, departmentBody("TU" + n, "Used " + n), 201)
-                .path("data").path("id").asLong();
+                .path("data").path("department").path("id").asLong();
         long unused = call(post("/admin/departments"), adminToken, departmentBody("TE" + n, "Unused " + n), 201)
-                .path("data").path("id").asLong();
+                .path("data").path("department").path("id").asLong();
         call(post("/admin/students/provision"), adminToken,
                 provisionBody(freshRegisterNumber()).put("department", "TU" + n), 201);
 
-        JsonNode refused = call(delete("/admin/departments/" + used), adminToken, null, 400);
+        // 409 since the upgrade: in use = conflict with existing records (counts in the message).
+        JsonNode refused = call(delete("/admin/departments/" + used), adminToken, null, 409);
         assertTrue(refused.path("message").asText().toLowerCase().contains("deactivate"));
 
         call(delete("/admin/departments/" + unused), adminToken, null, 200);

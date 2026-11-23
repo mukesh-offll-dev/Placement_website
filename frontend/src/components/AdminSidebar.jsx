@@ -7,22 +7,32 @@ import {
   LogOut,
   FileCheck,
   X,
+  Building2,
+  ShieldCheck,
+  History,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from './BrandLogo';
 import { toastInfo } from '../utils/toast';
 
+// adminOnly entries are hidden from placement officers (the backend refuses them anyway).
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/applications', icon: FileCheck, label: 'Applications' },
   { to: '/admin/students', icon: Users, label: 'Students' },
   { to: '/admin/jobs', icon: Briefcase, label: 'Job Drives' },
-  { to: '/admin/notifications', icon: Bell, label: 'Notifications', showUnread: true },
+  { to: '/admin/departments', icon: Building2, label: 'Departments & Faculty', adminOnly: true },
+  { to: '/admin/verifications', icon: ShieldCheck, label: 'Verifications', adminOnly: true, badge: 'pending' },
+  { to: '/admin/audit-logs', icon: History, label: 'Audit Log', adminOnly: true },
+  { to: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 'unread' },
 ];
 
-export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {}, unreadCount = 0 }) {
+export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () => {}, unreadCount = 0, pendingCount = 0 }) {
   const navigate = useNavigate();
-  const { user: currentUser, logout } = useAuth();
+  const { user: currentUser, logout, role } = useAuth();
+  const items = navItems.filter((item) => !item.adminOnly || role === 'ADMIN');
+  const badges = { unread: unreadCount, pending: pendingCount };
 
   const handleLogout = () => {
     logout();
@@ -58,7 +68,7 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
         <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
           Management
         </p>
-        {navItems.map(({ to, icon: NavIcon, label, showUnread }) => (
+        {items.map(({ to, icon: NavIcon, label, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -77,13 +87,13 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
                   <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
                   <span>{label}</span>
                 </div>
-                {showUnread && unreadCount > 0 && (
+                {badge && badges[badge] > 0 && (
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
+                      isActive ? 'bg-white/20 text-white' : badge === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {badges[badge] > 99 ? '99+' : badges[badge]}
                   </span>
                 )}
               </>
@@ -109,6 +119,15 @@ export default function AdminSidebar({ mobileOpen = false, onCloseMobile = () =>
               </p>
             </div>
           </div>
+          <NavLink
+            to="/admin/change-password"
+            onClick={onCloseMobile}
+            title="Change password"
+            aria-label="Change password"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shrink-0"
+          >
+            <KeyRound className="w-4 h-4" />
+          </NavLink>
           <button
             onClick={handleLogout}
             title="Logout"

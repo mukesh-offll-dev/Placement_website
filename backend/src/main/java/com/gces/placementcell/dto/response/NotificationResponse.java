@@ -32,8 +32,21 @@ public record NotificationResponse(
         LocalDateTime expiresAt,
         Boolean isRead,
         LocalDateTime readAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        /** Route to open when the notification is clicked, or null. */
+        String actionUrl
 ) {
+
+    /** Without the action URL (kept for callers written against the earlier shape). */
+    public NotificationResponse(Long id, String title, String message, NotificationType notificationType,
+                                NotificationPriority priority, TargetAudience targetAudience,
+                                NotificationStatus status, Long relatedJobId, String relatedJobRole,
+                                Long relatedDriveId, LocalDateTime scheduledAt, LocalDateTime publishedAt,
+                                LocalDateTime expiresAt, Boolean isRead, LocalDateTime readAt,
+                                LocalDateTime createdAt) {
+        this(id, title, message, notificationType, priority, targetAudience, status, relatedJobId,
+                relatedJobRole, relatedDriveId, scheduledAt, publishedAt, expiresAt, isRead, readAt, createdAt, null);
+    }
 
     /**
      * The notification itself, with no read state — for the placement cell's management
@@ -78,7 +91,8 @@ public record NotificationResponse(
                 notification.getExpiresAt(),
                 isRead,
                 readAt,
-                notification.getCreatedAt()
+                notification.getCreatedAt(),
+                notification.getActionUrl()
         );
     }
 }

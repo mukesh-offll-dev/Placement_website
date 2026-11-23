@@ -69,6 +69,14 @@ public final class StudentIdentity {
         return email != null && email.toLowerCase(Locale.ROOT).endsWith(PLACEHOLDER_EMAIL_DOMAIN);
     }
 
+    /**
+     * Addresses the system generated itself (student stand-ins, generated faculty advisor logins):
+     * anything under the reserved ".gces.local" domain. These are never emailed.
+     */
+    public static boolean isUndeliverableEmail(String email) {
+        return email == null || email.toLowerCase(Locale.ROOT).trim().endsWith(".gces.local");
+    }
+
     /** What the API should show for an email: nothing for the stand-in address. */
     public static String visibleEmail(String email) {
         return isPlaceholderEmail(email) ? null : email;

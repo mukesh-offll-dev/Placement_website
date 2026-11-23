@@ -1,5 +1,7 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.security.VerifiedProfileWrite;
+
 import com.gces.placementcell.dto.request.StudentSkillRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.StudentSkillResponse;
@@ -43,6 +45,7 @@ public class StudentSkillController {
      * PUT /api/student/skills
      * Updates/replaces all skills of the authenticated student.
      */
+    @VerifiedProfileWrite
     @PutMapping
     public ResponseEntity<ApiResponse<List<StudentSkillResponse>>> updateSkills(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -55,6 +58,7 @@ public class StudentSkillController {
      * POST /api/student/skills
      * Adds a single skill to the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PostMapping
     public ResponseEntity<ApiResponse<StudentSkillResponse>> addSkill(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -68,6 +72,7 @@ public class StudentSkillController {
      * PUT /api/student/skills/{skillId}
      * Updates a single skill on the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @PutMapping("/{skillId}")
     public ResponseEntity<ApiResponse<StudentSkillResponse>> updateSkill(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -81,6 +86,7 @@ public class StudentSkillController {
      * DELETE /api/student/skills/{skillId}
      * Deletes a skill from the authenticated student's profile.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/{skillId}")
     public ResponseEntity<ApiResponse<Void>> deleteSkill(
             @AuthenticationPrincipal UserDetails userDetails,

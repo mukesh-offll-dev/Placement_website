@@ -29,6 +29,10 @@ public interface StudentProjectRepository extends JpaRepository<StudentProject, 
 
     long countByStudentProfileId(Long studentProfileId);
 
+    boolean existsByStudentProfileIdAndMediaUrlEndingWith(Long studentProfileId, String suffix);
+
+    boolean existsByStudentProfileDepartmentCodeIgnoreCaseAndMediaUrlEndingWith(String departmentCode, String suffix);
+
     void deleteByStudentProfileId(Long studentProfileId);
 
     @Query("SELECT p FROM StudentProject p WHERE p.studentProfile.id = :studentId ORDER BY p.createdAt DESC")

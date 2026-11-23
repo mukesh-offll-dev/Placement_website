@@ -165,4 +165,38 @@ describe('Loading a drive into the form', () => {
   it('falls back to an empty form when there is no job', () => {
     assert.deepEqual(jobResponseToForm(null), emptyJobDrive());
   });
+
+  it('round-trips eligible departments and degrees; empty means open to all', () => {
+    const empty = buildJobPayload(validForm());
+    assert.deepEqual(empty.eligibleDepartments, []);
+    assert.deepEqual(empty.eligibleDegrees, []);
+
+    const form = jobResponseToForm({
+      company: { id: 1 },
+      jobRole: 'SDE',
+      jobType: 'FULL_TIME',
+      applicationDeadline: futureDate(10),
+      eligibleDepartments: ['CSE', 'IT'],
+      eligibleDegrees: ['B.E CSE'],
+    });
+    assert.deepEqual(form.eligibleDepartments, ['CSE', 'IT']);
+    assert.deepEqual(form.eligibleDegrees, ['B.E CSE']);
+
+    const payload = buildJobPayload({
+      ...form,
+      eligibleDepartments: [' cse ', 'CSE', 'it', ''],
+      eligibleDegrees: [' B.E ', 'b.e', 'MBA'],
+    });
+    assert.deepEqual(payload.eligibleDepartments, ['CSE', 'IT']);
+    assert.deepEqual(payload.eligibleDegrees, ['B.E', 'MBA']);
+  });
+
+  it('rejects over-long degree and department entries', () => {
+    const errors = validateJobDrive(validForm({
+      eligibleDegrees: ['x'.repeat(61)],
+      eligibleDepartments: ['TOOLONGCODE1'],
+    }));
+    assert.ok(errors.eligibleDegrees);
+    assert.ok(errors.eligibleDepartments);
+  });
 });

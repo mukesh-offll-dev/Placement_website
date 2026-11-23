@@ -126,7 +126,6 @@ class StudentProfileServiceImplTest {
     void testCreateProfileSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
         when(studentProfileRepository.existsByUserId(1L)).thenReturn(false);
-        when(studentProfileRepository.existsByRollNo("811521104001")).thenReturn(false);
         when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> {
             StudentProfile p = i.getArgument(0);
             p.setId(10L);
@@ -158,7 +157,10 @@ class StudentProfileServiceImplTest {
 
         assertNotNull(response);
         assertEquals("Adithya Kumar", response.fullName());
-        assertEquals("811521104001", response.rollNo());
+        // Eligibility fields are admin-only: a student cannot set them when creating a profile.
+        assertNull(response.rollNo());
+        assertNull(response.cgpa());
+        assertNull(response.departmentCode());
         verify(studentProfileRepository).save(any(StudentProfile.class));
     }
 
@@ -167,7 +169,6 @@ class StudentProfileServiceImplTest {
     void testCreateProfileWithEducationAndProjectsSuccess() {
         when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
         when(studentProfileRepository.existsByUserId(1L)).thenReturn(false);
-        when(studentProfileRepository.existsByRollNo("811521104001")).thenReturn(false);
         when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> {
             StudentProfile p = i.getArgument(0);
             p.setId(10L);
@@ -277,6 +278,31 @@ class StudentProfileServiceImplTest {
     }
 
     @Test
+    @DisplayName("updateProfile ignores student-supplied eligibility fields and resumeUrl")
+    void testUpdateProfileCannotChangeEligibilityFields() {
+        when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
+        when(studentProfileRepository.findByUserId(1L)).thenReturn(Optional.of(studentProfile));
+        when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> i.getArgument(0));
+        when(studentSkillRepository.findByStudentProfileIdOrderBySkillNameAsc(10L)).thenReturn(List.of());
+        when(studentEducationRepository.findByStudentProfileId(10L)).thenReturn(List.of());
+        when(studentExperienceRepository.findByStudentProfileId(10L)).thenReturn(List.of());
+        when(studentProjectRepository.findByStudentIdOrderByCreatedAtDesc(10L)).thenReturn(List.of());
+        String resumeBefore = studentProfile.getResumeUrl();
+
+        StudentProfileRequest request = new StudentProfileRequest(
+                "Adithya Kumar", "999999999999", "student@gces.edu", "9876543210", "Trichy", "bio",
+                null, "/api/files/download/resumes/someone_elses.pdf", "GCE Srirangam", "M.E.", "Electronics", "ECE",
+                "2030-2034", (short) 8, new BigDecimal("10.00"), 0, 0, true);
+
+        studentProfileService.updateProfile("student@gces.edu", request);
+
+        assertEquals(0, new BigDecimal("8.50").compareTo(studentProfile.getCgpa()));
+        assertEquals("CSE", studentProfile.getDepartmentCode());
+        assertEquals("811521104001", studentProfile.getRollNo());
+        assertEquals(resumeBefore, studentProfile.getResumeUrl());
+    }
+
+    @Test
     @DisplayName("updateProfile with education removes old records to avoid duplicates and saves with correct parent ID")
     void testUpdateProfileWithEducationAvoidsDuplicates() {
         when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
@@ -329,7 +355,6 @@ class StudentProfileServiceImplTest {
     void testCreateProfileWithSkills() {
         when(userRepository.findByEmailAndIsDeletedFalse("student@gces.edu")).thenReturn(Optional.of(studentUser));
         when(studentProfileRepository.existsByUserId(1L)).thenReturn(false);
-        when(studentProfileRepository.existsByRollNo("811521104001")).thenReturn(false);
         when(studentProfileRepository.save(any(StudentProfile.class))).thenAnswer(i -> {
             StudentProfile p = i.getArgument(0);
             p.setId(10L);

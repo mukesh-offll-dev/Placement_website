@@ -73,7 +73,7 @@ public class StudentController {
             }
         }
 
-        long activeJobsCount = jobRepository.findByStatus(JobStatus.ACTIVE).size();
+        long activeJobsCount = jobRepository.countByStatusInAndIsDeletedFalse(JobStatus.OPEN_STATUSES);
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("studentEmail", email);

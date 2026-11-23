@@ -308,8 +308,9 @@ public class Job {
         return this.applicationDeadline != null && this.applicationDeadline.isBefore(LocalDate.now());
     }
 
+    /** ACTIVE and CLOSING_SOON both accept applications; see {@link JobStatus#isOpenStatus}. */
     public boolean isOpen() {
-        return JobStatus.ACTIVE.equals(this.status)
+        return JobStatus.isOpenStatus(this.status)
                 && Boolean.TRUE.equals(this.isActive)
                 && !isExpired()
                 && !Boolean.TRUE.equals(this.isDeleted);

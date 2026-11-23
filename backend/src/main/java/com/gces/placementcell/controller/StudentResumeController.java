@@ -1,5 +1,7 @@
 package com.gces.placementcell.controller;
 
+import com.gces.placementcell.security.VerifiedProfileWrite;
+
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.ResumeResponse;
 import com.gces.placementcell.service.FileStorageService;
@@ -28,14 +30,14 @@ public class StudentResumeController {
     /**
      * Upload or update resume for a student.
      */
+    @VerifiedProfileWrite
     @PostMapping(value = "/{studentId}/resume", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ResumeResponse>> uploadResume(
             @PathVariable Long studentId,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails != null) {
-            resumeService.verifyAccess(studentId, userDetails);
-        }
+        // Always checked: a missing principal is rejected (401) rather than skipping the check.
+        resumeService.verifyAccess(studentId, userDetails);
         ResumeResponse response = resumeService.uploadResume(studentId, file);
         return ResponseEntity.ok(ApiResponse.success("Resume uploaded successfully", response));
     }
@@ -47,9 +49,8 @@ public class StudentResumeController {
     public ResponseEntity<ApiResponse<ResumeResponse>> getResume(
             @PathVariable Long studentId,
             @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails != null) {
-            resumeService.verifyAccess(studentId, userDetails);
-        }
+        // Always checked: a missing principal is rejected (401) rather than skipping the check.
+        resumeService.verifyAccess(studentId, userDetails);
         ResumeResponse response = resumeService.getResume(studentId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -63,9 +64,8 @@ public class StudentResumeController {
             @PathVariable Long studentId,
             @RequestParam(value = "download", defaultValue = "false") boolean download,
             @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails != null) {
-            resumeService.verifyAccess(studentId, userDetails);
-        }
+        // Always checked: a missing principal is rejected (401) rather than skipping the check.
+        resumeService.verifyAccess(studentId, userDetails);
         Resource resource = resumeService.downloadResume(studentId);
         String filename = resource.getFilename();
         String contentType = filename != null ? fileStorageService.getContentType(filename) : MediaType.APPLICATION_OCTET_STREAM_VALUE;
@@ -81,13 +81,13 @@ public class StudentResumeController {
     /**
      * Delete student resume.
      */
+    @VerifiedProfileWrite
     @DeleteMapping("/{studentId}/resume")
     public ResponseEntity<ApiResponse<Void>> deleteResume(
             @PathVariable Long studentId,
             @AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails != null) {
-            resumeService.verifyAccess(studentId, userDetails);
-        }
+        // Always checked: a missing principal is rejected (401) rather than skipping the check.
+        resumeService.verifyAccess(studentId, userDetails);
         resumeService.deleteResume(studentId);
         return ResponseEntity.ok(ApiResponse.success("Resume deleted successfully"));
     }

@@ -35,11 +35,15 @@ public class EmailJsMailer {
     private final String privateKey;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ObjectMapper json = new ObjectMapper();
+    /** Wait before the single retry after EmailJS answers 429 Too Many Requests. */
+    private final long rateLimitRetryDelayMs;
 
     public EmailJsMailer(@Value("${app.emailjs.service-id:}") String serviceId,
                          @Value("${app.emailjs.template-id:}") String templateId,
                          @Value("${app.emailjs.public-key:}") String publicKey,
-                         @Value("${app.emailjs.private-key:}") String privateKey) {
+                         @Value("${app.emailjs.private-key:}") String privateKey,
+                         @Value("${app.emailjs.rate-limit-retry-delay-ms:2000}") long rateLimitRetryDelayMs) {
+        this.rateLimitRetryDelayMs = Math.max(0L, rateLimitRetryDelayMs);
         this.serviceId = serviceId;
         this.templateId = templateId;
         this.publicKey = publicKey;
@@ -79,6 +83,12 @@ public class EmailJsMailer {
                     .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload)))
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 429) {
+                // Rate limited: back off once, then give up on this message.
+                log.info("EmailJS rate-limited the request; retrying once in {} ms", rateLimitRetryDelayMs);
+                Thread.sleep(rateLimitRetryDelayMs);
+                response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            }
             if (response.statusCode() != 200) {
                 throw new EmailDeliveryException("EmailJS answered " + response.statusCode() + ": " + response.body());
             }

@@ -1,7 +1,9 @@
 package com.gces.placementcell.dto.response;
 
 import com.gces.placementcell.entity.enums.AccountStatus;
+import com.gces.placementcell.entity.enums.LifecycleStatus;
 import com.gces.placementcell.entity.enums.PlacementStatus;
+import com.gces.placementcell.entity.enums.ProfileVerificationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -45,4 +47,11 @@ public class StudentSummaryDto {
     private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LifecycleStatus lifecycleStatus;
+    private LocalDateTime archivedAt;
+    private ProfileVerificationStatus profileVerificationStatus;
+    private LocalDateTime profileVerifiedAt;
+    private String githubUrl;
+    private String linkedinUrl;
+    private String portfolioUrl;
 }

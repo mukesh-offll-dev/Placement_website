@@ -4,9 +4,9 @@ import com.gces.placementcell.dto.request.CompanyRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.CompanyResponse;
 import com.gces.placementcell.entity.Company;
-import com.gces.placementcell.exception.DuplicateResourceException;
 import com.gces.placementcell.repository.CompanyRepository;
 import jakarta.validation.Valid;
+import java.util.Optional;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,8 +59,11 @@ public class AdminCompanyController {
             @Valid @RequestBody CompanyRequest request) {
 
         String name = request.name().trim();
-        if (companyRepository.findByNameIgnoreCase(name).isPresent()) {
-            throw new DuplicateResourceException("A company named '" + name + "' already exists");
+        // Idempotent: an existing company (case-insensitive name) is returned with 200 so the
+        // job form can reuse it instead of failing.
+        Optional<Company> existing = companyRepository.findByNameIgnoreCase(name);
+        if (existing.isPresent()) {
+            return ResponseEntity.ok(ApiResponse.success("Company already exists", CompanyResponse.from(existing.get())));
         }
 
         Company saved = companyRepository.save(Company.builder()

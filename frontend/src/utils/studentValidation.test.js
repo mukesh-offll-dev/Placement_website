@@ -12,6 +12,7 @@ import {
   validateBulkForm,
   passwordChecks,
   validateSetupForm,
+  validateChangePasswordForm,
   validateStudentEditForm,
   validateDepartmentForm,
   parseSkills,
@@ -188,5 +189,34 @@ describe('admin edit form', () => {
     assert.equal(payload.placedCompanyId, 4);
     assert.equal(payload.placedCtc, 800000);
     assert.deepEqual(payload.skills, ['Java', 'React']);
+  });
+});
+
+describe('validateChangePasswordForm', () => {
+  const valid = { currentPassword: 'OldPass1', newPassword: 'NewPass12', confirmPassword: 'NewPass12' };
+
+  it('accepts a valid change', () => {
+    assert.deepEqual(validateChangePasswordForm(valid, '731122104001'), {});
+  });
+
+  it('requires every field', () => {
+    const errors = validateChangePasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    assert.ok(errors.currentPassword);
+    assert.ok(errors.newPassword);
+    assert.ok(errors.confirmPassword);
+  });
+
+  it('applies the setup password rules, including not the register number', () => {
+    assert.ok(validateChangePasswordForm({ ...valid, newPassword: 'short', confirmPassword: 'short' }).newPassword);
+    assert.ok(validateChangePasswordForm({ ...valid, newPassword: 'alllower1', confirmPassword: 'alllower1' }).newPassword);
+    assert.ok(
+      validateChangePasswordForm({ ...valid, newPassword: 'Abc12345X', confirmPassword: 'Abc12345X' }, 'abc12345x')
+        .newPassword
+    );
+  });
+
+  it('rejects reusing the current password and a mismatched confirmation', () => {
+    assert.ok(validateChangePasswordForm({ ...valid, newPassword: 'OldPass1', confirmPassword: 'OldPass1' }).newPassword);
+    assert.ok(validateChangePasswordForm({ ...valid, confirmPassword: 'Other123' }).confirmPassword);
   });
 });

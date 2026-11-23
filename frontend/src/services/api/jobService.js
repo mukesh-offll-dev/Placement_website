@@ -112,7 +112,32 @@ export const deleteJob = async (id, options = {}) => {
   return response.data;
 };
 
+/**
+ * Every job page by page (the backend caps a page at 100 rows).
+ * @param {boolean} admin - true for /admin/jobs (all statuses), false for /jobs
+ */
+export const getAllJobs = async ({ admin = false, params = {} } = {}, options = {}) => {
+  const fetchPage = admin ? getAdminJobs : getJobs;
+  const jobs = [];
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    const result = await fetchPage({ ...params, page, size: 100 }, options);
+    if (Array.isArray(result)) return result;
+    if (!result || !Array.isArray(result.content)) {
+      throw new Error('The jobs response has an unexpected format.');
+    }
+    jobs.push(...result.content);
+    totalPages = Number.isInteger(result.totalPages) && result.totalPages > 0 ? result.totalPages : 1;
+    page += 1;
+  }
+
+  return jobs;
+};
+
 const jobService = {
+  getAllJobs,
   getJobs,
   getAdminJobs,
   getJobById,

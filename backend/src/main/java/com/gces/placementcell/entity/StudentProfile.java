@@ -2,7 +2,9 @@ package com.gces.placementcell.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.gces.placementcell.entity.enums.LifecycleStatus;
 import com.gces.placementcell.entity.enums.PlacementStatus;
+import com.gces.placementcell.entity.enums.ProfileVerificationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
@@ -177,6 +179,48 @@ public class StudentProfile {
     @Column(name = "profile_reminder_sent_at")
     private LocalDateTime profileReminderSentAt;
 
+    // Verified profile links (changed only through profile verification or by staff)
+
+    @Size(max = 255, message = "GitHub URL cannot exceed 255 characters")
+    @Column(name = "github_url", length = 255)
+    private String githubUrl;
+
+    @Size(max = 255, message = "LinkedIn URL cannot exceed 255 characters")
+    @Column(name = "linkedin_url", length = 255)
+    private String linkedinUrl;
+
+    @Size(max = 255, message = "Portfolio URL cannot exceed 255 characters")
+    @Column(name = "portfolio_url", length = 255)
+    private String portfolioUrl;
+
+    // Lifecycle (independent of soft delete on users.is_deleted)
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(name = "lifecycle_status", nullable = false, length = 20)
+    private LifecycleStatus lifecycleStatus = LifecycleStatus.ACTIVE;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
+    /** users.id of whoever archived the student (FK in schema.sql, kept as a plain id here). */
+    @Column(name = "archived_by")
+    private Long archivedBy;
+
+    @Size(max = 255, message = "Archive reason cannot exceed 255 characters")
+    @Column(name = "archive_reason", length = 255)
+    private String archiveReason;
+
+    // Profile verification summary
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(name = "profile_verification_status", nullable = false, length = 20)
+    private ProfileVerificationStatus profileVerificationStatus = ProfileVerificationStatus.NOT_SUBMITTED;
+
+    @Column(name = "profile_verified_at")
+    private LocalDateTime profileVerifiedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -250,6 +294,19 @@ public class StudentProfile {
         if (this.profileCompletionPercent == null) {
             this.profileCompletionPercent = 0;
         }
+
+        if (this.lifecycleStatus == null) {
+            this.lifecycleStatus = LifecycleStatus.ACTIVE;
+        }
+
+        if (this.profileVerificationStatus == null) {
+            this.profileVerificationStatus = ProfileVerificationStatus.NOT_SUBMITTED;
+        }
+    }
+
+    /** Null-safe lifecycle: rows built without the field count as ACTIVE. */
+    public LifecycleStatus effectiveLifecycle() {
+        return this.lifecycleStatus != null ? this.lifecycleStatus : LifecycleStatus.ACTIVE;
     }
 
     @PreUpdate

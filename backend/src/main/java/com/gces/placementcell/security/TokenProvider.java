@@ -26,9 +26,10 @@ import java.util.function.Supplier;
  * decodes the payload to read {@code exp} and decide whether the user is still
  * signed in; a non-JWT format makes that check fail and logs every user out.
  *
- * Claims: {@code sub} = email, {@code uid} = user id, {@code role} = UserRole name.
- * The signing key is the same {@code app.jwt.secret} JwtService uses, so tokens
- * from either class validate here.
+ * Claims: {@code sub} = email, {@code uid} = user id, {@code role} = UserRole name,
+ * {@code pv} = password version (first 16 hex chars of SHA-256 of the current password hash).
+ * Changing or resetting a password changes the hash, so every token issued before it stops
+ * validating — no token table needed. A token without {@code pv} is rejected.
  */
 @Component
 public class TokenProvider {
@@ -38,6 +39,7 @@ public class TokenProvider {
 
     private static final long USER_CACHE_TTL_MS = 30_000;
     private static final int USER_CACHE_MAX_ENTRIES = 1_000;
+    static final String PASSWORD_VERSION_CLAIM = "pv";
 
     private final SecretKey signingKey;
     private final long tokenValidityMillis;
@@ -59,6 +61,7 @@ public class TokenProvider {
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
                 .claim("role", user.getRole().name())
+                .claim(PASSWORD_VERSION_CLAIM, passwordVersion(user.getPasswordHash()))
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + tokenValidityMillis))
                 .signWith(signingKey)
@@ -93,8 +96,13 @@ public class TokenProvider {
                     ? userRepository.findByIdAndIsDeletedFalse(uid.longValue())
                     : userRepository.findByEmailAndIsDeletedFalse(email));
 
+            String pv = claims.get(PASSWORD_VERSION_CLAIM, String.class);
             return user.filter(u -> u.getEmail().equalsIgnoreCase(email)
-                    && Boolean.TRUE.equals(u.getIsActive()));
+                    && Boolean.TRUE.equals(u.getIsActive())
+                    && pv != null
+                    && MessageDigest.isEqual(
+                            pv.getBytes(StandardCharsets.UTF_8),
+                            passwordVersion(u.getPasswordHash()).getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             return Optional.empty();
         }
@@ -138,6 +146,21 @@ public class TokenProvider {
     }
 
     private record CachedUser(User user, long expiresAtMs) {
+    }
+
+    /** First 16 hex chars of SHA-256(password hash): identifies the password without revealing it. */
+    static String passwordVersion(String passwordHash) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest((passwordHash == null ? "" : passwordHash).getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) {
+                hex.append(String.format("%02x", digest[i]));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 
     private static byte[] keyBytes(String secret) {

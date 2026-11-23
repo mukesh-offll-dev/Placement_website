@@ -9,7 +9,6 @@ import com.gces.placementcell.exception.BadRequestException;
 import com.gces.placementcell.exception.ResourceNotFoundException;
 import com.gces.placementcell.repository.StudentProfileRepository;
 import com.gces.placementcell.repository.UserRepository;
-import com.gces.placementcell.security.CustomUserDetailsService;
 import com.gces.placementcell.security.TokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +35,6 @@ public class StudentAccountService {
     private final StudentProfileRepository studentProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
-    private final CustomUserDetailsService userDetailsService;
 
     /**
      * Replaces the initial password and fills in name, email and phone. Only available while setup
@@ -117,7 +115,7 @@ public class StudentAccountService {
     }
 
     /** Enough of the profile filled in to count as complete: the fields a placement cell needs. */
-    static short completionPercent(StudentProfile profile) {
+    public static short completionPercent(StudentProfile profile) {
         boolean[] filled = {
                 notBlank(profile.getFullName()) && !profile.getFullName().equalsIgnoreCase(profile.getRollNo()),
                 notBlank(profile.getEmail()) && !StudentIdentity.isPlaceholderEmail(profile.getEmail()),
@@ -141,8 +139,6 @@ public class StudentAccountService {
     }
 
     private void forgetCachedUser(User user, String oldEmail) {
-        userDetailsService.evict(oldEmail);
-        userDetailsService.evict(user.getEmail());
         tokenProvider.evictUser(user.getId(), oldEmail);
         tokenProvider.evictUser(user.getId(), user.getEmail());
     }

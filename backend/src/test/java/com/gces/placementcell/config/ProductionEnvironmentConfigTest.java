@@ -1,17 +1,12 @@
 package com.gces.placementcell.config;
 
-import com.gces.placementcell.security.JwtService;
 import com.gces.placementcell.security.TokenProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -58,26 +53,6 @@ class ProductionEnvironmentConfigTest {
     }
 
     @Test
-    @DisplayName("JwtService successfully signs and validates tokens using production-grade 256-bit secret")
-    void testJwtServiceWithProductionSecret() {
-        JwtService jwtService = new JwtService();
-        String prodSecret = "c2VjdXJlLXByb2R1Y3Rpb24tc2VjcmV0LWtleS13aXRoLWVub3VnaC1lbnRyb3B5LTIwMjY=";
-        ReflectionTestUtils.setField(jwtService, "secretKey", prodSecret);
-        ReflectionTestUtils.setField(jwtService, "expirationMs", 3600000L);
-
-        UserDetails userDetails = new User("admin@gces.edu", "password", Collections.emptyList());
-
-        String token = jwtService.generateToken(userDetails);
-        assertNotNull(token);
-        assertFalse(token.isBlank());
-        assertTrue(token.split("\\.").length == 3, "JWT must consist of header.payload.signature");
-
-        assertTrue(jwtService.isTokenValid(token, userDetails));
-        assertEquals("admin@gces.edu", jwtService.extractUsername(token));
-        assertFalse(jwtService.isTokenExpired(token));
-    }
-
-    @Test
     @DisplayName("TokenProvider successfully generates signed tokens with production-grade secret")
     void testTokenProviderWithProductionSecret() {
         String prodSecret = "c2VjdXJlLXByb2R1Y3Rpb24tc2VjcmV0LWtleS13aXRoLWVub3VnaC1lbnRyb3B5LTIwMjY=";
@@ -92,8 +67,7 @@ class ProductionEnvironmentConfigTest {
         String token = tokenProvider.generateToken(user);
         assertNotNull(token);
 
-        // TokenProvider issues a standard HS256 JWT, the same shape JwtService does
-        // and the shape the frontend decodes to read exp. An earlier custom format
+        // TokenProvider issues a standard HS256 JWT, the shape the frontend decodes to read exp. An earlier custom format
         // had two parts; asserting that here would lock in a token the browser
         // cannot read, which signs every user out.
         String[] parts = token.split("\\.");

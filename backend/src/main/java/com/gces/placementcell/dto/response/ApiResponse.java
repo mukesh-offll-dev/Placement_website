@@ -15,6 +15,9 @@ public class ApiResponse<T> {
 
     private boolean success;
     private String message;
+    // Always serialised (even as null) so every response, including errors, has the
+    // same {success, message, data} shape.
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private T data;
 
     public static <T> ApiResponse<T> success(T data) {

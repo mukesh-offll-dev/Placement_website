@@ -8,23 +8,27 @@ import {
   TrendingUp,
   Loader2,
   FileText,
+  ShieldCheck,
 } from 'lucide-react';
 import { getUser } from '../services/authService';
 import studentService, { getStudentDashboard, getProfile } from '../services/api/studentService.js';
 import { jobService } from '../services/api';
 import EmptyState from '../components/EmptyState';
+import { getDraft } from '../services/api/studentDraftService';
+import VerificationStatusBadge from '../components/student/VerificationStatusBadge';
 
-const recentJobs = [
-  { id: 1, company: 'Google', role: 'Software Engineer', cgpa: '8.5+', deadline: 'Nov 15, 2026', status: 'Open' },
-  { id: 2, company: 'Amazon', role: 'Data Analyst', cgpa: '7.5+', deadline: 'Nov 01, 2026', status: 'Open' },
-  { id: 3, company: 'Microsoft', role: 'Cloud Engineer', cgpa: '8.0+', deadline: 'Oct 30, 2026', status: 'Open' },
-  { id: 4, company: 'Zoho', role: 'UI/UX Designer', cgpa: '7.0+', deadline: 'Oct 28, 2026', status: 'Closing Soon' },
-];
+const JOB_STATUS_LABELS = {
+  ACTIVE: 'Open',
+  CLOSING_SOON: 'Closing Soon',
+  CLOSED: 'Closed',
+  DRAFT: 'Draft',
+};
 
 const appStatusStyle = {
   APPLIED: 'bg-blue-100 text-blue-700',
   UNDER_REVIEW: 'bg-yellow-100 text-yellow-700',
   SHORTLISTED: 'bg-green-100 text-green-700',
+  INTERVIEW: 'bg-purple-100 text-purple-700',
   REJECTED: 'bg-red-100 text-red-700',
   SELECTED: 'bg-blue-100 text-blue-700',
   WITHDRAWN: 'bg-gray-100 text-gray-700',
@@ -34,6 +38,7 @@ const appStatusLabel = {
   APPLIED: 'Applied',
   UNDER_REVIEW: 'Under Review',
   SHORTLISTED: 'Shortlisted',
+  INTERVIEW: 'Interview',
   REJECTED: 'Rejected',
   SELECTED: 'Selected',
   WITHDRAWN: 'Withdrawn',
@@ -135,17 +140,20 @@ export default function StudentDashboard() {
   const currentUser = getUser();
   const [stats, setStats] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [liveJobs, setLiveJobs] = useState(recentJobs);
+  const [liveJobs, setLiveJobs] = useState([]);
+  const [verification, setVerification] = useState(null);
+  const [jobsState, setJobsState] = useState('loading');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     const loadDashboard = async () => {
       try {
-        const [dashData, profData, jobsData] = await Promise.allSettled([
+        const [dashData, profData, jobsData, draftData] = await Promise.allSettled([
           getStudentDashboard(),
           getProfile(),
           jobService.getJobs({ page: 0, size: 4 }),
+          getDraft(),
         ]);
 
         if (isMounted) {
@@ -155,14 +163,22 @@ export default function StudentDashboard() {
           if (profData.status === 'fulfilled') {
             setProfile(profData.value);
           }
-          if (jobsData.status === 'fulfilled') {
-            const rawList = Array.isArray(jobsData.value)
+          if (draftData.status === 'fulfilled' && draftData.value) {
+            setVerification(draftData.value);
+          }
+          const rawList =
+            jobsData.status !== 'fulfilled'
+              ? null
+              : Array.isArray(jobsData.value)
               ? jobsData.value
               : Array.isArray(jobsData.value?.content)
               ? jobsData.value.content
               : null;
-            if (rawList) {
-              setLiveJobs(
+          if (!rawList) {
+            setJobsState('error');
+          } else {
+            setJobsState('success');
+            setLiveJobs(
                 rawList.map((j) => {
                   const companyName =
                     j.company?.name ||
@@ -180,11 +196,10 @@ export default function StudentDashboard() {
                           year: 'numeric',
                         })
                       : 'No Deadline',
-                    status: j.status || 'Open',
+                    status: j.expired ? 'Closed' : JOB_STATUS_LABELS[j.status] || j.status || 'Open',
                   };
                 })
               );
-            }
           }
         }
       } catch {
@@ -250,7 +265,18 @@ export default function StudentDashboard() {
               View all <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
-          {liveJobs.length === 0 ? (
+          {jobsState === 'error' ? (
+            <EmptyState
+              type="error"
+              title="Could not load job drives"
+              description="The list of open drives could not be fetched right now."
+              action={{
+                label: 'Browse Jobs Page',
+                to: '/student/jobs',
+                icon: Briefcase,
+              }}
+            />
+          ) : liveJobs.length === 0 ? (
             <EmptyState
               type="empty"
               icon={Briefcase}
@@ -302,9 +328,10 @@ export default function StudentDashboard() {
             </div>
             <p className="font-bold text-gray-900">{studentName}</p>
             <p className="text-gray-500 text-xs mt-0.5">
-              {profile?.degree || 'B.E Computer Science'} &nbsp;·&nbsp; Sem {profile?.semester || 7}
+              {profile?.degree || 'Degree not provided'}
+              {profile?.semester ? <> &nbsp;·&nbsp; Sem {profile.semester}</> : null}
             </p>
-            {profile?.cgpa && (
+            {profile?.cgpa != null && (
               <p className="text-blue-600 text-sm font-semibold mt-1">CGPA: {profile.cgpa}</p>
             )}
             <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 mb-1 overflow-hidden">
@@ -318,6 +345,35 @@ export default function StudentDashboard() {
               View Full Profile
             </Link>
           </div>
+
+          {/* Profile verification */}
+          {verification && (() => {
+            const vStatus =
+              verification.status === 'PENDING' ? 'PENDING' : verification.profileVerificationStatus || 'NOT_SUBMITTED';
+            const text = {
+              VERIFIED: 'Your profile is verified by your faculty advisor.',
+              PENDING: 'Your profile changes are waiting for review.',
+              REJECTED: 'Your advisor requested changes. Update your profile and resubmit.',
+              NOT_SUBMITTED: 'Submit your profile so your advisor can verify it.',
+            }[vStatus] || 'Check your profile verification status.';
+            return (
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-600" aria-hidden="true" /> Profile Verification
+                  </h3>
+                  <VerificationStatusBadge status={vStatus} />
+                </div>
+                <p className="text-xs text-gray-500">{text}</p>
+                <Link
+                  to={vStatus === 'REJECTED' || vStatus === 'NOT_SUBMITTED' ? '/student/profile' : '/student/verification'}
+                  className="block text-center text-xs text-blue-600 mt-3 hover:underline font-medium"
+                >
+                  {vStatus === 'REJECTED' || vStatus === 'NOT_SUBMITTED' ? 'Go to my profile →' : 'View verification details →'}
+                </Link>
+              </div>
+            );
+          })()}
 
           {/* My Applications */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">

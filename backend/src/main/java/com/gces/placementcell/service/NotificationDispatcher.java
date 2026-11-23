@@ -106,6 +106,8 @@ public class NotificationDispatcher {
                 .status(NotificationStatus.PUBLISHED)
                 .createdBy(creator)
                 .publishedAt(now)
+                .actionUrl(event.linkPath() == null || event.linkPath().isBlank()
+                        ? null : truncate(event.linkPath().trim(), 255))
                 .build();
         if (event.relatedJobId() != null) {
             notification.setRelatedJob(jobRepository.getReferenceById(event.relatedJobId()));
@@ -130,7 +132,8 @@ public class NotificationDispatcher {
         int sent = 0;
         int failed = 0;
         for (String email : emails) {
-            if (StudentIdentity.isPlaceholderEmail(email)) {
+            // Stand-in student addresses and generated faculty addresses (*.gces.local) are never emailed.
+            if (StudentIdentity.isUndeliverableEmail(email)) {
                 continue;
             }
             try {

@@ -38,6 +38,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             Files.createDirectories(this.rootLocation);
             Files.createDirectories(this.rootLocation.resolve(properties.getResumeSubdir()));
             Files.createDirectories(this.rootLocation.resolve(properties.getProjectMediaSubdir()));
+            Files.createDirectories(this.rootLocation.resolve(com.gces.placementcell.service.VerificationFiles.CATEGORY));
         } catch (IOException e) {
             throw new RuntimeException("Could not initialize storage directory", e);
         }

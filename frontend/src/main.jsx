@@ -4,6 +4,11 @@ import { Toaster } from 'react-hot-toast'
 import './App.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { clearLegacyAuthCookies } from './services/api/authService.js'
+
+// Older builds kept a copy of the JWT in cookies; the token now travels only in the
+// Authorization header, so expire any leftover cookie on start-up.
+clearLegacyAuthCookies()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

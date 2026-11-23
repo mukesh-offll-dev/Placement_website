@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,259 +15,192 @@ import {
   Bookmark,
   Send,
   X,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { jobService } from '../services/api';
-import { submitApplication } from '../services/api/studentService.js';
+import { submitApplication, getMyApplications, getProfile } from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
 import { JobDetailSkeleton } from '../components/Skeleton';
 import { toastSuccess, toastInfo, toastError } from '../utils/toast';
+import { getIneligibilityReasons } from '../utils/jobEligibility';
 
-const JOBS_DB = {
-  1: {
-    id: 1,
-    company: 'Google',
-    logo: 'GO',
-    logoColor: 'bg-blue-100 text-blue-700',
-    role: 'Software Engineer',
-    cgpa: '8.5+',
-    deadline: 'Nov 15, 2026',
-    location: 'Bangalore',
-    type: 'Full Time',
-    ctc: '24 LPA',
-    status: 'Open',
-    bond: 'None',
-    vacancies: 15,
-    department: ['CSE', 'IT', 'ECE'],
-    about: `Google LLC is an American multinational technology company that specializes in Internet-related services and products. The company is known for its search engine, advertising technologies, cloud computing, software, and hardware.`,
-    description: `We are looking for passionate Software Engineers to join our Engineering team in Bangalore. You will work on challenging problems that affect millions of users worldwide, contributing to Google's core products including Search, Maps, and Cloud.`,
-    responsibilities: [
-      'Design, develop, and maintain scalable software solutions',
-      'Collaborate with cross-functional teams including PMs and designers',
-      'Write clean, efficient, and well-documented code',
-      'Participate in code reviews and technical discussions',
-      'Contribute to engineering best practices and culture',
-    ],
-    requirements: [
-      'B.E/B.Tech in CSE, IT, or related field',
-      'Minimum CGPA of 8.5',
-      'Strong problem-solving skills and knowledge of data structures & algorithms',
-      'Proficiency in at least one: C++, Java, Python, Go',
-      'Good understanding of OOPs, OS, DBMS, and Computer Networks',
-      'No active backlogs',
-    ],
-    selectionProcess: [
-      'Online Coding Test (90 min)',
-      'Technical Interview — Round 1',
-      'Technical Interview — Round 2',
-      'Hiring Manager Interview',
-      'HR Discussion',
-    ],
-    perks: ['Health insurance', 'Free meals', 'Gym membership', 'Relocation assistance', 'Stock options'],
-    postedOn: 'Oct 15, 2026',
-  },
-  2: {
-    id: 2,
-    company: 'Amazon',
-    logo: 'AM',
-    logoColor: 'bg-orange-100 text-orange-700',
-    role: 'Data Analyst',
-    cgpa: '7.5+',
-    deadline: 'Nov 01, 2026',
-    location: 'Hyderabad',
-    type: 'Full Time',
-    ctc: '18 LPA',
-    status: 'Open',
-    bond: 'None',
-    vacancies: 20,
-    department: ['CSE', 'IT', 'ECE', 'EEE'],
-    about: `Amazon.com, Inc. is an American multinational technology company focusing on e-commerce, cloud computing, digital streaming, and artificial intelligence.`,
-    description: `Join Amazon's Data team to drive insights that power business decisions across Amazon's global operations. You will analyze large datasets, build dashboards, and present findings to leadership.`,
-    responsibilities: [
-      'Analyze large-scale datasets to uncover actionable insights',
-      'Build and maintain analytics dashboards',
-      'Work with engineering teams to define data pipelines',
-      'Present findings clearly to technical and non-technical stakeholders',
-    ],
-    requirements: [
-      'B.E/B.Tech in any engineering discipline',
-      'Minimum CGPA of 7.5',
-      'Proficiency in SQL and Python (Pandas, NumPy)',
-      'Experience with data visualization tools (Tableau, Power BI)',
-      'Strong analytical and problem-solving skills',
-    ],
-    selectionProcess: [
-      'Online Assessment (Aptitude + Coding)',
-      'Technical Interview',
-      'Bar Raiser Interview',
-      'HR Round',
-    ],
-    perks: ['Health insurance', 'Employee discounts', 'Meal vouchers', 'Learning credits'],
-    postedOn: 'Oct 12, 2026',
-  },
-  3: {
-    id: 3,
-    company: 'Microsoft',
-    logo: 'MS',
-    logoColor: 'bg-indigo-100 text-indigo-700',
-    role: 'Cloud Engineer',
-    cgpa: '8.0+',
-    deadline: 'Oct 30, 2026',
-    location: 'Hyderabad',
-    type: 'Full Time',
-    ctc: '22 LPA',
-    status: 'Open',
-    bond: 'None',
-    vacancies: 10,
-    department: ['CSE', 'IT'],
-    about: `Microsoft Corporation is an American multinational technology corporation producing computer software, consumer electronics, personal computers, and related services.`,
-    description: `Be part of Microsoft Azure's growing engineering team. You will design and implement cloud infrastructure, build scalable services, and help customers migrate to the cloud.`,
-    responsibilities: [
-      'Design and implement cloud-native solutions on Azure',
-      'Work with CI/CD pipelines and DevOps tools',
-      'Monitor system performance and optimize infrastructure',
-      'Collaborate with product teams to deliver customer-facing features',
-    ],
-    requirements: [
-      'B.E/B.Tech in CSE or IT',
-      'Minimum CGPA of 8.0',
-      'Understanding of cloud concepts (IaaS, PaaS, SaaS)',
-      'Knowledge of Linux, networking fundamentals',
-      'Proficiency in Python or PowerShell',
-    ],
-    selectionProcess: ['Online Test', 'Technical Interview — 2 Rounds', 'HR Interview'],
-    perks: ['Health & dental insurance', 'Work from home flexibility', 'Learning & development budget'],
-    postedOn: 'Oct 10, 2026',
-  },
+const EMPLOYMENT_TYPE_LABELS = {
+  FULL_TIME: 'Full Time',
+  PART_TIME: 'Part Time',
+  INTERNSHIP: 'Internship',
+  CONTRACT: 'Contract',
 };
 
-const DEFAULT_JOB = {
-  id: 99,
-  company: 'TCS',
-  logo: 'TC',
-  logoColor: 'bg-purple-100 text-purple-700',
-  role: 'Systems Engineer',
-  cgpa: '6.5+',
-  deadline: 'Nov 10, 2026',
-  location: 'Pan India',
-  type: 'Full Time',
-  ctc: '7 LPA',
-  status: 'Open',
-  bond: '2 years',
-  vacancies: 100,
-  department: ['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL'],
-  about: `Tata Consultancy Services is an Indian multinational IT services and consulting company. TCS is one of the largest employers in India and a global IT giant.`,
-  description: `TCS is hiring Systems Engineers for its Next Gen Campus Hiring drive for GCE Srirangam 2026 batch. You will work across diverse domains including banking, retail, healthcare, and government.`,
-  responsibilities: [
-    'Develop and maintain software applications',
-    'Understand and translate client requirements into technical solutions',
-    'Participate in testing, debugging, and deployment',
-    'Work in agile teams with daily stand-ups and sprint reviews',
-  ],
-  requirements: [
-    'B.E/B.Tech/M.E/M.Tech in any discipline',
-    'Minimum CGPA of 6.5',
-    'No active backlogs during application',
-    'Not more than 2 years of gap in education',
-  ],
-  selectionProcess: ['TCS NQT (National Qualifier Test)', 'Technical Interview', 'HR Interview'],
-  perks: ['Health insurance', 'PF & gratuity', 'Performance bonus', 'Internal mobility'],
-  postedOn: 'Oct 05, 2026',
+const JOB_STATUS_LABELS = {
+  DRAFT: 'Draft',
+  ACTIVE: 'Open',
+  CLOSING_SOON: 'Closing Soon',
+  CLOSED: 'Closed',
 };
 
-JOBS_DB[99] = DEFAULT_JOB;
+const APPLICATION_STATUS_LABELS = {
+  APPLIED: 'Applied',
+  UNDER_REVIEW: 'Under Review',
+  SHORTLISTED: 'Shortlisted',
+  INTERVIEW: 'Interview',
+  SELECTED: 'Selected',
+  REJECTED: 'Rejected',
+  WITHDRAWN: 'Withdrawn',
+};
+
+const DRIVE_MODE_LABELS = { ONLINE: 'Online', OFFLINE: 'On campus', HYBRID: 'Hybrid' };
+
+const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
+
+/** "2026-11-15" -> Nov 15, 2026, parsed as a local date so it does not shift a day. */
+const formatLocalDate = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+};
+
+const daysUntil = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const end = new Date(y, m - 1, d, 23, 59, 59);
+  return (end.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+};
+
+const textList = (value) =>
+  Array.isArray(value) ? value.filter((v) => typeof v === 'string' && v.trim()) : [];
+
+/** Maps a JobResponse (see JobResponse.java) onto what this page renders. No invented content. */
+const toViewModel = (data) => {
+  const companyName = data.company?.name || data.company?.shortName || 'Company';
+  const logoColor = HEX_COLOR.test(data.company?.logoColor || '') ? data.company.logoColor : null;
+  const rounds = Array.isArray(data.selectionRounds)
+    ? [...data.selectionRounds]
+        .filter(Boolean)
+        .sort((a, b) => (a.roundNumber ?? 0) - (b.roundNumber ?? 0))
+    : [];
+
+  return {
+    id: data.id,
+    company: companyName,
+    logo: (data.company?.shortName || companyName.slice(0, 2) || '—').toUpperCase(),
+    logoColor,
+    logoUrl: data.company?.logoUrl || null,
+    about: data.company?.about || null,
+    website: data.company?.website || null,
+    role: data.jobRole || 'Role not specified',
+    cgpa: data.minCgpa != null ? `${data.minCgpa}+` : 'No minimum',
+    deadlineRaw: data.applicationDeadline || null,
+    deadline: formatLocalDate(data.applicationDeadline) || 'No deadline',
+    location: data.location || 'Not specified',
+    type: EMPLOYMENT_TYPE_LABELS[data.jobType] || data.jobType || 'Not specified',
+    ctc: data.ctcText || (data.ctcValue != null ? String(data.ctcValue) : 'Not disclosed'),
+    statusRaw: data.status || null,
+    status: JOB_STATUS_LABELS[data.status] || data.status || 'Unknown',
+    expired: Boolean(data.expired),
+    bond: data.bond || 'None',
+    vacancies: data.vacancies != null ? data.vacancies : null,
+    backlogsAllowed: data.backlogsAllowed,
+    graduationYear: data.graduationYear ?? null,
+    eligibleDepartments: textList(data.eligibleDepartments),
+    eligibleDegrees: textList(data.eligibleDegrees),
+    description: data.jobDescription || null,
+    responsibilities: textList(data.responsibilities),
+    requirements: textList(data.requirements),
+    skills: textList(data.skills),
+    perks: textList(data.perks),
+    selectionRounds: rounds,
+    postedOn: formatLocalDate(data.postedDate) || formatLocalDate(data.createdAt) || null,
+    raw: data,
+  };
+};
 
 export default function JobDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [showApply, setShowApply] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [applied, setApplied] = useState(false);
+  const [existingApplication, setExistingApplication] = useState(null);
   const [applyStep, setApplyStep] = useState(1);
-  const [applyForm, setApplyForm] = useState({ resume: null, coverLetter: '', consent: false });
+  const [applyForm, setApplyForm] = useState({ coverLetter: '', consent: false });
   const [submittingApplication, setSubmittingApplication] = useState(false);
   const [applicationError, setApplicationError] = useState('');
 
-  const initialJob = JOBS_DB[parseInt(id, 10)] || null;
-  const [job, setJob] = useState(initialJob);
+  const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [profile, setProfile] = useState(null);
+  const [profileState, setProfileState] = useState('idle');
+
   useEffect(() => {
-    let isMounted = true;
+    const controller = new AbortController();
     const fetchJob = async () => {
       setLoading(true);
       setError(null);
+      setExistingApplication(null);
       try {
-        const data = await jobService.getJobById(id);
-        if (isMounted) {
-          if (data) {
-            const companyName =
-              data.company?.name ||
-              data.company?.shortName ||
-              (typeof data.company === 'string' ? data.company : 'Company');
-            const companyLogo = (
-              data.company?.shortName ||
-              companyName.slice(0, 2) ||
-              'JB'
-            ).toUpperCase();
-
-            setJob({
-              id: data.id,
-              company: companyName,
-              logo: companyLogo,
-              logoColor: data.company?.logoColor || 'bg-blue-100 text-blue-700',
-              role: data.jobRole || data.role || 'Job Role',
-              cgpa: data.minCgpa != null ? `${data.minCgpa}+` : 'Not Specified',
-              deadline: data.applicationDeadline
-                ? new Date(data.applicationDeadline).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: '2-digit',
-                    year: 'numeric',
-                  })
-                : 'No Deadline',
-              location: data.location || 'Location Not Specified',
-              type: data.jobType || 'Full Time',
-              ctc: data.ctcText || (data.ctcValue ? `${data.ctcValue} LPA` : 'Not Disclosed'),
-              status: data.status || 'Open',
-              bond: data.bond || 'None',
-              vacancies: data.vacancies || 'Multiple',
-              department: data.department || ['All Engineering Departments'],
-              about: data.company?.about || `${companyName} campus recruitment drive.`,
-              description: data.description || 'Detailed job description will be shared during the presentation.',
-              responsibilities: Array.isArray(data.responsibilities)
-                ? data.responsibilities
-                : [data.responsibilities || 'Collaborate with cross-functional engineering teams.'],
-              requirements: Array.isArray(data.requirements)
-                ? data.requirements
-                : [data.requirements || 'B.E/B.Tech or equivalent relevant degree.'],
-              selectionProcess: Array.isArray(data.selectionProcess)
-                ? data.selectionProcess
-                : ['Online Assessment', 'Technical Round', 'HR Interview'],
-              perks: Array.isArray(data.perks) ? data.perks : ['Comprehensive Health Benefits'],
-              postedOn: data.postedOn || 'Recent',
-            });
-          } else {
-            setError('Job drive not found.');
-          }
+        const [data, applications] = await Promise.all([
+          jobService.getJobById(id, { signal: controller.signal }),
+          // Whether this student already applied. A failure here must not hide the job: the
+          // server still refuses a duplicate application with a clear message.
+          getMyApplications({ signal: controller.signal }).catch(() => null),
+        ]);
+        if (controller.signal.aborted) return;
+        if (data) {
+          setJob(toViewModel(data));
+          const match = Array.isArray(applications)
+            ? applications.find((app) => String(app?.job?.id) === String(data.id))
+            : null;
+          setExistingApplication(match || null);
+        } else {
+          setJob(null);
+          setError('Job drive not found.');
         }
       } catch (err) {
-        if (isMounted) {
-          setError(
-            err?.response?.status === 404
-              ? 'Job drive not found.'
-              : err?.message || 'Failed to load job drive.'
-          );
-        }
+        if (controller.signal.aborted || err?.code === 'ERR_CANCELED') return;
+        setJob(null);
+        setError(
+          err?.status === 404 ? 'Job drive not found.' : err?.message || 'Failed to load job drive.'
+        );
       } finally {
-        if (isMounted) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchJob();
-    return () => {
-      isMounted = false;
-    };
+    return () => controller.abort();
   }, [id]);
+
+  const openApply = async () => {
+    setApplicationError('');
+    setApplyStep(1);
+    setShowApply(true);
+    if (profileState === 'success' || profileState === 'loading') return;
+    setProfileState('loading');
+    try {
+      const data = await getProfile();
+      setProfile(data || null);
+      setProfileState(data ? 'success' : 'error');
+    } catch {
+      setProfileState('error');
+    }
+  };
+
+  const closeApply = () => {
+    if (submittingApplication) return;
+    setShowApply(false);
+    setApplyStep(1);
+  };
+
+  const ineligibility = useMemo(
+    () => (profile && job ? getIneligibilityReasons(profile, job.raw) : []),
+    [profile, job]
+  );
 
   const handleApply = async (e) => {
     e.preventDefault();
@@ -279,20 +212,24 @@ export default function JobDetailPage() {
     setSubmittingApplication(true);
     setApplicationError('');
     try {
-      await submitApplication({
+      const created = await submitApplication({
         jobId: Number(job.id),
         coverLetter: applyForm.coverLetter.trim() || null,
         resumeUrl: null,
         consentGiven: applyForm.consent,
       });
-      setApplied(true);
+      setExistingApplication(created && typeof created === 'object' ? created : { status: 'APPLIED' });
       setShowApply(false);
       setApplyStep(1);
       toastSuccess(`Application submitted for ${job.role} at ${job.company}!`);
     } catch (err) {
-      const message = err.message || 'Could not submit your application. Please try again.';
+      // 400 = not eligible (the server names the criterion), 409 = already applied.
+      const message = err?.message || 'Could not submit your application. Please try again.';
       setApplicationError(message);
       toastError(err, 'Could not submit your application. Please try again.');
+      if (err?.status === 409) {
+        setExistingApplication((prev) => prev || { status: 'APPLIED' });
+      }
     } finally {
       setSubmittingApplication(false);
     }
@@ -330,13 +267,16 @@ export default function JobDetailPage() {
     );
   }
 
+  const remainingDays = daysUntil(job.deadlineRaw);
   const isClosingSoon =
-    job.deadline &&
-    (() => {
-      const deadline = new Date(job.deadline);
-      const now = new Date();
-      return (deadline - now) / (1000 * 60 * 60 * 24) <= 5;
-    })();
+    job.statusRaw === 'CLOSING_SOON' || (remainingDays !== null && remainingDays >= 0 && remainingDays <= 5);
+  const isOpen = !job.expired && (job.statusRaw === 'ACTIVE' || job.statusRaw === 'CLOSING_SOON');
+  const applied = Boolean(existingApplication);
+  const appliedLabel = APPLICATION_STATUS_LABELS[existingApplication?.status] || 'Applied';
+  const canApply = isOpen && !applied;
+
+  const logoStyle = job.logoColor ? { backgroundColor: job.logoColor } : undefined;
+  const logoClasses = job.logoColor ? 'text-white' : 'bg-blue-100 text-blue-700';
 
   return (
     <>
@@ -358,8 +298,21 @@ export default function JobDetailPage() {
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
-                    <div className={`w-16 h-16 rounded-2xl ${job.logoColor} flex items-center justify-center font-bold text-xl shrink-0`}>
+                    <div
+                      className={`relative w-16 h-16 rounded-2xl ${logoClasses} flex items-center justify-center font-bold text-xl shrink-0`}
+                      style={logoStyle}
+                    >
                       {job.logo}
+                      {job.logoUrl && (
+                        <img
+                          src={job.logoUrl}
+                          alt={`${job.company} logo`}
+                          onError={(event) => {
+                            event.currentTarget.style.display = 'none';
+                          }}
+                          className="absolute inset-0 w-full h-full rounded-2xl object-contain bg-white"
+                        />
+                      )}
                     </div>
                     <div>
                       <h1 className="text-2xl font-bold text-gray-900">{job.role}</h1>
@@ -367,7 +320,9 @@ export default function JobDetailPage() {
                       <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-400">
                         <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>
                         <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" />{job.type}</span>
-                        <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />Posted {job.postedOn}</span>
+                        {job.postedOn && (
+                          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />Posted {job.postedOn}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -403,8 +358,12 @@ export default function JobDetailPage() {
 
                 {/* Badges row */}
                 <div className="flex flex-wrap gap-2 mt-4">
-                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${isClosingSoon ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                    ● {isClosingSoon ? 'Closing Soon' : job.status}
+                  <span
+                    className={`text-xs px-3 py-1 rounded-full font-medium ${
+                      !isOpen ? 'bg-gray-100 text-gray-600' : isClosingSoon ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                    }`}
+                  >
+                    ● {!isOpen ? (job.expired ? 'Closed' : job.status) : isClosingSoon ? 'Closing Soon' : job.status}
                   </span>
                   <span className="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
                     CTC: {job.ctc}
@@ -412,24 +371,33 @@ export default function JobDetailPage() {
                   <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600">
                     Min CGPA: {job.cgpa}
                   </span>
-                  <span className="text-xs px-3 py-1 rounded-full bg-purple-50 text-purple-600">
-                    {job.vacancies} Vacancies
-                  </span>
+                  {job.vacancies != null && (
+                    <span className="text-xs px-3 py-1 rounded-full bg-purple-50 text-purple-600">
+                      {job.vacancies} Vacancies
+                    </span>
+                  )}
                 </div>
 
                 {/* Apply / Applied */}
-                <div className="mt-5 flex gap-3 flex-wrap">
+                <div className="mt-5 flex gap-3 flex-wrap items-center">
                   {applied ? (
-                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-5 py-2.5 rounded-xl text-sm font-semibold">
-                      <CheckCircle className="w-4 h-4" /> Application Submitted
-                    </div>
-                  ) : (
+                    <Link
+                      to="/student/applications"
+                      className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-green-100"
+                    >
+                      <CheckCircle className="w-4 h-4" /> Applied · {appliedLabel}
+                    </Link>
+                  ) : isOpen ? (
                     <button
-                      onClick={() => setShowApply(true)}
+                      onClick={openApply}
                       className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
                     >
                       <Send className="w-4 h-4" /> Apply Now
                     </button>
+                  ) : (
+                    <span className="flex items-center gap-2 bg-gray-100 text-gray-500 px-5 py-2.5 rounded-xl text-sm font-semibold">
+                      Applications closed
+                    </span>
                   )}
                   <span className="flex items-center gap-1 text-sm text-red-500 font-medium">
                     <Clock className="w-4 h-4" /> Deadline: {job.deadline}
@@ -438,33 +406,72 @@ export default function JobDetailPage() {
               </div>
 
               {/* About company */}
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-blue-600" /> About {job.company}
-                </h2>
-                <p className="text-gray-600 text-sm leading-relaxed">{job.about}</p>
-              </div>
+              {job.about && (
+                <div className="bg-white rounded-2xl shadow-sm p-6">
+                  <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-600" /> About {job.company}
+                  </h2>
+                  <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">{job.about}</p>
+                </div>
+              )}
 
               {/* Job description */}
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h2 className="font-bold text-gray-900 mb-3">Job Description</h2>
-                <p className="text-gray-600 text-sm leading-relaxed mb-5">{job.description}</p>
+                <p className="text-gray-600 text-sm leading-relaxed mb-5 whitespace-pre-line">
+                  {job.description || 'The placement cell has not added a description for this drive yet.'}
+                </p>
 
-                <h3 className="font-semibold text-gray-800 mb-2 text-sm">Key Responsibilities</h3>
-                <ul className="space-y-2">
-                  {job.responsibilities.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
+                {job.responsibilities.length > 0 && (
+                  <>
+                    <h3 className="font-semibold text-gray-800 mb-2 text-sm">Key Responsibilities</h3>
+                    <ul className="space-y-2 mb-5">
+                      {job.responsibilities.map((r, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                {job.skills.length > 0 && (
+                  <>
+                    <h3 className="font-semibold text-gray-800 mb-2 text-sm">Skills</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {job.skills.map((s) => (
+                        <span key={s} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-lg">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Requirements */}
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h2 className="font-bold text-gray-900 mb-3">Eligibility & Requirements</h2>
                 <ul className="space-y-2">
+                  <li className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 shrink-0" />
+                    Minimum CGPA: {job.cgpa}
+                  </li>
+                  <li className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 shrink-0" />
+                    {job.backlogsAllowed ? 'Active backlogs allowed' : 'No active backlogs'}
+                  </li>
+                  {job.graduationYear && (
+                    <li className="flex items-start gap-2 text-sm text-gray-600">
+                      <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 shrink-0" />
+                      {job.graduationYear} graduating batch
+                    </li>
+                  )}
+                  <li className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 shrink-0" />
+                    Degrees: {job.eligibleDegrees.length > 0 ? job.eligibleDegrees.join(', ') : 'Open to all degrees'}
+                  </li>
                   {job.requirements.map((r, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
                       <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 shrink-0" />
@@ -475,24 +482,37 @@ export default function JobDetailPage() {
               </div>
 
               {/* Selection process */}
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h2 className="font-bold text-gray-900 mb-4">Selection Process</h2>
-                <div className="flex flex-col gap-0">
-                  {job.selectionProcess.map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
-                          {i + 1}
+              {job.selectionRounds.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm p-6">
+                  <h2 className="font-bold text-gray-900 mb-4">Selection Process</h2>
+                  <div className="flex flex-col gap-0">
+                    {job.selectionRounds.map((round, i) => {
+                      const when = formatLocalDate(round.scheduledOn);
+                      const mode = DRIVE_MODE_LABELS[round.roundMode] || round.roundMode;
+                      return (
+                        <div key={round.id ?? i} className="flex items-start gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                              {round.roundNumber ?? i + 1}
+                            </div>
+                            {i < job.selectionRounds.length - 1 && (
+                              <div className="w-0.5 h-6 bg-blue-200" />
+                            )}
+                          </div>
+                          <div className="pb-4 pt-1">
+                            <p className="text-sm text-gray-700">{round.roundName || `Round ${i + 1}`}</p>
+                            {(mode || when) && (
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {[mode, when].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        {i < job.selectionProcess.length - 1 && (
-                          <div className="w-0.5 h-6 bg-blue-200" />
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-700 pb-4">{step}</p>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* ── RIGHT: sidebar info ── */}
@@ -506,7 +526,11 @@ export default function JobDetailPage() {
                     { icon: MapPin, label: 'Location', value: job.location },
                     { icon: Briefcase, label: 'Job Type', value: job.type },
                     { icon: GraduationCap, label: 'Min CGPA', value: job.cgpa },
-                    { icon: Users, label: 'Vacancies', value: `${job.vacancies} positions` },
+                    {
+                      icon: Users,
+                      label: 'Vacancies',
+                      value: job.vacancies != null ? `${job.vacancies} positions` : 'Not specified',
+                    },
                     { icon: Clock, label: 'Bond', value: job.bond },
                     { icon: Calendar, label: 'Deadline', value: job.deadline, color: isClosingSoon ? 'text-red-500' : '' },
                   ].map(({ icon: Icon, label, value, color }) => (
@@ -526,32 +550,54 @@ export default function JobDetailPage() {
               {/* Eligible Departments */}
               <div className="bg-white rounded-2xl shadow-sm p-5">
                 <h3 className="font-semibold text-sm mb-3 text-gray-800">Eligible Departments</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {job.department.map((d) => (
-                    <span key={d} className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-lg font-medium">
-                      {d}
-                    </span>
-                  ))}
-                </div>
+                {job.eligibleDepartments.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {job.eligibleDepartments.map((d) => (
+                      <span key={d} className="bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-lg font-medium">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Open to all departments</p>
+                )}
+              </div>
+
+              {/* Eligible Degrees */}
+              <div className="bg-white rounded-2xl shadow-sm p-5">
+                <h3 className="font-semibold text-sm mb-3 text-gray-800">Eligible Degrees</h3>
+                {job.eligibleDegrees.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {job.eligibleDegrees.map((d) => (
+                      <span key={d} className="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded-lg font-medium">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Open to all degrees</p>
+                )}
               </div>
 
               {/* Perks */}
-              <div className="bg-white rounded-2xl shadow-sm p-5">
-                <h3 className="font-semibold text-sm mb-3 text-gray-800">Perks & Benefits</h3>
-                <div className="space-y-1.5">
-                  {job.perks.map((p) => (
-                    <div key={p} className="flex items-center gap-2 text-xs text-gray-600">
-                      <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                      {p}
-                    </div>
-                  ))}
+              {job.perks.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm p-5">
+                  <h3 className="font-semibold text-sm mb-3 text-gray-800">Perks & Benefits</h3>
+                  <div className="space-y-1.5">
+                    {job.perks.map((p) => (
+                      <div key={p} className="flex items-center gap-2 text-xs text-gray-600">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                        {p}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Apply CTA */}
-              {!applied && (
+              {canApply && (
                 <button
-                  onClick={() => setShowApply(true)}
+                  onClick={openApply}
                   className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors text-sm shadow-sm"
                 >
                   Apply for this Position
@@ -571,7 +617,7 @@ export default function JobDetailPage() {
                 <h3 className="font-bold text-gray-900">Apply — {job.company}</h3>
                 <p className="text-xs text-gray-500 mt-0.5">{job.role} · {job.location}</p>
               </div>
-              <button onClick={() => { setShowApply(false); setApplyStep(1); }} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={closeApply} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -595,28 +641,57 @@ export default function JobDetailPage() {
               {applyStep === 1 ? (
                 <>
                   <p className="text-sm text-gray-600">Review your profile before applying. Make sure it&apos;s up to date.</p>
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Name</span>
-                      <span className="font-medium">Alex Harrison</span>
+                  {profileState === 'loading' ? (
+                    <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Loading your profile…
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">CGPA</span>
-                      <span className="font-semibold text-blue-600">8.9</span>
+                  ) : profileState === 'error' || !profile ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800">
+                      Your profile could not be loaded. You can still apply; the placement cell checks
+                      eligibility when you submit.{' '}
+                      <Link to="/student/profile" className="underline font-medium">Open my profile</Link>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Department</span>
-                      <span className="font-medium">CSE</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Email</span>
-                      <span className="font-medium">alex.harrison@gce.edu.in</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 p-3 rounded-xl">
-                    <CheckCircle className="w-4 h-4 shrink-0" />
-                    You meet the eligibility criteria for this role.
-                  </div>
+                  ) : (
+                    <>
+                      <div className="bg-gray-50 rounded-xl p-4 space-y-3 text-sm">
+                        {[
+                          ['Name', profile.fullName],
+                          ['Register No', profile.rollNo],
+                          ['CGPA', profile.cgpa],
+                          ['Department', profile.departmentCode || profile.department],
+                          ['Degree', profile.degree],
+                          ['Batch', profile.batch],
+                          ['Email', profile.email],
+                        ].map(([label, value]) => (
+                          <div key={label} className="flex justify-between gap-3">
+                            <span className="text-gray-500">{label}</span>
+                            <span className={`font-medium text-right ${label === 'CGPA' ? 'text-blue-600' : ''}`}>
+                              {value !== null && value !== undefined && value !== '' ? String(value) : 'Not provided'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {ineligibility.length === 0 ? (
+                        <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 p-3 rounded-xl">
+                          <CheckCircle className="w-4 h-4 shrink-0" />
+                          Your profile meets the stated criteria for this role.
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 p-3 rounded-xl">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-semibold mb-1">You may not be eligible:</p>
+                            <ul className="list-disc ml-4 space-y-0.5">
+                              {ineligibility.map((r) => (
+                                <li key={r}>{r}</li>
+                              ))}
+                            </ul>
+                            <p className="mt-1">If your details are wrong, contact the placement cell.</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </>
               ) : (
                 <>
@@ -654,7 +729,7 @@ export default function JobDetailPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={submittingApplication}
+                  disabled={submittingApplication || (applyStep === 1 && profileState === 'loading')}
                   className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {submittingApplication ? 'Submitting…' : applyStep === 1 ? 'Continue →' : 'Submit Application'}

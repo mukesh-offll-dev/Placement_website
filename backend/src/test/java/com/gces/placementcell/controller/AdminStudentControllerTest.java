@@ -133,7 +133,10 @@ class AdminStudentControllerTest {
                 .last(true)
                 .build();
 
-        when(adminStudentService.getStudents(any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        // The list now takes a filter (incl. lifecycle/verificationStatus/batch) and the caller's scope.
+        when(adminStudentService.getStudents(
+                any(com.gces.placementcell.service.AdminStudentService.StudentListFilter.class),
+                anyInt(), anyInt(), any(), any(), any()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/admin/students")

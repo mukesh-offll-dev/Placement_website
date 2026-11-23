@@ -1,4 +1,4 @@
-import axiosClient, { API_BASE_URL } from './axiosClient.js';
+import axiosClient from './axiosClient.js';
 
 /**
  * Student Project & Project Media Service
@@ -112,12 +112,14 @@ export const deleteProjectMedia = async (projectId) => {
 };
 
 /**
- * Helper to get project media download/stream URL.
+ * API path of a project's media file, relative to axiosClient's baseURL.
  * GET /api/projects/{projectId}/media/download
+ *
+ * The endpoint requires the Authorization header, so this path cannot be used as an
+ * <img src> or <a href> directly: fetch it with fileService.fetchFileBlob (or the
+ * useProtectedFileUrl hook) and use the resulting object URL.
  */
-export const getProjectMediaUrl = (projectId) => {
-  return `${API_BASE_URL}/projects/${projectId}/media/download`;
-};
+export const getProjectMediaUrl = (projectId) => `/projects/${projectId}/media/download`;
 
 const projectService = {
   getAllProjects,

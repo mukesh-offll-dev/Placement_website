@@ -36,6 +36,14 @@ public class ProfileReminderService {
     private final boolean enabled;
     private final long intervalDays;
 
+    /**
+     * This bean's own proxy. Calling sendReminders() on {@code this} would bypass the proxy, so its
+     * @Transactional would never apply (self-invocation). Null when constructed directly in tests.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private ProfileReminderService self;
+
     public ProfileReminderService(StudentProfileRepository studentProfileRepository,
                                   UserRepository userRepository,
                                   ApplicationEventPublisher eventPublisher,
@@ -55,7 +63,7 @@ public class ProfileReminderService {
             return;
         }
         try {
-            int sent = sendReminders();
+            int sent = (self != null ? self : this).sendReminders();
             log.info("Profile reminders: {} student(s) reminded", sent);
         } catch (RuntimeException ex) {
             log.error("Profile reminders failed: {}", ex.getMessage(), ex);

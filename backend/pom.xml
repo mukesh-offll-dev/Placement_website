@@ -21,6 +21,11 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- 1.18.34 (Boot 3.3.5 default) crashes javac on JDK 25; 1.18.40+ supports it. -->
+        <lombok.version>1.18.42</lombok.version>
+        <!-- Byte Buddy 1.14.x (Boot 3.3.5 default) cannot instrument JDK 25 classes, so every
+             Mockito class mock fails on a JDK 25 build. 1.17.x supports it. -->
+        <byte-buddy.version>1.17.7</byte-buddy.version>
     </properties>
 
     <dependencies>

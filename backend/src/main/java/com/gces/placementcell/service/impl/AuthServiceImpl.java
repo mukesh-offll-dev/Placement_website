@@ -42,6 +42,42 @@ public class AuthServiceImpl implements AuthService {
     private final TokenProvider tokenProvider;
     private final LoginAttemptLimiter loginAttemptLimiter;
 
+    /** Optional so the unit tests can build this service without it; Spring always supplies it. */
+    private com.gces.placementcell.repository.FacultyProfileRepository facultyProfileRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setFacultyProfileRepository(com.gces.placementcell.repository.FacultyProfileRepository repository) {
+        this.facultyProfileRepository = repository;
+    }
+
+    /**
+     * Any signed-in user replaces their own password. Staff with a temporary password use this to
+     * leave the forced-change lock. Returns a fresh token (the old one stops validating).
+     */
+    @Override
+    @Transactional
+    public AuthResponse changePassword(String email, com.gces.placementcell.dto.request.ChangePasswordRequest request) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        // A 400, not a 401: the client treats 401 as "session expired" and signs the user out.
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+        String next = request.newPassword();
+        if (next.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+            throw new BadRequestException("Password cannot be longer than 72 bytes");
+        }
+        if (passwordEncoder.matches(next, user.getPasswordHash())) {
+            throw new BadRequestException("Choose a password different from your current one");
+        }
+        user.setPasswordHash(passwordEncoder.encode(next));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+        tokenProvider.evictUser(user.getId(), user.getEmail());
+        log.info("Password changed: userId={} role={}", user.getId(), user.getRole());
+        return buildLoginResponse(user, "Password changed successfully");
+    }
+
     @Override
     @Transactional
     public AuthResponse registerAdmin(RegisterRequest request) {
@@ -64,11 +100,12 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(LoginRequest request) {
         String registerNumber = StudentIdentity.normalize(request.registerNumber());
         boolean byRegisterNumber = registerNumber != null && !registerNumber.isEmpty();
-        String email = request.email() == null ? "" : request.email().trim();
+        // Emails are stored lowercase (see newUser), so look them up lowercase too.
+        String email = request.email() == null ? "" : request.email().trim().toLowerCase(Locale.ROOT);
         if (!byRegisterNumber && email.isEmpty()) {
             throw new BadRequestException("Register number or email is required");
         }
-        String identifier = byRegisterNumber ? "rn:" + registerNumber : "em:" + email.toLowerCase(Locale.ROOT);
+        String identifier = byRegisterNumber ? "rn:" + registerNumber : "em:" + email;
 
         // The initial password is the register number, which is not secret, so guessing
         // is throttled per account before any password is checked.
@@ -151,6 +188,11 @@ public class AuthServiceImpl implements AuthService {
                     .map(StudentProfile::getFullName)
                     .orElse(user.getEmail());
         }
+        if (UserRole.FACULTY_ADVISOR.equals(user.getRole()) && facultyProfileRepository != null) {
+            return facultyProfileRepository.findByUserId(user.getId())
+                    .map(com.gces.placementcell.entity.FacultyProfile::getFullName)
+                    .orElse("Faculty Advisor");
+        }
         String profileName = adminProfileRepository.findByUserId(user.getId())
                 .map(AdminProfile::getName)
                 .orElse(null);
@@ -196,6 +238,8 @@ public class AuthServiceImpl implements AuthService {
                     .map(profile -> !Boolean.TRUE.equals(profile.getProfileSetupCompleted()))
                     .orElse(false);
             response.setSetupRequired(setupPending || response.isSetupRequired());
+        } else {
+            response.setPasswordChangeRequired(Boolean.TRUE.equals(user.getMustChangePassword()));
         }
         return response;
     }
