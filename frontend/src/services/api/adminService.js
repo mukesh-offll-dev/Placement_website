@@ -188,12 +188,13 @@ export const exportStudentsCsv = async (params = {}) => {
 /**
  * Get paginated or filtered job applications for admin.
  * GET /api/admin/applications
- * @param {Object} params - { jobId, status, page, size }
+ * @param {Object} params - { jobId, status, studentId, page, size }
  * @returns {Promise<Object>} Page<JobApplicationResponse>
  */
 export const getApplications = async (params = {}) => {
   const cleanParams = {};
   if (params.jobId) cleanParams.jobId = params.jobId;
+  if (params.studentId) cleanParams.studentId = params.studentId;
   if (params.status && params.status !== 'All') cleanParams.status = params.status;
   if (params.page !== undefined) cleanParams.page = params.page;
   if (params.size !== undefined) cleanParams.size = params.size;

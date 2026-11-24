@@ -68,15 +68,17 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     @EntityGraph(attributePaths = {"studentProfile", "job", "job.company", "reviewedBy", "currentRound"})
     Page<JobApplication> findByStatus(ApplicationStatus status, Pageable pageable);
 
-    /** Admin application list; both filters are optional. */
+    /** Admin application list; every filter is optional. */
     @EntityGraph(attributePaths = {"studentProfile", "job", "job.company", "reviewedBy", "currentRound"})
     @Query("""
             SELECT a FROM JobApplication a
             WHERE (:jobId IS NULL OR a.job.id = :jobId)
               AND (:status IS NULL OR a.status = :status)
+              AND (:studentId IS NULL OR a.studentProfile.id = :studentId)
             """)
     Page<JobApplication> findForAdmin(@Param("jobId") Long jobId,
                                       @Param("status") ApplicationStatus status,
+                                      @Param("studentId") Long studentId,
                                       Pageable pageable);
 
     /** Application detail with its timeline; timeline is the only bag fetched. */

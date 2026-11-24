@@ -19,7 +19,6 @@ import {
 const THIS_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 9 }, (_, i) => THIS_YEAR - 2 + i);
 const DEFAULT_YEAR = String(THIS_YEAR + 2);
-const PLACEMENT_STATUSES = ['PENDING', 'ACTIVE', 'PLACED', 'BLOCKED'];
 
 /**
  * Department picker, or a read-only display when the department is fixed (faculty advisors can
@@ -393,20 +392,26 @@ export function EditStudentModal({ api, student, departments = [], fixedDepartme
             </Field>
             {showPlacement && (
               <>
-                <Field label="Placement status" htmlFor="edit-status">
+                <Field label="Placement" htmlFor="edit-status" hint="Set automatically when an application is marked Selected">
+                  {/* Placed / Not placed only. "Not placed" keeps the stored non-placed value (or ACTIVE). */}
                   <select id="edit-status" value={form.placementStatus} onChange={setField('placementStatus')} className={inputClass(false)}>
-                    {PLACEMENT_STATUSES.map((p) => <option key={p} value={p}>{p.charAt(0) + p.slice(1).toLowerCase()}</option>)}
+                    <option value={form.placementStatus === 'PLACED' ? 'ACTIVE' : form.placementStatus}>Not placed</option>
+                    <option value="PLACED">Placed</option>
                   </select>
                 </Field>
-                <Field label="Placed company" htmlFor="edit-company" error={errors.placedCompanyId}>
-                  <select id="edit-company" value={form.placedCompanyId} onChange={setField('placedCompanyId')} className={inputClass(errors.placedCompanyId)}>
-                    <option value="">None</option>
-                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </Field>
-                <Field label="Package (CTC)" htmlFor="edit-ctc" error={errors.placedCtc} hint="Annual, in rupees">
-                  <input id="edit-ctc" inputMode="decimal" value={form.placedCtc} onChange={setField('placedCtc')} className={inputClass(errors.placedCtc)} />
-                </Field>
+                {form.placementStatus === 'PLACED' && (
+                  <>
+                    <Field label="Placed company" htmlFor="edit-company" error={errors.placedCompanyId}>
+                      <select id="edit-company" value={form.placedCompanyId} onChange={setField('placedCompanyId')} className={inputClass(errors.placedCompanyId)}>
+                        <option value="">Choose company</option>
+                        {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Package (CTC)" htmlFor="edit-ctc" error={errors.placedCtc} hint="Annual, in rupees">
+                      <input id="edit-ctc" inputMode="decimal" value={form.placedCtc} onChange={setField('placedCtc')} className={inputClass(errors.placedCtc)} />
+                    </Field>
+                  </>
+                )}
               </>
             )}
           </div>

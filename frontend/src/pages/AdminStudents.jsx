@@ -17,25 +17,13 @@ import { downloadBlob } from '../utils/download';
 import EmptyState from '../components/EmptyState';
 import useDepartments from '../hooks/useDepartments';
 import { toastSuccess, toastError } from '../utils/toast';
+import { isPlaced, placementLabel, placementBadgeClass } from '../utils/placement';
 
 const profileBarColor = (p) => {
   if (p >= 90) return 'bg-green-500';
   if (p >= 80) return 'bg-blue-500';
   if (p >= 70) return 'bg-yellow-500';
   return 'bg-orange-400';
-};
-
-const statusBadge = (s) => {
-  const map = {
-    PLACED: 'bg-green-100 text-green-700',
-    Placed: 'bg-green-100 text-green-700',
-    ACTIVE: 'bg-blue-100 text-blue-700',
-    Active: 'bg-blue-100 text-blue-700',
-    PENDING: 'bg-yellow-100 text-yellow-700',
-    Pending: 'bg-yellow-100 text-yellow-700',
-    UNPLACED: 'bg-gray-100 text-gray-700',
-  };
-  return map[s] || 'bg-gray-100 text-gray-600';
 };
 
 const PAGE_SIZE = 5;
@@ -47,6 +35,7 @@ export default function AdminStudents() {
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
   const [cgpaFilter, setCgpaFilter] = useState('All');
+  const [placementFilter, setPlacementFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +75,7 @@ export default function AdminStudents() {
         sem: s.semester ? `Sem ${s.semester}` : 'N/A',
         profile: Number.isFinite(Number(s.profileCompletionPercent)) && s.profileCompletionPercent !== null ? Number(s.profileCompletionPercent) : 0,
         status: s.placementStatus || 'PENDING',
+        placedCompany: s.placedCompanyName || null,
         email: s.email,
         rollNo: s.rollNo,
       }));
@@ -110,7 +100,9 @@ export default function AdminStudents() {
       (s.rollNo && s.rollNo.toLowerCase().includes(search.toLowerCase()));
     const matchDept = deptFilter === 'All' || s.dept.toLowerCase() === deptFilter.toLowerCase();
     const matchCgpa = cgpaFilter === 'All' || s.cgpa >= parseFloat(cgpaFilter);
-    return matchSearch && matchDept && matchCgpa;
+    const matchPlacement =
+      placementFilter === 'All' || (placementFilter === 'PLACED') === isPlaced(s.status);
+    return matchSearch && matchDept && matchCgpa && matchPlacement;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -120,13 +112,18 @@ export default function AdminStudents() {
     setSearch('');
     setDeptFilter('All');
     setCgpaFilter('All');
+    setPlacementFilter('All');
     setPage(1);
   };
 
-  // Stats calculation
+  // Stats calculation: placement is just Placed / Not placed.
   const totalCount = students.length;
-  const placedCount = students.filter((s) => s.status === 'PLACED' || s.status === 'Placed').length;
-  const pendingCount = students.filter((s) => s.status === 'PENDING' || s.status === 'Pending').length;
+  const placedCount = students.filter((s) => isPlaced(s.status)).length;
+  const notPlacedCount = totalCount - placedCount;
+  const showPlacement = (value) => {
+    setPlacementFilter(value);
+    setPage(1);
+  };
 
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
@@ -170,18 +167,32 @@ export default function AdminStudents() {
           <p className="text-3xl font-bold mt-1 text-gray-900">{totalCount}</p>
           <p className="text-blue-500 text-xs mt-1">Total active profiles</p>
         </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <p className="text-gray-500 text-sm">Placed Students</p>
+        <button
+          type="button"
+          onClick={() => showPlacement(placementFilter === 'PLACED' ? 'All' : 'PLACED')}
+          aria-pressed={placementFilter === 'PLACED'}
+          className={`text-left bg-white rounded-xl p-5 shadow-sm border transition ${
+            placementFilter === 'PLACED' ? 'border-green-500 ring-2 ring-green-100' : 'border-gray-100 hover:border-green-200'
+          }`}
+        >
+          <p className="text-gray-500 text-sm">Placed</p>
           <p className="text-3xl font-bold mt-1 text-green-600">{placedCount}</p>
           <p className="text-green-600 text-xs mt-1">
-            {totalCount > 0 ? `${Math.round((placedCount / totalCount) * 100)}% Placement Rate` : 'No data'}
+            {totalCount > 0 ? `${Math.round((placedCount / totalCount) * 100)}% placement rate` : 'No data'}
           </p>
-        </div>
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <p className="text-gray-500 text-sm">Pending Verification</p>
-          <p className="text-3xl font-bold mt-1 text-yellow-600">{pendingCount}</p>
-          <p className="text-yellow-600 text-xs mt-1">Follow-up required</p>
-        </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => showPlacement(placementFilter === 'NOT_PLACED' ? 'All' : 'NOT_PLACED')}
+          aria-pressed={placementFilter === 'NOT_PLACED'}
+          className={`text-left bg-white rounded-xl p-5 shadow-sm border transition ${
+            placementFilter === 'NOT_PLACED' ? 'border-gray-500 ring-2 ring-gray-100' : 'border-gray-100 hover:border-gray-300'
+          }`}
+        >
+          <p className="text-gray-500 text-sm">Not placed yet</p>
+          <p className="text-3xl font-bold mt-1 text-gray-700">{notPlacedCount}</p>
+          <p className="text-gray-500 text-xs mt-1">Still looking for an offer</p>
+        </button>
       </div>
 
       {/* Filter Bar */}
@@ -218,7 +229,18 @@ export default function AdminStudents() {
           <option value="7">CGPA ≥ 7.0</option>
         </select>
 
-        {(deptFilter !== 'All' || cgpaFilter !== 'All' || search) && (
+        <select
+          value={placementFilter}
+          onChange={(e) => showPlacement(e.target.value)}
+          aria-label="Placement"
+          className="border border-gray-300 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="All">Placement: All</option>
+          <option value="PLACED">Placed</option>
+          <option value="NOT_PLACED">Not placed</option>
+        </select>
+
+        {(deptFilter !== 'All' || cgpaFilter !== 'All' || placementFilter !== 'All' || search) && (
           <button onClick={clearFilters} className="text-blue-600 text-sm hover:underline">
             Clear all filters
           </button>
@@ -308,8 +330,8 @@ export default function AdminStudents() {
                   </div>
                   <div>
                     <p className="font-medium text-sm text-gray-900">{s.name}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${statusBadge(s.status)}`}>
-                      {s.status}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${placementBadgeClass(s.status)}`}>
+                      {isPlaced(s.status) && s.placedCompany ? `Placed · ${s.placedCompany}` : placementLabel(s.status)}
                     </span>
                   </div>
                 </div>

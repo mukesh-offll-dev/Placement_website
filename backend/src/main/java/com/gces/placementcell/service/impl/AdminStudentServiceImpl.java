@@ -400,6 +400,14 @@ public class AdminStudentServiceImpl implements AdminStudentService {
         if (request.getPlacedOn() != null) {
             profile.setPlacedOn(request.getPlacedOn());
         }
+        // Placement is a plain record: placed (with company, CTC, date) or not placed.
+        if (request.getPlacementStatus() == PlacementStatus.PLACED && profile.getPlacedOn() == null) {
+            profile.setPlacedOn(java.time.LocalDate.now());
+        } else if (request.getPlacementStatus() != null && request.getPlacementStatus() != PlacementStatus.PLACED) {
+            profile.setPlacedCompanyId(null);
+            profile.setPlacedCtc(null);
+            profile.setPlacedOn(null);
+        }
         if (request.getProfileCompletionPercent() != null) {
             profile.setProfileCompletionPercent(request.getProfileCompletionPercent());
         }

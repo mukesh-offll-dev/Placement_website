@@ -168,10 +168,17 @@ public class ApplicationService {
 
     @Transactional(readOnly = true)
     public Page<JobApplicationResponse> listApplications(Long jobId, ApplicationStatus status, int page, int size) {
+        return listApplications(jobId, status, null, page, size);
+    }
+
+    /** Admin / placement-officer list; studentId narrows it to one student's applications. */
+    @Transactional(readOnly = true)
+    public Page<JobApplicationResponse> listApplications(Long jobId, ApplicationStatus status, Long studentId,
+                                                         int page, int size) {
         if (jobId != null && !jobRepository.existsById(jobId)) {
             throw new ResourceNotFoundException("Job", "id", jobId);
         }
-        return applicationRepository.findForAdmin(jobId, status, pageRequest(page, size))
+        return applicationRepository.findForAdmin(jobId, status, studentId, pageRequest(page, size))
                 .map(JobApplicationResponse::from);
     }
 

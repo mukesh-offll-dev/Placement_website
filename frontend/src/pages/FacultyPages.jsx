@@ -14,6 +14,7 @@ export function FacultyStudentDetail() {
       backLabel="Back to students"
       verificationsPath="/faculty/verifications"
       resumeFromEndpoint={false}
+      fetchApplications={null}
     />
   );
 }

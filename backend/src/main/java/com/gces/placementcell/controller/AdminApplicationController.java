@@ -36,10 +36,11 @@ public class AdminApplicationController {
     public ResponseEntity<ApiResponse<Page<JobApplicationResponse>>> listApplications(
             @RequestParam(required = false) Long jobId,
             @RequestParam(required = false) ApplicationStatus status,
+            @RequestParam(required = false) Long studentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                applicationService.listApplications(jobId, status, page, size)));
+                applicationService.listApplications(jobId, status, studentId, page, size)));
     }
 
     @GetMapping("/{id}")

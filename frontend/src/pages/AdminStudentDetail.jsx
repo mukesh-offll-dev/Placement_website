@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   GraduationCap,
@@ -22,8 +22,12 @@ import {
   ShieldCheck,
   Trophy,
   BadgeCheck,
+  UserRound,
+  Briefcase,
 } from 'lucide-react';
-import { getStudentById } from '../services/api/adminService';
+import { getStudentById, getAllApplications } from '../services/api/adminService';
+import { isPlaced, placementLabel, placementBadgeClass, formatCtc } from '../utils/placement';
+import StudentApplicationsPanel from '../components/students/StudentApplicationsPanel';
 import { LifecycleBadge, VerificationBadge } from '../components/students/StatusBadges';
 import { formatDate, formatDateTime } from '../utils/dateFormat';
 import EmptyState from '../components/EmptyState';
@@ -42,6 +46,62 @@ const NOT_PROVIDED = 'Not provided';
 const textOr = (value, fallback = NOT_PROVIDED) =>
   value !== null && value !== undefined && String(value).trim() !== '' ? String(value) : fallback;
 
+const fetchStudentApplications = (studentId) => getAllApplications({ studentId });
+
+/** Placement is a record, not a verification: Placed (company, CTC, date) or Not placed. */
+function PlacementCard({ student, onShowApplications }) {
+  const placed = isPlaced(student.status);
+  const ctc = formatCtc(student.placedCtc);
+  return (
+    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+      <h3 className="font-semibold text-sm text-gray-900 mb-3 flex items-center gap-1.5">
+        <Award className="w-4 h-4 text-blue-600" /> Placement
+      </h3>
+      {placed ? (
+        <div className="p-4 rounded-xl border bg-green-50 border-green-200">
+          <p className="flex items-center gap-1.5 text-sm font-bold text-green-800">
+            <CheckCircle2 className="w-4 h-4" /> Placed
+          </p>
+          <dl className="mt-3 space-y-1.5 text-xs">
+            <div className="flex justify-between gap-3">
+              <dt className="text-green-700/80">Company</dt>
+              <dd className="font-semibold text-green-900 text-right">{student.placedCompanyName || 'Not recorded'}</dd>
+            </div>
+            {ctc && (
+              <div className="flex justify-between gap-3">
+                <dt className="text-green-700/80">CTC</dt>
+                <dd className="font-semibold text-green-900">{ctc}</dd>
+              </div>
+            )}
+            {student.placedOn && (
+              <div className="flex justify-between gap-3">
+                <dt className="text-green-700/80">Placed on</dt>
+                <dd className="font-semibold text-green-900">{formatDate(student.placedOn)}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      ) : (
+        <div className="p-4 rounded-xl border bg-gray-50 border-gray-200">
+          <p className="text-sm font-bold text-gray-700">Not placed yet</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Marked Placed automatically when one of this student&apos;s applications is set to Selected.
+          </p>
+        </div>
+      )}
+      {onShowApplications && (
+        <button
+          type="button"
+          onClick={onShowApplications}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline"
+        >
+          <Briefcase className="w-3.5 h-3.5" /> View applications
+        </button>
+      )}
+    </div>
+  );
+}
+
 const safeUrl = (url) => (typeof url === 'string' && /^https?:\/\//i.test(url.trim()) ? url.trim() : null);
 
 /**
@@ -57,8 +117,13 @@ export default function AdminStudentDetail({
   verificationsPath = '/admin/verifications',
   showVerificationLink = true,
   resumeFromEndpoint = true,
+  // Admin / placement officer: this student's job applications. null hides the Applications tab.
+  fetchApplications = fetchStudentApplications,
 }) {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = fetchApplications && searchParams.get('tab') === 'applications' ? 'applications' : 'profile';
+  const selectTab = (value) => setSearchParams(value === 'profile' ? {} : { tab: value }, { replace: true });
   // The route id is the student PROFILE id (GET /admin/students/{id} looks up the profile).
   const studentId = parseInt(id, 10);
 
@@ -119,6 +184,9 @@ export default function AdminStudentDetail({
               sem: studentData.semester ?? null,
               profile: Number.isFinite(completion) ? Math.min(Math.max(completion, 0), 100) : null,
               status: studentData.placementStatus || null,
+              placedCompanyName: studentData.placedCompanyName || null,
+              placedCtc: studentData.placedCtc ?? null,
+              placedOn: studentData.placedOn || null,
               email: studentData.email || null,
               phone: studentData.phone || null,
               address: studentData.address || null,
@@ -231,7 +299,39 @@ export default function AdminStudentDetail({
         <ArrowLeft className="w-4 h-4" /> {backLabel}
       </Link>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      {fetchApplications && (
+        <div role="tablist" aria-label="Student sections" className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
+          {[
+            { value: 'profile', label: 'Profile', icon: UserRound },
+            { value: 'applications', label: 'Applications', icon: Briefcase },
+          ].map(({ value, label, icon: Icon }) => {
+            const active = tab === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                id={`tab-${value}`}
+                aria-selected={active}
+                aria-controls={`panel-${value}`}
+                onClick={() => selectTab(value)}
+                className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2 whitespace-nowrap transition-colors ${
+                  active ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                <Icon className="w-4 h-4" /> {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {tab === 'applications' ? (
+        <section id="panel-applications" role="tabpanel" aria-labelledby="tab-applications">
+          <StudentApplicationsPanel studentId={student.id} fetchApplications={fetchApplications} student={student} />
+        </section>
+      ) : (
+      <div className="grid lg:grid-cols-3 gap-6" id="panel-profile" role="tabpanel" aria-labelledby="tab-profile">
         <div className="lg:col-span-2 space-y-5">
           {/* Profile Header */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -252,14 +352,10 @@ export default function AdminStudentDetail({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-                        student.status === 'PLACED' || student.status === 'Placed'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}
-                    >
-                      {textOr(student.status, 'Status unknown')}
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${placementBadgeClass(student.status)}`}>
+                      {isPlaced(student.status) && student.placedCompanyName
+                        ? `Placed · ${student.placedCompanyName}`
+                        : placementLabel(student.status)}
                     </span>
                   </div>
                 </div>
@@ -615,24 +711,14 @@ export default function AdminStudentDetail({
             )}
           </div>
 
-          {/* Placement Status */}
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-semibold text-sm text-gray-900 mb-3">Placement Verification</h3>
-            <div
-              className={`p-3 rounded-xl border ${
-                student.status === 'PLACED' || student.status === 'Placed'
-                  ? 'bg-green-50 border-green-200 text-green-800'
-                  : 'bg-blue-50 border-blue-200 text-blue-800'
-              }`}
-            >
-              <div className="flex items-center gap-2 font-bold text-sm">
-                <Award className="w-4 h-4" />
-                <span>{textOr(student.status, 'Status unknown')}</span>
-              </div>
-            </div>
-          </div>
+          {/* Placement record */}
+          <PlacementCard
+            student={student}
+            onShowApplications={fetchApplications ? () => selectTab('applications') : null}
+          />
         </div>
       </div>
+      )}
     </main>
   );
 }

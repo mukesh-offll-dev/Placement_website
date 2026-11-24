@@ -112,7 +112,7 @@ class AdminApplicationControllerTest {
     @DisplayName("GET /admin/applications as admin returns 200 and list of applications")
     void testListApplicationsAsAdmin() throws Exception {
         JobApplicationResponse app = sampleResponse(1L, ApplicationStatus.APPLIED, "Application Submitted");
-        when(applicationService.listApplications(isNull(), isNull(), eq(0), eq(20)))
+        when(applicationService.listApplications(isNull(), isNull(), isNull(), eq(0), eq(20)))
                 .thenReturn(new PageImpl<>(List.of(app)));
 
         mockMvc.perform(get("/admin/applications")

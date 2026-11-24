@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Ban,
   Building2,
@@ -43,6 +44,13 @@ const formatDateTime = (value) => {
 
 const emptyFaculty = { fullName: '', email: '', phone: '', designation: '', departmentId: '' };
 
+// Each feature on this page lives in its own tab; the active tab is kept in ?tab= so a refresh,
+// the back button and shared links return to the same view.
+const TABS = [
+  { value: 'departments', label: 'Departments', icon: Building2 },
+  { value: 'faculty', label: 'Faculty advisors', icon: UserCheck },
+];
+
 const validateFacultyForm = (form) => {
   const errors = {};
   const name = form.fullName.trim();
@@ -60,6 +68,10 @@ const validateFacultyForm = (form) => {
  */
 export default function AdminDepartmentsPage() {
   const { departments, loading: departmentsLoading, error: departmentsError, reload: reloadDepartments } = useDepartments();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'faculty' ? 'faculty' : 'departments';
+  const selectTab = (value) => setSearchParams(value === 'departments' ? {} : { tab: value }, { replace: true });
+
   const [faculty, setFaculty] = useState({ loaded: false, list: [], error: '' });
   const [facultyTick, setFacultyTick] = useState(0);
 
@@ -303,8 +315,39 @@ export default function AdminDepartmentsPage() {
         </button>
       </div>
 
+      <div role="tablist" aria-label="Departments and faculty" className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto overflow-y-hidden">
+        {TABS.map((t) => {
+          const active = tab === t.value;
+          const count = t.value === 'departments'
+            ? (departmentsLoading ? null : departments.length)
+            : (faculty.loaded ? faculty.list.length : null);
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              id={`tab-${t.value}`}
+              aria-selected={active}
+              aria-controls={`panel-${t.value}`}
+              onClick={() => selectTab(t.value)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
+                active ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {t.label}
+              {count != null && (
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Departments */}
-      <section className="mb-10" aria-labelledby="departments-heading">
+      {tab === 'departments' && (
+      <section id="panel-departments" role="tabpanel" aria-labelledby="tab-departments">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
           <h3 id="departments-heading" className="font-semibold text-gray-900 flex items-center gap-2">
             <Building2 className="w-4 h-4 text-gray-500" /> Departments
@@ -377,9 +420,11 @@ export default function AdminDepartmentsPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Faculty accounts */}
-      <section aria-labelledby="faculty-heading">
+      {tab === 'faculty' && (
+      <section id="panel-faculty" role="tabpanel" aria-labelledby="tab-faculty">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
           <h3 id="faculty-heading" className="font-semibold text-gray-900 flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-gray-500" /> Faculty advisor accounts
@@ -442,6 +487,7 @@ export default function AdminDepartmentsPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Department form */}
       {deptModal && (

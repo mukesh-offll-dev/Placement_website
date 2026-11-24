@@ -75,6 +75,15 @@ const STAGES = [
   { value: 'REJECTED', label: 'Rejected', color: 'red' },
 ];
 
+// Stage filter cards. Full class names are spelled out so Tailwind keeps them in the build.
+const STAGE_CARDS = [
+  { status: 'APPLIED', title: 'Applied', countKey: 'applied', selectedBg: 'bg-gray-700 border-gray-700', hoverBg: 'hover:bg-gray-50', label: 'text-gray-500', dot: 'bg-gray-400', value: 'text-gray-700' },
+  { status: 'SHORTLISTED', title: 'Shortlisted', countKey: 'shortlisted', selectedBg: 'bg-blue-600 border-blue-600', hoverBg: 'hover:bg-blue-50/50', label: 'text-blue-600', dot: 'bg-blue-600', value: 'text-blue-600' },
+  { status: 'INTERVIEW', title: 'Interview', countKey: 'interview', selectedBg: 'bg-purple-600 border-purple-600', hoverBg: 'hover:bg-purple-50/50', label: 'text-purple-600', dot: 'bg-purple-600', value: 'text-purple-600' },
+  { status: 'SELECTED', title: 'Selected', countKey: 'selected', selectedBg: 'bg-emerald-600 border-emerald-600', hoverBg: 'hover:bg-emerald-50/50', label: 'text-emerald-600', dot: 'bg-emerald-600', value: 'text-emerald-600' },
+  { status: 'REJECTED', title: 'Rejected', countKey: 'rejected', selectedBg: 'bg-rose-600 border-rose-600', hoverBg: 'hover:bg-rose-50/50', label: 'text-rose-600', dot: 'bg-rose-600', value: 'text-rose-600' },
+];
+
 /**
  * Status badge styling adhering strictly to requirements:
  * Applied – Grey
@@ -527,85 +536,29 @@ export default function AdminApplicationManagement({
           <div className="text-2xl font-black mt-1">{counts.total}</div>
         </button>
 
-        {/* Applied - Grey */}
-        <button
-          onClick={() => setStatusFilter('APPLIED')}
-          className={`text-left p-3.5 rounded-xl border transition-all ${
-            statusFilter === 'APPLIED'
-              ? 'bg-gray-800 text-white border-gray-800 shadow-sm'
-              : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-800'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Applied</span>
-            <span className="w-2 h-2 rounded-full bg-gray-400" />
-          </div>
-          <div className="text-2xl font-black text-gray-700 mt-1">{counts.applied}</div>
-        </button>
-
-        {/* Shortlisted - Blue */}
-        <button
-          onClick={() => setStatusFilter('SHORTLISTED')}
-          className={`text-left p-3.5 rounded-xl border transition-all ${
-            statusFilter === 'SHORTLISTED'
-              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-              : 'bg-white hover:bg-blue-50/50 border-gray-200 text-gray-800'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-blue-600 uppercase tracking-wider">Shortlisted</span>
-            <span className="w-2 h-2 rounded-full bg-blue-600" />
-          </div>
-          <div className="text-2xl font-black text-blue-600 mt-1">{counts.shortlisted}</div>
-        </button>
-
-        {/* Interview - Purple */}
-        <button
-          onClick={() => setStatusFilter('INTERVIEW')}
-          className={`text-left p-3.5 rounded-xl border transition-all ${
-            statusFilter === 'INTERVIEW'
-              ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-              : 'bg-white hover:bg-purple-50/50 border-gray-200 text-gray-800'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-purple-600 uppercase tracking-wider">Interview</span>
-            <span className="w-2 h-2 rounded-full bg-purple-600" />
-          </div>
-          <div className="text-2xl font-black text-purple-600 mt-1">{counts.interview}</div>
-        </button>
-
-        {/* Selected - Green */}
-        <button
-          onClick={() => setStatusFilter('SELECTED')}
-          className={`text-left p-3.5 rounded-xl border transition-all ${
-            statusFilter === 'SELECTED'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-              : 'bg-white hover:bg-emerald-50/50 border-gray-200 text-gray-800'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-emerald-600 uppercase tracking-wider">Selected</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-600" />
-          </div>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{counts.selected}</div>
-        </button>
-
-        {/* Rejected - Red */}
-        <button
-          onClick={() => setStatusFilter('REJECTED')}
-          className={`text-left p-3.5 rounded-xl border transition-all ${
-            statusFilter === 'REJECTED'
-              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-              : 'bg-white hover:bg-rose-50/50 border-gray-200 text-gray-800'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-rose-600 uppercase tracking-wider">Rejected</span>
-            <span className="w-2 h-2 rounded-full bg-rose-600" />
-          </div>
-          <div className="text-2xl font-black text-rose-600 mt-1">{counts.rejected}</div>
-        </button>
+        {STAGE_CARDS.map((card) => {
+          const selected = statusFilter === card.status;
+          return (
+            <button
+              key={card.status}
+              type="button"
+              onClick={() => setStatusFilter(card.status)}
+              aria-pressed={selected}
+              className={`text-left p-3.5 rounded-xl border transition-all ${
+                selected ? `${card.selectedBg} text-white shadow-sm` : `bg-white ${card.hoverBg} border-gray-200 text-gray-800`
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                {/* Selected: white text on the stage colour; otherwise stage-coloured text on white. */}
+                <span className={`text-[11px] font-medium uppercase tracking-wider ${selected ? 'text-white/90' : card.label}`}>
+                  {card.title}
+                </span>
+                <span className={`w-2 h-2 rounded-full ${selected ? 'bg-white' : card.dot}`} />
+              </div>
+              <div className={`text-2xl font-black mt-1 ${selected ? 'text-white' : card.value}`}>{counts[card.countKey]}</div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter and Search Bar */}

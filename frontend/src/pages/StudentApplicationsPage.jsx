@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   ChevronRight,
@@ -11,12 +11,18 @@ import {
   MapPin,
   Briefcase,
   Undo2,
+  Plus,
+  Trophy,
+  Hourglass,
+  Users,
 } from 'lucide-react';
 import studentService from '../services/api/studentService.js';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ApplicationProgress from '../components/ApplicationProgress';
 import { ApplicationCardSkeleton } from '../components/Skeleton';
 import { toastError, toastSuccess } from '../utils/toast';
+import { applicationGroup, summarizeApplications } from '../utils/placement';
 
 const STATUS_LABELS = {
   APPLIED: 'Applied',
@@ -38,10 +44,15 @@ const STATUS_CONFIG = {
   WITHDRAWN: { bg: 'bg-gray-100', text: 'text-gray-600', icon: XCircle },
 };
 
-const FILTERS = [
-  { label: 'All', value: 'All' },
-  ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ label, value })),
+/** Tracker tabs; the active one is kept in ?tab= (default = In progress). */
+const TABS = [
+  { value: 'IN_PROGRESS', label: 'In progress', countKey: 'inProgress' },
+  { value: 'OFFERS', label: 'Offers', countKey: 'offers' },
+  { value: 'CLOSED', label: 'Closed', countKey: 'closed' },
+  { value: 'ALL', label: 'All', countKey: 'total' },
 ];
+const TAB_VALUES = new Set(TABS.map((t) => t.value));
+const TAB_LABELS = Object.fromEntries(TABS.map((t) => [t.value, t.label]));
 
 const getText = (value, fallback = '') =>
   typeof value === 'string' && value.trim() ? value.trim() : fallback;
@@ -110,7 +121,11 @@ export default function StudentApplicationsPage() {
   const [applications, setApplications] = useState([]);
   const [loadState, setLoadState] = useState('loading');
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const activeTab = TAB_VALUES.has(requestedTab) ? requestedTab : 'IN_PROGRESS';
+  const selectTab = (value) =>
+    setSearchParams(value === 'IN_PROGRESS' ? {} : { tab: value }, { replace: true });
   const [expanded, setExpanded] = useState(null);
   const [timelineDetails, setTimelineDetails] = useState({});
   const [withdrawTarget, setWithdrawTarget] = useState(null);
@@ -213,72 +228,85 @@ export default function StudentApplicationsPage() {
       const company = getText(application.job?.company?.name).toLowerCase();
       const role = getText(application.job?.jobRole).toLowerCase();
       const matchSearch = company.includes(query) || role.includes(query);
-      const matchFilter = activeFilter === 'All' || application.status === activeFilter;
-      return matchSearch && matchFilter;
+      const matchTab = activeTab === 'ALL' || applicationGroup(application.status) === activeTab;
+      return matchSearch && matchTab;
     });
-  }, [applications, search, activeFilter]);
+  }, [applications, search, activeTab]);
 
-  const stats = useMemo(
-    () => ({
-      total: applications.length,
-      shortlisted: applications.filter((application) => application.status === 'SHORTLISTED')
-        .length,
-      underReview: applications.filter((application) => application.status === 'UNDER_REVIEW')
-        .length,
-      rejected: applications.filter((application) => application.status === 'REJECTED').length,
-    }),
-    [applications]
-  );
+  const stats = useMemo(() => summarizeApplications(applications), [applications]);
 
   const statValue = (value) =>
     loadState === 'success' ? value : loadState === 'loading' ? '...' : '—';
 
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
-      <h2 className="text-2xl font-bold text-gray-900 mb-1">My Applications</h2>
-      <p className="text-gray-500 text-sm mb-6">
-        Track the status of all your job applications.
-      </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">My Applications</h2>
+          <p className="text-gray-500 text-sm">
+            Apply to as many drives as you like and follow each one here, step by step.
+          </p>
+        </div>
+        <Link
+          to="/student/jobs"
+          className="inline-flex items-center justify-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Find more jobs
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total Applied', value: statValue(stats.total), color: 'text-gray-900' },
-          { label: 'Shortlisted', value: statValue(stats.shortlisted), color: 'text-green-600' },
-          { label: 'Under Review', value: statValue(stats.underReview), color: 'text-yellow-600' },
-          { label: 'Rejected', value: statValue(stats.rejected), color: 'text-red-500' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-xl p-4 shadow-sm">
-            <p className="text-xs text-gray-500 mb-1">{label}</p>
-            <p className={`text-3xl font-bold ${color}`}>{value}</p>
+          { label: 'Total applied', value: statValue(stats.total), color: 'text-gray-900', icon: FileText, iconBg: 'bg-gray-100 text-gray-600' },
+          { label: 'In progress', value: statValue(stats.inProgress), color: 'text-blue-600', icon: Hourglass, iconBg: 'bg-blue-50 text-blue-600' },
+          { label: 'Interviews', value: statValue(stats.interviews), color: 'text-purple-600', icon: Users, iconBg: 'bg-purple-50 text-purple-600' },
+          { label: 'Offers', value: statValue(stats.offers), color: 'text-emerald-600', icon: Trophy, iconBg: 'bg-emerald-50 text-emerald-600' },
+        ].map(({ label, value, color, icon: Icon, iconBg }) => (
+          <div key={label} className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
+            <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+              <Icon className="w-5 h-5" />
+            </span>
+            <div>
+              <p className="text-xs text-gray-500">{label}</p>
+              <p className={`text-2xl font-bold ${color}`}>{value}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-xl p-4 shadow-sm mb-5 flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
-        <div className="flex gap-1.5 flex-wrap flex-1">
-          {FILTERS.map(({ label, value }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setActiveFilter(value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                activeFilter === value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="bg-white rounded-xl shadow-sm mb-5 px-4 pt-2 flex flex-col sm:flex-row gap-3 sm:items-end border-b border-gray-100">
+        <div role="tablist" aria-label="Application groups" className="flex gap-1 overflow-x-auto flex-1">
+          {TABS.map(({ value, label, countKey }) => {
+            const active = activeTab === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => selectTab(value)}
+                className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap flex items-center gap-2 transition-colors ${
+                  active ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {label}
+                {loadState === 'success' && (
+                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {stats[countKey]}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative pb-2">
+          <Search className="w-4 h-4 absolute left-3 top-[calc(50%-4px)] -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search applications..."
+            placeholder="Search company or role..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="border border-gray-300 pl-9 pr-4 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+            className="border border-gray-300 pl-9 pr-4 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-52"
           />
         </div>
       </div>
@@ -313,14 +341,14 @@ export default function StudentApplicationsPage() {
           title="No matching applications found"
           description={
             search.trim()
-              ? `No applications matched "${search}"${activeFilter !== 'All' ? ` with status "${activeFilter}"` : ''}.`
-              : `No applications currently have status "${activeFilter}".`
+              ? `No applications matched "${search}"${activeTab !== 'ALL' ? ` in "${TAB_LABELS[activeTab]}"` : ''}.`
+              : `Nothing in "${TAB_LABELS[activeTab]}" right now.`
           }
           action={{
-            label: 'Reset Filters',
+            label: 'Show all applications',
             onClick: () => {
               setSearch('');
-              setActiveFilter('All');
+              selectTab('ALL');
             },
           }}
         />
@@ -450,6 +478,10 @@ export default function StudentApplicationsPage() {
                     />
                   </button>
                   </div>
+                </div>
+
+                <div className="px-5 pb-4 -mt-1">
+                  <ApplicationProgress status={application.status} />
                 </div>
 
                 {isExpanded && (

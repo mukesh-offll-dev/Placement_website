@@ -86,6 +86,7 @@ import {
   validateSkill,
 } from '../utils/profileDraft';
 import { toastError, toastInfo, toastSuccess } from '../utils/toast';
+import { placementSummary } from '../utils/placement';
 
 const ADMIN_MANAGED_HINT = 'Managed by the placement cell — contact them to correct it.';
 
@@ -1152,14 +1153,14 @@ export default function StudentProfile() {
             >
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Award className="w-4 h-4" />
-                {profile?.placementStatus === 'PLACED' ? 'Placed' : openToOpportunities ? 'Open to Opportunities' : 'Not seeking opportunities'}
+                {profile?.placementStatus === 'PLACED' ? 'Placed' : 'Not placed yet'}
               </div>
               <p className="text-xs mt-1 opacity-90">
                 {profile?.placementStatus === 'PLACED'
-                  ? `Placed with ${profile?.placedCompany?.name || 'Company'}${profile?.placedCtc ? ` (${profile.placedCtc} LPA)` : ''}`
-                  : profile?.batch
-                  ? `Batch ${profile.batch}`
-                  : 'Batch not provided'}
+                  ? placementSummary({ status: 'PLACED', companyName: profile?.placedCompany?.name, ctc: profile?.placedCtc })
+                  : openToOpportunities
+                  ? 'Open to opportunities. You can apply to any number of drives.'
+                  : 'Not seeking opportunities right now.'}
               </p>
             </div>
             <div className="flex items-center justify-between gap-3 mt-4">
