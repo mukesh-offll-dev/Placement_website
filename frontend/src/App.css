@@ -7,3 +7,35 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* ---- Public landing page (LandingPage.jsx) ---- */
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.landing-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+@keyframes landing-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.landing-marquee {
+  animation: landing-marquee 45s linear infinite;
+}
+.landing-marquee-wrap:hover .landing-marquee {
+  animation-play-state: paused;
+}
+@keyframes landing-kenburns {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+.landing-kenburns {
+  animation: landing-kenburns 7s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal { opacity: 1; transform: none; transition: none; }
+  .landing-marquee, .landing-kenburns { animation: none; }
+}

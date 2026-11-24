@@ -1,89 +1,103 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, ArrowRight, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Menu, X, ArrowRight, GraduationCap } from 'lucide-react';
 import BrandLogo from './BrandLogo';
+
+/** In-page sections of the public landing page. */
+const SECTIONS = [
+  { href: '#about', label: 'About' },
+  { href: '#departments', label: 'Departments' },
+  { href: '#placements', label: 'Placements' },
+  { href: '#recruiters', label: 'Recruiters' },
+  { href: '#campus', label: 'Campus' },
+  { href: '#contact', label: 'Contact' },
+];
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const close = () => setMenuOpen(false);
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-4 md:px-10 py-3.5 flex items-center justify-between shadow-xs transition-all">
-      {/* College Logo */}
-      <Link to="/" className="flex items-center gap-3 group">
-        <BrandLogo className="h-11 group-hover:scale-105 transition-transform" />
-        <div>
-          <h1 className="font-bold text-base text-gray-900 leading-tight">GCE Srirangam</h1>
-          <p className="text-[11px] text-gray-500 font-medium">Placement & Training Cell</p>
-        </div>
-      </Link>
-
-      {/* Public Navigation */}
-      <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-        <a href="#vision" className="hover:text-blue-600 transition-colors">
-          Vision & Mission
-        </a>
-        <a href="#services" className="hover:text-blue-600 transition-colors">
-          Services
-        </a>
-        <a href="#stats" className="hover:text-blue-600 transition-colors">
-          Placements
-        </a>
-        <Link
-          to="/login"
-          className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 shadow-sm shadow-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          Portal Login <ArrowRight className="w-4 h-4" />
+    <header
+      className={`sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b transition-shadow ${
+        scrolled ? 'border-gray-200 shadow-sm' : 'border-transparent'
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between gap-4">
+        <Link to="/" className="flex items-center gap-3 group min-w-0" onClick={close}>
+          <BrandLogo className="h-11 shrink-0 group-hover:scale-105 transition-transform" />
+          <div className="min-w-0">
+            <p className="font-bold text-[15px] text-gray-900 leading-tight truncate">GCE Srirangam</p>
+            <p className="text-[11px] text-gray-500 font-medium truncate">Training & Placement Cell</p>
+          </div>
         </Link>
-      </nav>
 
-      {/* Mobile menu toggle */}
-      <button
-        className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors"
-        onClick={() => setMenuOpen(!menuOpen)}
-        aria-label="Toggle navigation menu"
-      >
-        {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-      </button>
+        <nav aria-label="Page sections" className="hidden lg:flex items-center gap-6 text-sm font-medium text-gray-600">
+          {SECTIONS.map(({ href, label }) => (
+            <a key={href} href={href} className="hover:text-blue-700 transition-colors">
+              {label}
+            </a>
+          ))}
+        </nav>
 
-      {/* Mobile Dropdown */}
+        <div className="hidden lg:flex items-center gap-2">
+          <Link
+            to="/student/login"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
+          >
+            <GraduationCap className="w-4 h-4" /> Student login
+          </Link>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 shadow-sm transition-colors"
+          >
+            Portal login <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <button
+          type="button"
+          className="lg:hidden p-2 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+          aria-controls="landing-mobile-menu"
+        >
+          {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
       {menuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-xl py-5 px-6 flex flex-col gap-4 text-sm md:hidden z-40 animate-in fade-in slide-in-from-top-2 duration-150">
-          <a
-            href="#vision"
-            onClick={close}
-            className="text-gray-700 hover:text-blue-600 font-medium py-1"
-          >
-            Vision & Mission
-          </a>
-          <a
-            href="#services"
-            onClick={close}
-            className="text-gray-700 hover:text-blue-600 font-medium py-1"
-          >
-            Services
-          </a>
-          <a
-            href="#stats"
-            onClick={close}
-            className="text-gray-700 hover:text-blue-600 font-medium py-1"
-          >
-            Placements
-          </a>
-          <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+        <div id="landing-mobile-menu" className="lg:hidden border-t border-gray-100 bg-white shadow-xl px-4 pb-5 pt-2">
+          <nav aria-label="Page sections" className="grid grid-cols-2 gap-1 text-sm">
+            {SECTIONS.map(({ href, label }) => (
+              <a key={href} href={href} onClick={close} className="px-3 py-2.5 rounded-lg text-gray-700 font-medium hover:bg-gray-50">
+                {label}
+              </a>
+            ))}
+          </nav>
+          <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
             <Link
               to="/student/login"
               onClick={close}
-              className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 py-2.5 rounded-xl font-semibold hover:bg-blue-100 transition-colors"
+              className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-100"
             >
-              <GraduationCap className="w-4 h-4" /> Student Login
+              <GraduationCap className="w-4 h-4" /> Student login
             </Link>
             <Link
-              to="/admin/login"
+              to="/login"
               onClick={close}
-              className="flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl font-semibold hover:bg-blue-700 shadow-xs transition-colors"
+              className="flex items-center justify-center gap-2 bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800"
             >
-              <ShieldCheck className="w-4 h-4" /> Admin Login
+              Portal login <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
