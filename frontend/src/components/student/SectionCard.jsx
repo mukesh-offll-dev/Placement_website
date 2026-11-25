@@ -44,15 +44,19 @@ export default function SectionCard({
   className = '',
 }) {
   return (
-    <section id={id} className={`bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 scroll-mt-24 ${className}`} aria-labelledby={id ? `${id}-title` : undefined}>
+    <section
+      id={id}
+      className={`bg-white p-4 sm:p-6 rounded-[22px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-[#E5E9F2]/60 scroll-mt-24 ${className}`}
+      aria-labelledby={id ? `${id}-title` : undefined}
+    >
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <div className="min-w-0">
-          <h3 id={id ? `${id}-title` : undefined} className="font-semibold text-lg text-gray-900 flex flex-wrap items-center gap-2">
+          <h3 id={id ? `${id}-title` : undefined} className="font-bold text-[17px] text-[#0F172A] flex flex-wrap items-center gap-2">
             {Icon && <Icon className={`w-5 h-5 ${iconClass}`} aria-hidden="true" />}
             {title}
             {changed && <ChangedBadge />}
           </h3>
-          {subtitle && <p className="text-gray-500 text-xs mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="text-[#475569] text-xs mt-0.5">{subtitle}</p>}
         </div>
         {action && <div className="flex flex-wrap items-center gap-2 shrink-0">{action}</div>}
       </div>

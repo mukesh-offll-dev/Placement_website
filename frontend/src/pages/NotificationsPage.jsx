@@ -210,19 +210,19 @@ export default function NotificationsPage() {
   };
 
   return (
-    <main className="flex-1 px-4 md:px-8 py-6">
-      <div className="flex items-center justify-between mb-1">
-        <h2 className="text-2xl font-bold">Notifications</h2>
+    <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-5xl w-full mx-auto overflow-x-hidden">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h2 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight">Alerts &amp; Notifications</h2>
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-xs sm:text-sm font-bold text-[#1D4ED8] hover:text-[#1E3A8A] bg-[#E0EAFF] px-3 py-1.5 rounded-full transition-colors cursor-pointer"
           >
-            Mark all as read
+            Mark all read
           </button>
         )}
       </div>
-      <p className="text-gray-500 text-sm mb-6">
+      <p className="text-[#475569] text-sm mb-5">
         {loading
           ? 'Loading notifications...'
           : unreadCount > 0
@@ -232,14 +232,14 @@ export default function NotificationsPage() {
 
       {/* Action error banner */}
       {actionError && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-center justify-between">
+        <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 text-sm rounded-[16px] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
             <span>{actionError}</span>
           </div>
           <button
             onClick={() => setActionError(null)}
-            className="text-red-500 hover:text-red-700"
+            className="text-red-500 hover:text-red-700 p-1"
           >
             <X className="w-4 h-4" />
           </button>
@@ -247,20 +247,20 @@ export default function NotificationsPage() {
       )}
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5">
         {FILTERS.map((f) => (
           <button
             key={f}
             onClick={() => setActiveFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-colors min-h-[38px] cursor-pointer ${
               activeFilter === f
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-200 border border-gray-200'
+                ? 'bg-[#1D4ED8] text-white shadow-xs'
+                : 'bg-white text-[#475569] hover:bg-slate-100 border border-[#E2E8F0]'
             }`}
           >
             {f}
             {f === 'Unread' && unreadCount > 0 && (
-              <span className="ml-1.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">
+              <span className={`ml-1.5 text-[11px] rounded-full px-1.5 py-0.5 ${activeFilter === f ? 'bg-[#F5B301] text-[#1F1500]' : 'bg-[#FEF3C7] text-[#B45309]'}`}>
                 {unreadCount}
               </span>
             )}
@@ -327,39 +327,40 @@ export default function NotificationsPage() {
                 role={clickable ? 'link' : undefined}
                 tabIndex={clickable ? 0 : undefined}
                 aria-label={clickable ? `${n.title}. Open` : undefined}
-                className={`bg-white rounded-xl p-4 shadow-sm flex gap-4 items-start transition ${
-                  n.read ? 'opacity-70' : ''
-                } ${clickable ? 'cursor-pointer hover:shadow-md hover:ring-1 hover:ring-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-400' : ''}`}
+                className={`bg-white rounded-[22px] p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)] flex gap-3.5 items-start transition-all ${
+                  n.read ? 'opacity-75' : 'ring-1 ring-[#E0EAFF]'
+                } ${clickable ? 'cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]' : ''}`}
               >
-                <div className={`shrink-0 w-10 h-10 rounded-full ${bg} flex items-center justify-center`}>
+                <div className={`shrink-0 w-11 h-11 rounded-[14px] ${bg} flex items-center justify-center`}>
                   <Icon className={`w-5 h-5 ${color}`} />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <p className={`font-semibold text-sm ${n.read ? 'text-gray-600' : 'text-gray-900'}`}>
+                    <p className={`font-bold text-[14px] leading-snug ${n.read ? 'text-[#475569]' : 'text-[#0F172A]'}`}>
                       {!n.read && (
-                        <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2 align-middle" />
+                        <span className="inline-block w-2 h-2 bg-[#F59E0B] rounded-full mr-2 align-middle" />
                       )}
                       {n.title}
                     </p>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => toggleRead(n.id)}
-                        className="text-xs text-blue-500 hover:underline"
+                        className="text-xs font-semibold text-[#1D4ED8] hover:bg-[#EEF2FF] px-2 py-1 rounded-lg transition-colors cursor-pointer"
                       >
-                        {n.read ? 'Mark unread' : 'Mark read'}
+                        {n.read ? 'Unread' : 'Mark read'}
                       </button>
                       <button
                         onClick={() => dismiss(n.id)}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        className="p-1.5 text-[#94A3B8] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                         title="Dismiss notification"
+                        aria-label="Dismiss notification"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-gray-500 text-xs mt-1 leading-relaxed">{n.message}</p>
+                  <p className="text-[#475569] text-[13px] mt-1 leading-relaxed">{n.message}</p>
                   <div className="flex items-center gap-3 mt-1.5">
                     <p className="text-gray-400 text-xs">{n.time}</p>
                     {target && (

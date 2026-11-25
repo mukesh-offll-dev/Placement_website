@@ -280,22 +280,22 @@ export default function JobDetailPage() {
 
   return (
     <>
-      <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
+      <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-6xl w-full mx-auto overflow-x-hidden">
         {/* Back */}
           <button
             onClick={() => navigate('/student/jobs')}
-            className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-5"
+            className="inline-flex items-center gap-1.5 text-[#1D4ED8] text-sm font-bold hover:text-[#1E3A8A] mb-4 min-h-[38px] cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Job Drives
           </button>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-5">
 
             {/* ── LEFT: main content ── */}
             <div className="lg:col-span-2 space-y-5">
 
               {/* Company header */}
-              <div className="bg-white rounded-2xl shadow-sm p-6">
+              <div className="bg-white rounded-[22px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
                     <div

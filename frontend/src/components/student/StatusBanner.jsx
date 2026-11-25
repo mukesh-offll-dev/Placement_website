@@ -12,31 +12,31 @@ const formatDate = (value) => {
 
 const CONFIG = {
   VERIFIED: {
-    cls: 'bg-green-50 border-green-200 text-green-900',
+    cls: 'bg-[#ECFDF5] border-[#A7F3D0] text-[#0F172A]',
     icon: CheckCircle2,
-    iconCls: 'text-green-600',
+    iconCls: 'text-[#047857]',
     title: 'Profile verified',
   },
   NOT_SUBMITTED: {
-    cls: 'bg-gray-50 border-gray-200 text-gray-800',
+    cls: 'bg-[#F1F5FF] border-[#C7D2FE] text-[#0F172A]',
     icon: CircleDashed,
-    iconCls: 'text-gray-500',
+    iconCls: 'text-[#1D4ED8]',
     title: 'Not submitted for verification',
   },
   CHANGES: {
-    cls: 'bg-blue-50 border-blue-200 text-blue-900',
+    cls: 'bg-[#F1F5FF] border-[#C7D2FE] text-[#0F172A]',
     icon: FilePen,
-    iconCls: 'text-blue-600',
+    iconCls: 'text-[#1D4ED8]',
     title: 'Your draft has changes that are not yet verified',
   },
   PENDING: {
-    cls: 'bg-amber-50 border-amber-200 text-amber-900',
+    cls: 'bg-[#FFF7E6] border-[#FCD9A0] text-[#0F172A]',
     icon: Clock,
-    iconCls: 'text-amber-600',
-    title: 'Pending review by your faculty advisor',
+    iconCls: 'text-[#92400E]',
+    title: 'Profile under review',
   },
   REJECTED: {
-    cls: 'bg-red-50 border-red-200 text-red-900',
+    cls: 'bg-red-50 border-red-200 text-[#0F172A]',
     icon: XCircle,
     iconCls: 'text-red-600',
     title: 'Changes requested by your faculty advisor',

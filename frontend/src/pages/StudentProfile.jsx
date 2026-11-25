@@ -528,21 +528,21 @@ export default function StudentProfile() {
       : null;
 
   return (
-    <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
+    <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-6xl w-full mx-auto overflow-x-hidden">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Student Profile</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight">My Profile</h1>
+          <p className="text-[#475569] text-sm">
             Edit your profile as a draft and submit it to your faculty advisor for verification.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setShowChangePassword(true)}
-          className="inline-flex items-center gap-2 bg-white text-gray-700 border border-gray-300 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-50 transition shadow-sm w-fit"
+          className="inline-flex items-center gap-2 bg-white text-[#0F172A] border border-[#E2E8F0] text-xs sm:text-sm font-bold px-4 h-[42px] rounded-[14px] hover:bg-slate-50 transition shadow-[0_1px_2px_rgba(15,23,42,0.04)] w-fit cursor-pointer"
         >
-          <KeyRound className="w-4 h-4" /> Change Password
+          <KeyRound className="w-4 h-4 text-[#1D4ED8]" /> Change Password
         </button>
       </div>
 
@@ -656,11 +656,16 @@ export default function StudentProfile() {
         {/* ── LEFT: Main Content ── */}
         <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Profile header card + skills */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="h-28 sm:h-32 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500" />
+          <div className="bg-white rounded-[24px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-[#E5E9F2]/60 overflow-hidden">
+            <div className="h-28 sm:h-32 bg-[#0F2A6B] relative overflow-hidden">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-10 -top-10 w-40 h-40 rounded-full border-[26px] border-[#F5B301]/18"
+              />
+            </div>
             <div className="p-4 sm:p-6 relative">
               <div className="absolute -top-12 left-4 sm:left-6">
-                <div className="w-24 h-24 rounded-full border-4 border-white bg-blue-600 overflow-hidden flex items-center justify-center text-white text-3xl font-bold shadow-md">
+                <div className="w-24 h-24 rounded-full border-4 border-white bg-[#1D4ED8] overflow-hidden flex items-center justify-center text-white text-3xl font-extrabold shadow-md">
                   {personal.avatarUrl ? (
                     <ProtectedMediaPreview url={personal.avatarUrl} alt={studentName} />
                   ) : (
@@ -670,26 +675,26 @@ export default function StudentProfile() {
               </div>
               <div className="mt-14">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-bold text-gray-900 break-words">{studentName}</h2>
+                  <h2 className="text-xl font-extrabold text-[#0F172A] break-words">{studentName}</h2>
                 </div>
-                <p className="text-gray-600 text-sm mt-0.5">{profile?.degree || 'Degree not provided'}</p>
+                <p className="text-[#475569] text-sm font-medium mt-0.5">{profile?.degree || 'Degree not provided'}</p>
                 {profile?.college && (
-                  <p className="text-gray-400 text-xs flex items-center gap-1 mt-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-blue-500" /> {profile.college}
+                  <p className="text-[#64748B] text-xs flex items-center gap-1 mt-1">
+                    <GraduationCap className="w-3.5 h-3.5 text-[#1D4ED8]" /> {profile.college}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-2 text-xs mt-2">
-                  <span className="bg-gray-100 px-2.5 py-0.5 rounded-full font-medium text-gray-700">
+                <div className="flex flex-wrap items-center gap-2 text-xs mt-3">
+                  <span className="bg-[#F4F6FB] px-2.5 py-1 rounded-[8px] font-semibold text-[#334155]">
                     Roll: {profile?.rollNo || 'Not Assigned'}
                   </span>
                   {profile?.departmentCode && (
-                    <span className="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-medium">Dept: {profile.departmentCode}</span>
+                    <span className="bg-[#EEF2FF] text-[#1E3A8A] px-2.5 py-1 rounded-[8px] font-semibold">Dept: {profile.departmentCode}</span>
                   )}
                   {academic.cgpa != null && (
-                    <span className="bg-green-50 text-green-700 px-2.5 py-0.5 rounded-full font-medium">CGPA: {academic.cgpa}</span>
+                    <span className="bg-[#ECFDF5] text-[#047857] px-2.5 py-1 rounded-[8px] font-semibold">CGPA: {academic.cgpa}</span>
                   )}
                   {academic.semester != null && (
-                    <span className="bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full font-medium">Sem: {academic.semester}</span>
+                    <span className="bg-[#E0EAFF] text-[#1D4ED8] px-2.5 py-1 rounded-[8px] font-semibold">Sem: {academic.semester}</span>
                   )}
                 </div>
               </div>

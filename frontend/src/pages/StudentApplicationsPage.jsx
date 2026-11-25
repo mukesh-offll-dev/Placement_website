@@ -239,43 +239,45 @@ export default function StudentApplicationsPage() {
     loadState === 'success' ? value : loadState === 'loading' ? '...' : '—';
 
   return (
-    <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+    <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-6xl w-full mx-auto overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">My Applications</h2>
-          <p className="text-gray-500 text-sm">
-            Apply to as many drives as you like and follow each one here, step by step.
+          <h2 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight mb-0.5">
+            My Applications
+          </h2>
+          <p className="text-[#475569] text-sm">
+            Follow every drive you’ve applied to, round by round.
           </p>
         </div>
         <Link
           to="/student/jobs"
-          className="inline-flex items-center justify-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm shrink-0"
+          className="inline-flex items-center justify-center gap-1.5 bg-[#1D4ED8] text-white px-4 h-[44px] rounded-[14px] text-sm font-bold hover:bg-[#1E3A8A] transition shadow-xs shrink-0"
         >
-          <Plus className="w-4 h-4" /> Find more jobs
+          <Plus className="w-4 h-4" /> Find more drives
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
-          { label: 'Total applied', value: statValue(stats.total), color: 'text-gray-900', icon: FileText, iconBg: 'bg-gray-100 text-gray-600' },
-          { label: 'In progress', value: statValue(stats.inProgress), color: 'text-blue-600', icon: Hourglass, iconBg: 'bg-blue-50 text-blue-600' },
-          { label: 'Interviews', value: statValue(stats.interviews), color: 'text-purple-600', icon: Users, iconBg: 'bg-purple-50 text-purple-600' },
-          { label: 'Offers', value: statValue(stats.offers), color: 'text-emerald-600', icon: Trophy, iconBg: 'bg-emerald-50 text-emerald-600' },
+          { label: 'Total applied', value: statValue(stats.total), color: 'text-[#0F172A]', icon: FileText, iconBg: 'bg-[#F4F6FB] text-[#475569]' },
+          { label: 'In progress', value: statValue(stats.inProgress), color: 'text-[#1D4ED8]', icon: Hourglass, iconBg: 'bg-[#E0EAFF] text-[#1D4ED8]' },
+          { label: 'Interviews', value: statValue(stats.interviews), color: 'text-[#0F766E]', icon: Users, iconBg: 'bg-[#E0F2F1] text-[#0F766E]' },
+          { label: 'Offers', value: statValue(stats.offers), color: 'text-[#047857]', icon: Trophy, iconBg: 'bg-[#ECFDF5] text-[#047857]' },
         ].map(({ label, value, color, icon: Icon, iconBg }) => (
-          <div key={label} className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-3">
-            <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+          <div key={label} className="bg-white rounded-[18px] p-3.5 sm:p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05)] flex items-center gap-3">
+            <span className={`w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 ${iconBg}`}>
               <Icon className="w-5 h-5" />
             </span>
-            <div>
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className={`text-2xl font-bold ${color}`}>{value}</p>
+            <div className="min-w-0">
+              <p className="text-[12px] text-[#475569] font-medium truncate">{label}</p>
+              <p className={`text-[22px] font-extrabold leading-tight ${color}`}>{value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm mb-5 px-4 pt-2 flex flex-col sm:flex-row gap-3 sm:items-end border-b border-gray-100">
-        <div role="tablist" aria-label="Application groups" className="flex gap-1 overflow-x-auto flex-1">
+      <div className="bg-white rounded-[20px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] mb-5 p-3 sm:px-4 sm:py-2.5 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div role="tablist" aria-label="Application groups" className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
           {TABS.map(({ value, label, countKey }) => {
             const active = activeTab === value;
             return (
@@ -285,13 +287,13 @@ export default function StudentApplicationsPage() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => selectTab(value)}
-                className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap flex items-center gap-2 transition-colors ${
-                  active ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                className={`px-3.5 py-2 rounded-[12px] text-xs sm:text-sm font-bold whitespace-nowrap flex items-center gap-2 transition-colors min-h-[38px] cursor-pointer ${
+                  active ? 'bg-[#E0EAFF] text-[#1D4ED8]' : 'text-[#475569] hover:bg-[#F4F6FB] hover:text-[#0F172A]'
                 }`}
               >
                 {label}
                 {loadState === 'success' && (
-                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${active ? 'bg-[#1D4ED8] text-white' : 'bg-[#F4F6FB] text-[#475569]'}`}>
                     {stats[countKey]}
                   </span>
                 )}
@@ -299,14 +301,14 @@ export default function StudentApplicationsPage() {
             );
           })}
         </div>
-        <div className="relative pb-2">
-          <Search className="w-4 h-4 absolute left-3 top-[calc(50%-4px)] -translate-y-1/2 text-gray-400" />
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
           <input
             type="text"
             placeholder="Search company or role..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="border border-gray-300 pl-9 pr-4 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-52"
+            className="border-[1.5px] border-[#E2E8F0] pl-9 pr-4 h-[42px] rounded-[14px] text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1D4ED8] focus:bg-[#F8FAFF] w-full sm:w-56 transition-all"
           />
         </div>
       </div>
@@ -391,11 +393,11 @@ export default function StudentApplicationsPage() {
                 : companyName.slice(0, 2).toUpperCase());
 
             return (
-              <div key={application.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div key={application.id} className="bg-white rounded-[22px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] overflow-hidden">
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                   <div
-                    className={`relative w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
-                      logoColor ? 'text-white' : 'bg-gray-100 text-gray-600'
+                    className={`relative w-11 h-11 rounded-[14px] flex items-center justify-center font-extrabold text-sm shrink-0 ${
+                      logoColor ? 'text-white' : 'bg-[#FFF1E0] text-[#C2410C]'
                     }`}
                     style={logoColor ? { backgroundColor: logoColor } : undefined}
                   >

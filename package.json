@@ -1,0 +1,15 @@
+{
+  "name": "placement-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Placement Management System - Full Stack Portal",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend run test",
+    "lint": "npm --prefix frontend run lint",
+    "frontend": "npm --prefix frontend run dev",
+    "backend": "powershell -Command \"cd backend; .\\mvnw.cmd spring-boot:run\""
+  }
+}
+

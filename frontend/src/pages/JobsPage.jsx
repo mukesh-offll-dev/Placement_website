@@ -198,39 +198,39 @@ export default function JobsPage({ isAdmin = false }) {
 
 
   return (
-    <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
-      <div className="flex items-center justify-between mb-1">
-        <h2 className="text-2xl font-bold">Job Drives</h2>
+    <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-6xl w-full mx-auto overflow-x-hidden">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h2 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight">Job Drives</h2>
         {isAdmin && (
           // The old modal only added a row to local state; the real form posts to
           // /admin/jobs and validates against the backend contract.
           <Link
             to="/admin/jobs/new"
-            className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+            className="bg-[#1D4ED8] text-white text-sm font-semibold px-4 py-2.5 rounded-[14px] hover:bg-[#1E3A8A] transition-colors flex items-center gap-1.5"
           >
             <Briefcase className="w-4 h-4" /> Post New Job
           </Link>
         )}
       </div>
-      <p className="text-gray-500 text-sm mb-6">Browse active recruitment drives.</p>
+      <p className="text-[#475569] text-sm mb-5">Browse active campus recruitment drives.</p>
 
       {/* Search & Filter */}
-      <div className="bg-white rounded-xl p-4 shadow-sm mb-5 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+      <div className="bg-white rounded-[20px] p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] mb-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
           <input
             type="text"
-            placeholder="Search company or role..."
+            placeholder="Search company, role, or location..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-[46px] pl-10 pr-4 border-[1.5px] border-[#E2E8F0] rounded-[14px] text-[15px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1D4ED8] focus:bg-[#F8FAFF] transition-all"
           />
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Filter className="w-4 h-4" />
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#475569] bg-[#F4F6FB] px-3.5 py-2.5 rounded-[12px] shrink-0">
+          <Filter className="w-3.5 h-3.5 text-[#1D4ED8]" />
           <span>{filtered.length} drives found</span>
         </div>
       </div>
@@ -297,74 +297,91 @@ export default function JobsPage({ isAdmin = false }) {
 
       {/* Job Cards */}
       {!loading && !error && filtered.length > 0 && (
-        <div className="space-y-4">
-          {paginated.map((job) => (
-            <div key={job.id} className="bg-white rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
+        <div className="space-y-3.5">
+          {paginated.map((job, idx) => {
+            const pastelMonograms = [
+              'bg-[#E0F2F1] text-[#0F766E]',
+              'bg-[#E0EAFF] text-[#1D4ED8]',
+              'bg-[#FFF1E0] text-[#C2410C]',
+              'bg-[#EEF2FF] text-[#1E3A8A]',
+            ];
+            const monogramCls = pastelMonograms[idx % pastelMonograms.length];
+            return (
               <div
-                className={`w-14 h-14 ${job.logoHex ? 'text-white' : 'bg-blue-100 text-blue-700'} rounded-xl flex items-center justify-center font-bold text-sm shrink-0`}
-                style={job.logoHex ? { backgroundColor: job.logoHex } : undefined}
+                key={job.id}
+                className="bg-white rounded-[22px] p-4 sm:p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:shadow-md transition-all flex flex-col md:flex-row md:items-center gap-4"
               >
-                {job.companyShort}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-start gap-2">
-                  <h3 className="font-bold text-base">{job.company}</h3>
-                  <span
-                    className={`text-xs px-2.5 py-0.5 rounded-full ${
-                      job.status === 'Closing Soon' || job.status === 'Expired'
-                        ? 'bg-red-100 text-red-600'
-                        : job.status === 'Draft' || job.status === 'Closed'
-                          ? 'bg-gray-100 text-gray-600'
-                          : 'bg-green-100 text-green-600'
-                    }`}
+                <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                  <div
+                    className={`w-12 h-12 ${job.logoHex ? 'text-white' : monogramCls} rounded-[14px] flex items-center justify-center font-extrabold text-sm shrink-0`}
+                    style={job.logoHex ? { backgroundColor: job.logoHex } : undefined}
                   >
-                    {job.status}
-                  </span>
-                </div>
-                <p className="text-gray-600 text-sm">{job.role}</p>
-                <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-400">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> {job.location}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Deadline: {job.deadline}
-                  </span>
-                  <span>CGPA: {job.cgpa}</span>
-                  <span>CTC: {job.ctc}</span>
-                </div>
-              </div>
-
-              <div className="shrink-0">
-                {isAdmin ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/admin/jobs/${job.id}/edit`)}
-                      className="bg-gray-100 text-gray-700 text-sm px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Pencil className="w-4 h-4" /> Manage
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(job)}
-                      className="text-red-600 text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors inline-flex items-center gap-1.5"
-                      aria-label={`Delete ${job.role} at ${job.company}`}
-                    >
-                      <Trash2 className="w-4 h-4" /> Delete
-                    </button>
+                    {job.companyShort}
                   </div>
-                ) : (
-                  <Link
-                    to={`/student/jobs/${job.id}`}
-                    className="bg-blue-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-blue-700 transition-colors block text-center"
-                  >
-                    Apply Now
-                  </Link>
-                )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-bold text-[16px] text-[#0F172A] truncate">{job.role}</h3>
+                      <span
+                        className={`text-[11px] px-2.5 py-1 rounded-full font-bold shrink-0 ${
+                          job.status === 'Closing Soon' || job.status === 'Expired'
+                            ? 'bg-[#FEF3C7] text-[#B45309]'
+                            : job.status === 'Draft' || job.status === 'Closed'
+                              ? 'bg-slate-100 text-[#475569]'
+                              : 'bg-[#ECFDF5] text-[#047857]'
+                        }`}
+                      >
+                        {job.status}
+                      </span>
+                    </div>
+                    <p className="text-[#475569] text-[13px] font-medium mt-0.5 truncate">
+                      {job.company} · {job.location}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      <span className="text-[12px] font-semibold bg-[#EEF2FF] text-[#1E3A8A] px-2.5 py-1 rounded-[8px]">
+                        {job.ctc}
+                      </span>
+                      <span className="text-[12px] font-semibold bg-[#ECFDF5] text-[#047857] px-2.5 py-1 rounded-[8px]">
+                        CGPA {job.cgpa}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#64748B] bg-[#F4F6FB] px-2.5 py-1 rounded-[8px]">
+                        <Clock className="w-3 h-3" /> {job.deadline}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="shrink-0 pt-1 md:pt-0">
+                  {isAdmin ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/jobs/${job.id}/edit`)}
+                        className="bg-[#F4F6FB] text-[#334155] text-sm font-semibold px-4 py-2.5 rounded-[12px] hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Pencil className="w-4 h-4" /> Manage
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(job)}
+                        className="text-red-600 text-sm font-semibold px-3 py-2.5 rounded-[12px] hover:bg-red-50 transition-colors inline-flex items-center gap-1.5"
+                        aria-label={`Delete ${job.role} at ${job.company}`}
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      to={`/student/jobs/${job.id}`}
+                      className="h-[44px] bg-[#1D4ED8] text-white text-[14px] font-bold px-5 rounded-[14px] hover:bg-[#1E3A8A] active:scale-[0.98] transition-all flex items-center justify-center text-center"
+                    >
+                      Apply Now
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

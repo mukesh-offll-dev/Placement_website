@@ -23,34 +23,50 @@ export default function ApplicationProgress({ status, viewer = 'student' }) {
 
   const reached = Math.max(pipelineIndex(status), 0);
   const selected = status === 'SELECTED';
+  const stepNum = reached + 1;
 
   return (
-    <ol className="flex items-center w-full" aria-label="Application progress">
-      {APPLICATION_PIPELINE.map((step, index) => {
-        const done = index < reached || (selected && index === reached);
-        const current = index === reached && !selected;
-        const isLast = index === APPLICATION_PIPELINE.length - 1;
+    <div className="w-full" aria-label="Application progress">
+      {/* Compact 5-segment bar matching Page 2 */}
+      <div className="grid grid-cols-5 gap-1" aria-hidden="true">
+        {APPLICATION_PIPELINE.map((step, index) => {
+          const filled = index < stepNum;
+          return (
+            <span
+              key={step}
+              className={`h-1.5 rounded-[3px] transition-colors ${
+                filled ? (selected ? 'bg-[#047857]' : 'bg-[#1D4ED8]') : 'bg-[#E2E8F0]'
+              }`}
+            />
+          );
+        })}
+      </div>
 
-        let dot = 'bg-white border-2 border-gray-200 text-gray-400';
-        if (done) dot = selected ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white';
-        if (current) dot = 'bg-blue-600 text-white ring-4 ring-blue-100';
-
-        return (
-          <li key={step} className={`flex items-center ${isLast ? '' : 'flex-1'}`} aria-current={current ? 'step' : undefined}>
-            <div className="flex flex-col items-center gap-1 min-w-[3.25rem]">
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${dot}`}>
-                {done ? <Check className="w-3.5 h-3.5" /> : index + 1}
-              </span>
-              <span className={`text-[10px] sm:text-[11px] font-medium whitespace-nowrap ${done || current ? 'text-gray-800' : 'text-gray-400'}`}>
-                {PIPELINE_LABELS[step]}
-              </span>
-            </div>
-            {!isLast && (
-              <span className={`flex-1 h-0.5 -mt-4 mx-1 rounded ${index < reached ? (selected ? 'bg-emerald-600' : 'bg-blue-600') : 'bg-gray-200'}`} />
-            )}
-          </li>
-        );
-      })}
-    </ol>
+      {/* Step labels */}
+      <ol className="flex items-center justify-between gap-1 mt-2 overflow-x-auto no-scrollbar">
+        {APPLICATION_PIPELINE.map((step, index) => {
+          const done = index < reached || (selected && index === reached);
+          const current = index === reached && !selected;
+          return (
+            <li
+              key={step}
+              aria-current={current ? 'step' : undefined}
+              className={`inline-flex items-center gap-1 text-[11px] whitespace-nowrap ${
+                current
+                  ? 'text-[#1D4ED8] font-bold'
+                  : done
+                  ? selected
+                    ? 'text-[#047857] font-semibold'
+                    : 'text-[#0F172A] font-semibold'
+                  : 'text-[#94A3B8] font-medium'
+              }`}
+            >
+              {done && <Check className="w-3 h-3 shrink-0" strokeWidth={2.4} />}
+              <span>{PIPELINE_LABELS[step]}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }

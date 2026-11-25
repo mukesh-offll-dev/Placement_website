@@ -1,8 +1,8 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
+  Home,
   Briefcase,
-  FileText,
+  CheckSquare,
   User,
   Bell,
   LogOut,
@@ -14,16 +14,16 @@ import BrandLogo from './BrandLogo';
 import { toastInfo } from '../utils/toast';
 
 const navItems = [
-  { to: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/student/dashboard', icon: Home, label: 'Home' },
   { to: '/student/jobs', icon: Briefcase, label: 'Job Drives' },
-  { to: '/student/applications', icon: FileText, label: 'My Applications' },
-  { to: '/student/notifications', icon: Bell, label: 'Notifications', showUnread: true },
+  { to: '/student/applications', icon: CheckSquare, label: 'My Applications' },
+  { to: '/student/notifications', icon: Bell, label: 'Alerts', showUnread: true },
   { to: '/student/profile', icon: User, label: 'My Profile' },
   { to: '/student/verification', icon: ShieldCheck, label: 'Verification', showVerification: true },
 ];
 
 const VERIFICATION_BADGE = {
-  PENDING: { text: 'Pending', cls: 'bg-amber-100 text-amber-700', label: 'Verification pending review' },
+  PENDING: { text: 'Pending', cls: 'bg-[#FEF3C7] text-[#B45309]', label: 'Verification pending review' },
   REJECTED: { text: 'Action', cls: 'bg-red-100 text-red-700', label: 'Verification changes requested' },
 };
 
@@ -37,6 +37,9 @@ export default function StudentSidebar({
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
 
+  const displayName = currentUser?.fullName || 'Student';
+  const initial = displayName.trim() ? displayName.trim()[0].toUpperCase() : 'S';
+
   const handleLogout = () => {
     logout();
     toastInfo('You have been signed out successfully.');
@@ -44,22 +47,30 @@ export default function StudentSidebar({
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white border-r border-gray-200">
+    <div
+      className="flex flex-col h-full bg-white border-r border-[#E5E9F2]"
+      style={{ fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}
+    >
       {/* Brand Header */}
-      <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
-        <Link to="/student/dashboard" onClick={onCloseMobile} className="flex items-center gap-3" aria-label="Student dashboard">
-          <BrandLogo className="h-11 shrink-0" />
+      <div className="px-5 py-5 border-b border-[#E5E9F2] flex items-center justify-between bg-[#0F2A6B] text-white relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-10 -top-10 w-28 h-28 rounded-full border-[18px] border-[#F5B301]/18"
+        />
+        <Link to="/student/dashboard" onClick={onCloseMobile} className="flex items-center gap-3 relative z-10" aria-label="Student dashboard">
+          <div className="w-11 h-11 rounded-[14px] bg-white flex items-center justify-center shrink-0">
+            <BrandLogo className="h-8" />
+          </div>
           <div>
-            <p className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</p>
-            <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 mt-0.5">
+            <p className="font-extrabold text-[14px] text-white leading-tight">GCE Srirangam</p>
+            <div className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F5B301] text-[#1F1500] mt-1">
               Student Portal
             </div>
           </div>
         </Link>
-        {/* Mobile close button */}
         <button
           onClick={onCloseMobile}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 md:hidden"
+          className="p-2 rounded-xl text-[#C7D2FE] hover:text-white hover:bg-white/10 md:hidden relative z-10"
           aria-label="Close sidebar"
         >
           <X className="w-5 h-5" />
@@ -67,9 +78,9 @@ export default function StudentSidebar({
       </div>
 
       {/* Navigation section */}
-      <div className="px-3 py-4 flex-1 overflow-y-auto space-y-1">
-        <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-          Student Menu
+      <div className="px-3 py-4 flex-1 overflow-y-auto space-y-1.5">
+        <p className="px-3 text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">
+          Menu
         </p>
         {navItems.map(({ to, icon: NavIcon, label, showUnread, showVerification }) => (
           <NavLink
@@ -77,23 +88,23 @@ export default function StudentSidebar({
             to={to}
             onClick={onCloseMobile}
             className={({ isActive }) =>
-              `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+              `flex items-center justify-between px-3.5 py-2.5 rounded-[16px] text-[14px] transition-all duration-150 ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-200 font-semibold'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-[#E0EAFF] text-[#1D4ED8] font-bold'
+                  : 'text-[#475569] hover:bg-[#F4F6FB] hover:text-[#0F172A] font-semibold'
               }`
             }
           >
             {({ isActive }) => (
               <>
                 <div className="flex items-center gap-3">
-                  <NavIcon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                  <NavIcon className={`w-[18px] h-[18px] ${isActive ? 'text-[#1D4ED8]' : 'text-[#64748B]'}`} strokeWidth={isActive ? 2.1 : 1.8} />
                   <span>{label}</span>
                 </div>
                 {showUnread && unreadCount > 0 && (
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                      isActive ? 'bg-[#1D4ED8] text-white' : 'bg-[#FEF3C7] text-[#B45309]'
                     }`}
                     aria-label={`${unreadCount} unread notifications`}
                   >
@@ -102,9 +113,7 @@ export default function StudentSidebar({
                 )}
                 {showVerification && verificationBadge && (
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : verificationBadge.cls
-                    }`}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${verificationBadge.cls}`}
                     aria-label={verificationBadge.label}
                   >
                     {verificationBadge.text}
@@ -117,26 +126,23 @@ export default function StudentSidebar({
       </div>
 
       {/* User profile & Logout Footer */}
-      <div className="p-3 border-t border-gray-100 bg-gray-50/70">
-        <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-gray-200 shadow-xs mb-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-              A
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+      <div className="p-3 border-t border-[#E5E9F2] bg-[#F4F6FB]/70">
+        <div className="flex items-center justify-between p-2.5 rounded-[16px] bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <Link to="/student/profile" onClick={onCloseMobile} className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="relative w-9 h-9 rounded-full bg-[#1D4ED8] text-white flex items-center justify-center font-bold text-sm shrink-0">
+              {initial}
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#047857] border-2 border-white rounded-full"></span>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">
-                {currentUser?.fullName || 'Student'}
-              </p>
-              <p className="text-[10px] text-gray-500 truncate">
-                {currentUser?.email || 'Student Portal'}
-              </p>
+              <p className="text-xs font-bold text-[#0F172A] truncate">{displayName}</p>
+              <p className="text-[11px] text-[#64748B] truncate">{currentUser?.email || 'Student Portal'}</p>
             </div>
-          </div>
+          </Link>
           <button
             onClick={handleLogout}
             title="Logout"
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+            aria-label="Logout"
+            className="p-2 text-[#64748B] hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0 cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -147,19 +153,17 @@ export default function StudentSidebar({
 
   return (
     <>
-      {/* Desktop fixed sidebar */}
       <aside className="hidden md:block w-64 h-screen sticky top-0 shrink-0 z-30">
         {sidebarContent}
       </aside>
 
-      {/* Mobile Drawer Backdrop and Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div
-            className="fixed inset-0 bg-gray-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-[#0F172A]/50 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+          <div className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10">
             {sidebarContent}
           </div>
         </div>
