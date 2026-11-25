@@ -34,8 +34,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private final JobApplicationRepository jobApplicationRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public DashboardStatsDto getDashboardStats() {
+        jobRepository.closeExpiredJobs(JobStatus.CLOSED, LocalDate.now());
         long totalStudents = studentProfileRepository.countActiveStudents();
         long totalProjects = studentProjectRepository.count();
         long totalPlaced = studentProfileRepository.countPlacedStudents();
@@ -101,6 +102,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .map(j -> RecentJobDto.builder()
                         .id(j.getId())
                         .company(j.getCompanyName())
+                        .logoUrl(j.getCompany() != null ? j.getCompany().getLogoUrl() : null)
                         .title(j.getTitle())
                         .role(j.getRole())
                         .salary(j.getSalary())

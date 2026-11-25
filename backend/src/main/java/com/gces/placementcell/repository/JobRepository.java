@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -87,4 +88,16 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT j.company) FROM Job j WHERE j.isDeleted = false")
     long countDistinctCompanies();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Job j
+            SET j.status = :closedStatus,
+                j.isActive = false
+            WHERE j.isDeleted = false
+              AND j.status <> :closedStatus
+              AND j.applicationDeadline < :today
+            """)
+    int closeExpiredJobs(@Param("closedStatus") JobStatus closedStatus,
+                         @Param("today") LocalDate today);
 }

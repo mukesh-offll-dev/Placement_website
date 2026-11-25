@@ -27,6 +27,11 @@ public class FileStorageProperties {
     private String projectMediaSubdir = "projects";
 
     /**
+     * Subdirectory for company logos.
+     */
+    private String logoSubdir = "logos";
+
+    /**
      * Max resume file size in bytes (default: 10MB).
      */
     private long maxResumeSize = 10 * 1024 * 1024;
@@ -37,6 +42,11 @@ public class FileStorageProperties {
     private long maxMediaSize = 10 * 1024 * 1024;
 
     /**
+     * Max company logo file size in bytes (default: 2MB).
+     */
+    private long maxLogoSize = 2 * 1024 * 1024;
+
+    /**
      * Allowed extensions for resumes.
      */
     private List<String> allowedResumeExtensions = List.of("pdf", "doc", "docx");
@@ -45,4 +55,9 @@ public class FileStorageProperties {
      * Allowed extensions for project media.
      */
     private List<String> allowedMediaExtensions = List.of("jpg", "jpeg", "png", "webp", "pdf");
+
+    /**
+     * Allowed extensions for company logos.
+     */
+    private List<String> allowedLogoExtensions = List.of("png", "jpg", "jpeg", "webp");
 }

@@ -33,10 +33,13 @@ public class DataInitializer implements CommandLineRunner {
     private final CompanyRepository companyRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.gces.placementcell.repository.DepartmentRepository departmentRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
+        seedDepartmentsIfEmpty();
+
         if (userRepository.count() > 0) {
             log.info("Database already contains data, skipping initialization.");
             return;
@@ -150,6 +153,23 @@ public class DataInitializer implements CommandLineRunner {
         );
 
         log.info("Database bootstrap completed successfully.");
+    }
+
+    private void seedDepartmentsIfEmpty() {
+        if (departmentRepository.count() == 0) {
+            log.info("Seeding standard departments including Mechatronics...");
+            List<com.gces.placementcell.entity.Department> standardDepts = List.of(
+                com.gces.placementcell.entity.Department.builder().name("Computer Science (CSE)").code("CSE").degree("B.E CSE").description("Algorithms, Data Structures, Web, AI & ML").isActive(true).build(),
+                com.gces.placementcell.entity.Department.builder().name("Electronics (ECE)").code("ECE").degree("B.E ECE").description("VLSI Systems, Embedded Hardware, Signal Processing, IoT").isActive(true).build(),
+                com.gces.placementcell.entity.Department.builder().name("Electrical (EEE)").code("EEE").degree("B.E EEE").description("Power Systems, Renewable Energy, Drives & Automation").isActive(true).build(),
+                com.gces.placementcell.entity.Department.builder().name("Mechanical (MECH)").code("MECH").degree("B.E MECH").description("CAD/CAM, Thermal Power, Automotive & Manufacturing").isActive(true).build(),
+                com.gces.placementcell.entity.Department.builder().name("Civil Engineering").code("CIVIL").degree("B.E CIVIL").description("Structural Engineering, Surveying, GIS & Construction").isActive(true).build(),
+                com.gces.placementcell.entity.Department.builder().name("Information Technology").code("IT").degree("B.Tech IT").description("Cloud Systems, Cybersecurity, Enterprise Architecture").isActive(true).build(),
+                com.gces.placementcell.entity.Department.builder().name("Mechatronics").code("MCT").degree("B.E Mechatronics").description("Robotics, Autonomous Systems, Automation & Control Engineering").isActive(true).build()
+            );
+            departmentRepository.saveAll(standardDepts);
+            log.info("Successfully seeded 7 standard departments.");
+        }
     }
 
     /** Saves a job for the named company (created on first use) with its skill and requirement rows. */

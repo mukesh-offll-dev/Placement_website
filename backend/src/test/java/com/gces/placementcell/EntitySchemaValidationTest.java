@@ -33,7 +33,7 @@ class EntitySchemaValidationTest {
         var entities = entityManager.getMetamodel().getEntities();
 
         assertFalse(entities.isEmpty(), "No entities were discovered by the persistence unit");
-        assertEquals(25, entities.size(),
+        assertEquals(26, entities.size(),
                 "Expected one entity per table in schema.sql. Found: "
                         + entities.stream().map(EntityType::getName).sorted().toList());
     }

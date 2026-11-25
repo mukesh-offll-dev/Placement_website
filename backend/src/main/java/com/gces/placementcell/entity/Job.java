@@ -98,6 +98,24 @@ public class Job {
     @Column(name = "min_cgpa", precision = 4, scale = 2)
     private BigDecimal minCgpa;
 
+    @DecimalMin(value = "0.00", message = "Maximum CGPA cannot be negative")
+    @DecimalMax(value = "10.00", message = "Maximum CGPA cannot exceed 10.00")
+    @Column(name = "max_cgpa", precision = 4, scale = 2)
+    private BigDecimal maxCgpa;
+
+    @Email(message = "Please enter a valid contact email address")
+    @Size(max = 150, message = "Contact email cannot exceed 150 characters")
+    @Column(name = "contact_email", length = 150)
+    private String contactEmail;
+
+    @Size(max = 500, message = "Application URL cannot exceed 500 characters")
+    @Column(name = "application_url", length = 500)
+    private String applicationUrl;
+
+    @Size(max = 1000, message = "Application instructions cannot exceed 1000 characters")
+    @Column(name = "application_instructions", length = 1000)
+    private String applicationInstructions;
+
     @Builder.Default
     @Column(name = "backlogs_allowed", nullable = false)
     private Boolean backlogsAllowed = false;
@@ -304,12 +322,34 @@ public class Job {
         requirement.setJob(null);
     }
 
+    public void addResponsibility(JobResponsibility responsibility) {
+        responsibility.setJob(this);
+        this.responsibilities.add(responsibility);
+    }
+
+    public void addPerk(JobPerk perk) {
+        perk.setJob(this);
+        this.perks.add(perk);
+    }
+
+    public void addSelectionRound(JobSelectionRound round) {
+        round.setJob(this);
+        this.selectionRounds.add(round);
+    }
+
     public boolean isExpired() {
         return this.applicationDeadline != null && this.applicationDeadline.isBefore(LocalDate.now());
     }
 
+    public Long getDaysRemaining() {
+        if (this.applicationDeadline == null) {
+            return null;
+        }
+        return java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), this.applicationDeadline);
+    }
+
     public boolean isOpen() {
-        return JobStatus.ACTIVE.equals(this.status)
+        return (JobStatus.ACTIVE.equals(this.status) || JobStatus.CLOSING_SOON.equals(this.status))
                 && Boolean.TRUE.equals(this.isActive)
                 && !isExpired()
                 && !Boolean.TRUE.equals(this.isDeleted);

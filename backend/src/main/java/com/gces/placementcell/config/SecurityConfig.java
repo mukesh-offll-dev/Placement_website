@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/health").permitAll()
+                .requestMatchers("/departments/**").permitAll()
                 // Must precede the /auth/** permitAll: only an existing admin may create another.
                 .requestMatchers("/auth/register/admin").hasRole("ADMIN")
                 .requestMatchers("/auth/**").permitAll()

@@ -2,7 +2,6 @@ package com.gces.placementcell.dto.response;
 
 import com.gces.placementcell.entity.Job;
 import com.gces.placementcell.entity.JobEligibleDegree;
-import com.gces.placementcell.entity.JobEligibleDepartment;
 import com.gces.placementcell.entity.JobPerk;
 import com.gces.placementcell.entity.JobRequirement;
 import com.gces.placementcell.entity.JobResponsibility;
@@ -20,9 +19,12 @@ import java.util.function.Function;
 /**
  * A job detail page.
  *
- * The child tables (skills, requirements, responsibilities, perks, eligibility, rounds)
- * are flattened to plain lists so the client does not need to know they are separate
- * rows. postedBy is a {@link UserResponse}, never the User entity, so the poster's
+ * The child tables (skills, requirements, responsibilities, perks, degrees,
+ * rounds)
+ * are flattened to plain lists so the client does not need to know they are
+ * separate
+ * rows. postedBy is a {@link UserResponse}, never the User entity, so the
+ * poster's
  * password hash cannot ride along.
  */
 public record JobResponse(
@@ -37,32 +39,28 @@ public record JobResponse(
         Integer vacancies,
         String bond,
         BigDecimal minCgpa,
+        BigDecimal maxCgpa,
         Boolean backlogsAllowed,
         Short graduationYear,
         LocalDate applicationDeadline,
+        String contactEmail,
+        String applicationUrl,
+        String applicationInstructions,
         JobStatus status,
         Boolean isActive,
         boolean expired,
+        Long daysRemaining,
         UserResponse postedBy,
         LocalDate postedDate,
         List<String> skills,
         List<String> requirements,
         List<String> responsibilities,
         List<String> perks,
-        List<String> eligibleDepartments,
         List<String> eligibleDegrees,
         List<JobSelectionRoundResponse> selectionRounds,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
-) {
+        LocalDateTime updatedAt) {
 
-    /**
-     * Reads every child collection on the job, so call this inside the transaction that
-     * loaded it. A single query cannot fetch them all (more than one List association
-     * would make Hibernate throw MultipleBagFetchException), so the remaining bags are
-     * initialised lazily here — acceptable for one detail view, not for a listing. Use
-     * {@link JobSummaryResponse} for pages.
-     */
     public static JobResponse from(Job job) {
         if (job == null) {
             return null;
@@ -79,27 +77,33 @@ public record JobResponse(
                 job.getVacancies(),
                 job.getBond(),
                 job.getMinCgpa(),
+                job.getMaxCgpa(),
                 job.getBacklogsAllowed(),
                 job.getGraduationYear(),
                 job.getApplicationDeadline(),
+                job.getContactEmail(),
+                job.getApplicationUrl(),
+                job.getApplicationInstructions(),
                 job.getStatus(),
                 job.getIsActive(),
                 job.isExpired(),
+                job.getDaysRemaining(),
                 UserResponse.from(job.getPostedBy()),
                 job.getPostedDate(),
                 map(job.getSkills(), JobSkill::getSkillName),
                 map(job.getRequirements(), JobRequirement::getRequirement),
                 map(job.getResponsibilities(), JobResponsibility::getResponsibility),
                 map(job.getPerks(), JobPerk::getPerk),
-                map(job.getEligibleDepartments(), JobEligibleDepartment::getDepartmentCode),
                 map(job.getEligibleDegrees(), JobEligibleDegree::getDegree),
                 map(job.getSelectionRounds(), JobSelectionRoundResponse::from),
                 job.getCreatedAt(),
-                job.getUpdatedAt()
-        );
+                job.getUpdatedAt());
     }
 
-    private static <E, T> List<T> map(Collection<E> source, Function<E, T> mapper) {
-        return source == null ? List.of() : source.stream().map(mapper).toList();
+    private static <E, R> List<R> map(Collection<E> source, Function<E, R> projector) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        return source.stream().map(projector).toList();
     }
 }
