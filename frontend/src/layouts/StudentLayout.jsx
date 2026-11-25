@@ -6,6 +6,9 @@ import {
   Briefcase,
   Bell,
   LogOut,
+  LayoutDashboard,
+  FileText,
+  User,
 } from 'lucide-react';
 import StudentSidebar from '../components/StudentSidebar';
 import { useAuth } from '../context/AuthContext';
@@ -57,6 +60,15 @@ export default function StudentLayout() {
   };
 
   const breadcrumbs = getBreadcrumbs();
+  const isJobRoute =
+    location.pathname === '/student/jobs' || location.pathname.startsWith('/student/jobs/');
+  const mobileTabs = [
+    { to: '/student/dashboard', label: 'Home', icon: LayoutDashboard },
+    { to: '/student/jobs', label: 'Drives', icon: Briefcase },
+    { to: '/student/applications', label: 'Applied', icon: FileText },
+    { to: '/student/notifications', label: 'Alerts', icon: Bell },
+    { to: '/student/profile', label: 'Profile', icon: User },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row antialiased text-gray-900">
@@ -71,7 +83,7 @@ export default function StudentLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Contextual Topbar (Clean, no duplicate navigation or duplicate logos) */}
-        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-4 md:px-8 py-3.5 flex items-center justify-between transition-all">
+        <header className={`sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-4 md:px-8 py-3.5 flex items-center justify-between transition-all ${isJobRoute ? 'hidden md:flex' : ''}`}>
           {/* Left: Mobile hamburger & Dynamic Breadcrumb */}
           <div className="flex items-center gap-3">
             <button
@@ -165,6 +177,32 @@ export default function StudentLayout() {
         <div className="flex-1 flex flex-col">
           <Outlet />
         </div>
+        {isJobRoute && (
+          <nav
+            className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-gray-200 bg-white px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:hidden"
+            aria-label="Student navigation"
+          >
+            {mobileTabs.map(({ to, label, icon: Icon }) => {
+              const active =
+                label === 'Drives'
+                  ? isJobRoute
+                  : location.pathname === to;
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex flex-col items-center gap-1 py-1 text-[10px] font-medium ${
+                    active ? 'text-blue-700' : 'text-gray-500'
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${active ? 'text-blue-700' : 'text-gray-500'}`} />
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </div>
   );

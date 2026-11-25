@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
+  ChevronDown,
   MapPin,
   Clock,
   DollarSign,
@@ -124,6 +125,7 @@ export default function JobDetailPage() {
   const navigate = useNavigate();
   const [showApply, setShowApply] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [openSections, setOpenSections] = useState({ description: true });
   const [existingApplication, setExistingApplication] = useState(null);
   const [applyStep, setApplyStep] = useState(1);
   const [applyForm, setApplyForm] = useState({ coverLetter: '', consent: false });
@@ -143,6 +145,18 @@ export default function JobDetailPage() {
       setLoading(true);
       setError(null);
       setExistingApplication(null);
+      setProfileState('loading');
+      getProfile()
+        .then((profileData) => {
+          if (controller.signal.aborted) return;
+          setProfile(profileData || null);
+          setProfileState(profileData ? 'success' : 'error');
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setProfile(null);
+          setProfileState('error');
+        });
       try {
         const [data, applications] = await Promise.all([
           jobService.getJobById(id, { signal: controller.signal }),
@@ -280,7 +294,8 @@ export default function JobDetailPage() {
 
   return (
     <>
-      <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
+      <main className="flex-1 px-3 md:px-8 py-4 md:py-6 pb-32 md:pb-6 overflow-x-hidden">
+        <div className="hidden md:block">
         {/* Back */}
           <button
             onClick={() => navigate('/student/jobs')}
@@ -605,6 +620,258 @@ export default function JobDetailPage() {
               )}
             </div>
           </div>
+        </div>
+
+        <section className="md:hidden -mx-3 -mt-4">
+          <div className="rounded-b-[26px] bg-[#142f70] px-4 pt-4 pb-14 text-white">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => navigate('/student/jobs')}
+                className="rounded-lg bg-white/10 p-2"
+                aria-label="Back to job drives"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(window.location.href);
+                    toastSuccess('Job link copied to clipboard!');
+                  }}
+                  className="rounded-lg bg-white/10 p-2"
+                  aria-label="Share job"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !saved;
+                    setSaved(next);
+                    if (next) toastSuccess(`Job drive at ${job.company} saved to bookmarks!`);
+                    else toastInfo(`Job drive at ${job.company} removed from bookmarks.`);
+                  }}
+                  className="rounded-lg bg-white/10 p-2"
+                  aria-label={saved ? 'Remove saved job' : 'Save job'}
+                >
+                  <Bookmark className="h-4 w-4" fill={saved ? 'currentColor' : 'none'} />
+                </button>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <div
+                className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-bold ${logoClasses}`}
+                style={logoStyle}
+              >
+                {job.logo}
+                {job.logoUrl && (
+                  <img
+                    src={job.logoUrl}
+                    alt={`${job.company} logo`}
+                    onError={(event) => {
+                      event.currentTarget.style.display = 'none';
+                    }}
+                    className="absolute inset-0 h-full w-full rounded-xl bg-white object-contain"
+                  />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] text-blue-100">{job.company} · {job.type}</p>
+                <h1 className="text-base font-bold leading-5">{job.role}</h1>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 mx-3 -mt-8 grid grid-cols-2 gap-3 rounded-2xl bg-white p-3.5 shadow-sm">
+            {[
+              ['Package', job.ctc],
+              ['Location', job.location],
+              ['Apply by', job.deadline],
+              ['Min. CGPA', job.cgpa],
+            ].map(([label, value], index) => (
+              <div key={label} className={`rounded-xl px-2.5 py-2 ${index === 2 ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                <p className="text-[10px] text-gray-500">{label}</p>
+                <p className={`text-xs font-bold ${index === 2 ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
+              </div>
+            ))}
+          </div>
+          {(job.vacancies != null || job.bond !== 'None') && (
+            <div className="mx-3 mt-2.5 grid grid-cols-2 gap-3 rounded-xl bg-white px-3.5 py-3 shadow-sm">
+              {job.vacancies != null && (
+                <div>
+                  <p className="text-[10px] text-gray-500">Vacancies</p>
+                  <p className="text-xs font-bold text-gray-900">{job.vacancies} positions</p>
+                </div>
+              )}
+              {job.bond !== 'None' && (
+                <div>
+                  <p className="text-[10px] text-gray-500">Bond</p>
+                  <p className="text-xs font-bold text-gray-900">{job.bond}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className={`mx-3 mt-2.5 rounded-2xl border p-3 ${
+            profile && ineligibility.length === 0
+              ? 'border-emerald-200 bg-emerald-50'
+              : profile && ineligibility.length > 0
+                ? 'border-amber-200 bg-amber-50'
+                : 'border-blue-100 bg-blue-50'
+          }`}>
+            <div className="flex items-start gap-2">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-gray-900">
+                  {profile ? (ineligibility.length ? 'Check your eligibility' : 'You’re eligible') : 'Eligibility criteria'}
+                </p>
+                {profile && ineligibility.length > 0 ? (
+                  <p className="mt-1 text-[10px] leading-4 text-amber-900">{ineligibility[0]}</p>
+                ) : (
+                  <div className="mt-1 grid grid-cols-2 gap-x-3 text-[10px] leading-4 text-gray-600">
+                    <span>CGPA {job.cgpa}</span>
+                    <span className="text-right">You: {profile?.cgpa ?? '—'}</span>
+                    <span>{job.backlogsAllowed ? 'Backlogs allowed' : 'No active backlogs'}</span>
+                    <span className="text-right">Dept: {profile?.departmentCode || '—'}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mx-3 mt-2.5 space-y-2">
+            {[
+              {
+                id: 'description',
+                title: 'Job description',
+                content: <p className="whitespace-pre-line text-xs leading-5 text-gray-600">{job.description || 'The placement cell has not added a description for this drive yet.'}</p>,
+              },
+              ...(job.about ? [{
+                id: 'company',
+                title: `About ${job.company}`,
+                content: <p className="whitespace-pre-line text-xs leading-5 text-gray-600">{job.about}</p>,
+              }] : []),
+              {
+                id: 'requirements',
+                title: 'Eligibility & requirements',
+                content: (
+                  <ul className="space-y-2">
+                    <li className="text-xs text-gray-600">Minimum CGPA: {job.cgpa}</li>
+                    <li className="text-xs text-gray-600">{job.backlogsAllowed ? 'Active backlogs allowed' : 'No active backlogs'}</li>
+                    {job.graduationYear && <li className="text-xs text-gray-600">{job.graduationYear} graduating batch</li>}
+                    <li className="text-xs text-gray-600">
+                      Departments: {job.eligibleDepartments.length ? job.eligibleDepartments.join(', ') : 'Open to all departments'}
+                    </li>
+                    <li className="text-xs text-gray-600">
+                      Degrees: {job.eligibleDegrees.length ? job.eligibleDegrees.join(', ') : 'Open to all degrees'}
+                    </li>
+                    {job.requirements.map((requirement, index) => (
+                      <li key={index} className="text-xs text-gray-600">{requirement}</li>
+                    ))}
+                  </ul>
+                ),
+              },
+              {
+                id: 'responsibilities',
+                title: 'Key responsibilities',
+                content: job.responsibilities.length ? (
+                  <ul className="space-y-2">
+                    {job.responsibilities.map((item, index) => (
+                      <li key={index} className="flex gap-2 text-xs leading-5 text-gray-600">
+                        <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />{item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-xs text-gray-500">No responsibilities listed.</p>,
+              },
+              {
+                id: 'skills',
+                title: 'Skills required',
+                content: job.skills.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {job.skills.map((skill) => (
+                      <span key={skill} className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-medium text-blue-800">{skill}</span>
+                    ))}
+                  </div>
+                ) : <p className="text-xs text-gray-500">No specific skills listed.</p>,
+              },
+              {
+                id: 'selection',
+                title: 'Selection process',
+                content: job.selectionRounds.length ? (
+                  <div className="space-y-2">
+                    {job.selectionRounds.map((round, index) => (
+                      <p key={round.id ?? index} className="text-xs text-gray-600">
+                        {round.roundNumber ?? index + 1}. {round.roundName || `Round ${index + 1}`}
+                        {round.scheduledOn ? ` · ${formatLocalDate(round.scheduledOn)}` : ''}
+                      </p>
+                    ))}
+                  </div>
+                ) : <p className="text-xs text-gray-500">Selection details will be shared by the placement cell.</p>,
+              },
+              {
+                id: 'perks',
+                title: 'Perks & benefits',
+                content: job.perks.length ? (
+                  <ul className="space-y-1.5">
+                    {job.perks.map((perk) => <li key={perk} className="text-xs text-gray-600">• {perk}</li>)}
+                  </ul>
+                ) : <p className="text-xs text-gray-500">No perks listed.</p>,
+              },
+            ].map(({ id: sectionId, title, content }) => (
+              <section key={sectionId} className="overflow-hidden rounded-xl bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setOpenSections((current) => ({ ...current, [sectionId]: !current[sectionId] }))}
+                  aria-expanded={Boolean(openSections[sectionId])}
+                  className="flex w-full items-center justify-between px-3.5 py-3 text-left"
+                >
+                  <span className="text-xs font-bold text-gray-900">{title}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-gray-500 transition-transform ${openSections[sectionId] ? 'rotate-180' : ''}`} />
+                </button>
+                {openSections[sectionId] && <div className="border-t border-gray-100 px-3.5 py-3">{content}</div>}
+              </section>
+            ))}
+          </div>
+
+          <div className="mx-3 mt-2.5 rounded-2xl bg-white p-3.5 shadow-sm">
+            <h2 className="text-xs font-bold text-gray-900">Open to</h2>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(job.eligibleDegrees.length ? job.eligibleDegrees : ['All degrees'])
+                .concat(job.eligibleDepartments.length ? job.eligibleDepartments : [])
+                .map((item) => (
+                  <span key={item} className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-medium text-blue-800">{item}</span>
+                ))}
+            </div>
+          </div>
+          <div className="h-24" />
+        </section>
+
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-white px-4 py-2.5 md:hidden">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className={`text-[10px] ${isClosingSoon ? 'text-red-600' : 'text-gray-500'}`}>
+                {remainingDays !== null && remainingDays >= 0 ? `Closes in ${Math.ceil(remainingDays)} days` : 'Application deadline'}
+              </p>
+              <p className="truncate text-[10px] font-medium text-gray-700">{job.deadline}</p>
+            </div>
+            {applied ? (
+              <Link to="/student/applications" className="inline-flex min-w-32 justify-center rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white">
+                Applied · {appliedLabel}
+              </Link>
+            ) : canApply ? (
+              <button type="button" onClick={openApply} className="inline-flex min-w-32 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-semibold text-white">
+                Apply now <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+              </button>
+            ) : (
+              <span className="inline-flex min-w-32 justify-center rounded-xl bg-gray-200 px-4 py-2.5 text-xs font-semibold text-gray-600">
+                Applications closed
+              </span>
+            )}
+          </div>
+        </div>
         </main>
 
       {/* ── Apply Modal ── */}
