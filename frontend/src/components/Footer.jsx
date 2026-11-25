@@ -65,11 +65,14 @@ export default function Footer() {
         </div>
 
         <div>
-          <h2 className="font-semibold text-white mb-4 text-sm uppercase tracking-wider">Placement portal</h2>
+          <h2 className="font-semibold text-white mb-4 text-sm uppercase tracking-wider">Sign in</h2>
           <ul className="space-y-2 text-sm">
             <li><Link to="/student/login" className="hover:text-white transition-colors">Student login</Link></li>
-            <li><Link to="/faculty/login" className="hover:text-white transition-colors">Faculty login</Link></li>
-            <li><Link to="/admin/login" className="hover:text-white transition-colors">Admin & placement officer login</Link></li>
+          </ul>
+          <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Institution login</p>
+          <ul className="space-y-2 text-sm">
+            <li><Link to="/faculty/login" className="hover:text-white transition-colors">Faculty advisor</Link></li>
+            <li><Link to="/admin/login" className="hover:text-white transition-colors">Admin &amp; placement officer</Link></li>
           </ul>
           <a
             href={CONTACT.directionsUrl}

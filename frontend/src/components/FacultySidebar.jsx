@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Bell, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Users, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from './BrandLogo';
@@ -27,15 +27,15 @@ export default function FacultySidebar({ mobileOpen = false, onCloseMobile = () 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-gray-200">
       <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
+        <Link to="/faculty/dashboard" onClick={onCloseMobile} className="flex items-center gap-3 min-w-0" aria-label="Faculty dashboard">
           <BrandLogo className="h-11 shrink-0" />
           <div className="min-w-0">
-            <h1 className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</h1>
+            <p className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</p>
             <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 mt-0.5">
               Faculty Portal
             </div>
           </div>
-        </div>
+        </Link>
         <button onClick={onCloseMobile} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 md:hidden" aria-label="Close sidebar">
           <X className="w-5 h-5" />
         </button>

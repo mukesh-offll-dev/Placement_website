@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Info, Mail, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import BrandLogo from '../components/BrandLogo';
+import AuthShell from '../components/AuthShell';
 import { toastSuccess, toastError } from '../utils/toast';
 
 function generateCaptcha() {
@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
 
       if (!result.success) {
         const errMsg = result.error?.startsWith('Unauthorized:')
-          ? 'This portal is for administrators and placement officers only. Students and faculty advisors have their own login pages.'
+          ? 'This login is for administrators and placement officers only. Students and faculty advisors have their own login pages below.'
           : result.error;
         setApiError(errMsg);
         toastError(errMsg);
@@ -94,30 +94,16 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
-      <header className="flex justify-between items-center px-6 py-4 bg-white shadow">
-        <Link to="/" className="flex items-center gap-3">
-          <BrandLogo className="h-10" />
-          <div>
-            <h1 className="font-bold text-base leading-none">GCE Srirangam</h1>
-            <p className="text-xs text-gray-500">Placement Cell</p>
-          </div>
-        </Link>
-        <Link
-          to="/login"
-          className="bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-        >
-          Login Portal
-        </Link>
-      </header>
-
-      {/* Main */}
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
+    <AuthShell current="admin" audience="Institution">
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-1">Admin Portal Login</h2>
+          <div className="flex justify-center mb-5">
+            <div className="bg-blue-100 p-4 rounded-full">
+              <ShieldCheck className="w-10 h-10 text-blue-700" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 text-center mb-1">Admin &amp; Placement Officer Login</h1>
           <p className="text-gray-500 text-center text-sm mb-6">
-            Secure access for placement administrators
+            Manage students, job drives and the full placement process
           </p>
 
           {/* API-level error banner */}
@@ -131,13 +117,14 @@ export default function AdminLoginPage() {
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
             {/* Email (labelled as Username for admin familiarity) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email / Username
+              <label htmlFor="admin-email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
               </label>
               <input
                 id="admin-email"
-                type="text"
-                placeholder="admin@gce.edu.in"
+                type="email"
+                autoComplete="username"
+                placeholder="you@gce.edu.in"
                 value={form.username}
                 onChange={handleChange('username')}
                 disabled={loading}
@@ -151,15 +138,14 @@ export default function AdminLoginPage() {
             {/* Password */}
             <div>
               <div className="flex justify-between mb-1">
-                <label className="text-sm font-medium text-gray-700">Password</label>
-                <button type="button" className="text-blue-600 text-xs hover:underline">
-                  Forgot?
-                </button>
+                <label htmlFor="admin-password" className="text-sm font-medium text-gray-700">Password</label>
+                <span className="text-gray-400 text-xs">Forgot it? Ask the system administrator.</span>
               </div>
               <div className="relative">
                 <input
                   id="admin-password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   placeholder="Enter password"
                   value={form.password}
                   onChange={handleChange('password')}
@@ -172,6 +158,7 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -181,7 +168,7 @@ export default function AdminLoginPage() {
 
             {/* CAPTCHA */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Verification</label>
+              <label htmlFor="admin-captcha" className="block text-sm font-medium text-gray-700 mb-1">Verification</label>
               <div className="flex items-center gap-2 mb-2">
                 <div className="flex-1 bg-gray-200 py-2 text-center rounded font-mono font-bold tracking-[0.3em] text-gray-700 select-none">
                   {captcha}
@@ -191,6 +178,7 @@ export default function AdminLoginPage() {
                   onClick={() => { setCaptcha(generateCaptcha()); setForm((f) => ({ ...f, captchaInput: '' })); }}
                   className="bg-gray-200 p-2 rounded hover:bg-gray-300 transition-colors"
                   title="Refresh CAPTCHA"
+                  aria-label="Show a new CAPTCHA"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -220,35 +208,11 @@ export default function AdminLoginPage() {
               {loading ? (
                 <LoadingSpinner size="sm" color="white" label="Signing in…" showLabel />
               ) : (
-                'LOGIN TO ADMIN PANEL →'
+                'Login to Admin Panel'
               )}
             </button>
           </form>
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="pb-6">
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <div className="h-px bg-gray-300 w-24" />
-          <span className="text-xs text-gray-400 tracking-wide">Help &amp; Support</span>
-          <div className="h-px bg-gray-300 w-24" />
-        </div>
-        <div className="flex justify-center gap-10 text-gray-500 text-sm mb-5">
-          <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
-            <Info className="w-4 h-4" /> Manual
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
-            <Mail className="w-4 h-4" /> Support
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
-            <ShieldCheck className="w-4 h-4" /> Privacy
-          </button>
-        </div>
-        <div className="border-t border-gray-200 pt-4 text-center text-xs text-gray-400">
-          © 2026 GCE Srirangam Placement Cell · All rights reserved
-        </div>
-      </footer>
-    </div>
+    </AuthShell>
   );
 }

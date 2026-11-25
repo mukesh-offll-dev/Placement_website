@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { TOKEN_KEY, USER_KEY } from '../services/api/axiosClient.js';
 import {
   getToken,
   getUser,
@@ -8,7 +9,7 @@ import {
   login as authServiceLogin,
   getCurrentUser as authServiceGetCurrentUser,
 } from '../services/authService.js';
-import { isStaffRole } from '../utils/roles.js';
+import { isStaffRole, homePathForRole } from '../utils/roles.js';
 
 // Exported as the default only: a named context export trips the react-refresh
 // lint rule, and useAuth below is the supported way to read it.
@@ -51,13 +52,45 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(getStoredSession);
   const [loading, setLoading] = useState(false);
   const { token, user } = session;
+  // Latest session for the cross-tab storage listener, which is registered once.
+  const sessionRef = useRef(session);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     const handleUnauthorized = () => {
       setSession({ token: null, user: null });
     };
 
-    const handleStorage = () => {
+    // Another tab signed in, switched account or signed out. One browser holds one session, so
+    // follow it here too. storeAuth writes the token first and the user second, so wait for the
+    // user key (or a full clear) before acting, and never clear storage from here: that could
+    // wipe a sign-in still being written by the other tab.
+    const handleStorage = (event) => {
+      if (event.key !== null && event.key !== USER_KEY && event.key !== TOKEN_KEY) return;
+      const nextToken = getToken();
+      const nextUser = getUser();
+      const current = sessionRef.current;
+
+      if (!nextToken || !nextUser) {
+        if (event.key === TOKEN_KEY && nextToken) return; // token written, user still to come
+        setSession({ token: null, user: null });
+        return;
+      }
+      if (event.key === TOKEN_KEY) return; // the user write that follows decides
+
+      const switchedAccount =
+        !current.user ||
+        // A session restored from storage keeps `userId`; one set by login() keeps `id`.
+        String(current.user.id ?? current.user.userId ?? '') !== String(nextUser.userId ?? nextUser.id ?? '') ||
+        current.user.role !== nextUser.role;
+      if (switchedAccount) {
+        // Reload onto the new account's home so no page of the old role keeps calling the API
+        // with the new role's token (that was the "You do not have permission" error).
+        window.location.assign(homePathForRole(nextUser.role));
+        return;
+      }
       setSession(getStoredSession());
     };
 

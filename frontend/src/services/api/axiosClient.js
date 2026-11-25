@@ -50,7 +50,10 @@ axiosClient.interceptors.request.use(
     // Falls back to the legacy key so a session stored before the rename still sends
     // its token; the 401 handler clears both.
     const token = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
-    if (token && !config.headers.Authorization) {
+    // A sign-in must not carry an older session's token: a stale student token whose setup is
+    // pending would get the login itself refused with 403.
+    const isLogin = typeof config.url === 'string' && config.url.includes('/auth/login');
+    if (token && !isLogin && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

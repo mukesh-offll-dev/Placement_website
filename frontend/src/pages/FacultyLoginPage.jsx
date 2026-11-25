@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, Eye, EyeOff, GraduationCap, Info, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertCircle, Eye, EyeOff, Info, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import BrandLogo from '../components/BrandLogo';
+import AuthShell from '../components/AuthShell';
 import { toastError, toastSuccess } from '../utils/toast';
 
 /**
@@ -49,7 +49,7 @@ export default function FacultyLoginPage() {
       });
       if (!result.success) {
         const msg = result.error?.startsWith('Unauthorized:')
-          ? 'This login is for faculty advisors only. Administrators and placement officers use the Admin login; students use the Student login.'
+          ? 'This login is for faculty advisors only. Administrators and placement officers use the Admin login; students use the Student login (links below).'
           : result.error;
         setApiError(msg);
         toastError(msg);
@@ -78,23 +78,14 @@ export default function FacultyLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="flex justify-between items-center px-6 py-4 bg-white shadow">
-        <Link to="/" className="flex items-center gap-3">
-          <BrandLogo className="h-10" />
-          <div>
-            <h1 className="font-bold text-base leading-none">GCE Srirangam</h1>
-            <p className="text-xs text-gray-500">Placement Cell</p>
-          </div>
-        </Link>
-        <Link to="/login" className="bg-blue-600 text-white text-sm px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-          Login Portal
-        </Link>
-      </header>
-
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
+    <AuthShell current="faculty" audience="Institution">
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-1">Faculty Advisor Login</h2>
+          <div className="flex justify-center mb-5">
+            <div className="bg-indigo-100 p-4 rounded-full">
+              <UserCheck className="w-10 h-10 text-indigo-700" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 text-center mb-1">Faculty Advisor Login</h1>
           <p className="text-gray-500 text-center text-sm mb-6">
             Review your department&apos;s student profiles and verification requests
           </p>
@@ -163,25 +154,10 @@ export default function FacultyLoginPage() {
               aria-busy={loading}
               className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? <LoadingSpinner size="sm" color="white" label="Signing in…" showLabel /> : 'LOGIN TO FACULTY PORTAL →'}
+              {loading ? <LoadingSpinner size="sm" color="white" label="Signing in…" showLabel /> : 'Login to Faculty Portal'}
             </button>
           </form>
         </div>
-      </main>
-
-      <footer className="pb-6">
-        <div className="flex justify-center gap-10 text-gray-500 text-sm mb-5">
-          <Link to="/admin/login" className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
-            <ShieldCheck className="w-4 h-4" /> Admin login
-          </Link>
-          <Link to="/student/login" className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
-            <GraduationCap className="w-4 h-4" /> Student login
-          </Link>
-        </div>
-        <div className="border-t border-gray-200 pt-4 text-center text-xs text-gray-400">
-          © 2026 GCE Srirangam Placement Cell · All rights reserved
-        </div>
-      </footer>
-    </div>
+    </AuthShell>
   );
 }

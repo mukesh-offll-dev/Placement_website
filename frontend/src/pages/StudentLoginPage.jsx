@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { GraduationCap, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import BrandLogo from '../components/BrandLogo';
+import AuthShell from '../components/AuthShell';
 import { toastSuccess, toastError } from '../utils/toast';
 import { normalizeRegisterNumber } from '../utils/studentValidation';
 
@@ -48,7 +48,7 @@ export default function StudentLoginPage() {
 
       if (!result.success) {
         const errMsg = result.error?.startsWith('Unauthorized:')
-          ? 'This login portal is for students only. Please use the Admin Login.'
+          ? 'This login is for students only. Faculty and admins: use Institution login.'
           : result.error;
         setApiError(errMsg);
         toastError(errMsg);
@@ -78,16 +78,7 @@ export default function StudentLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="flex items-center gap-3 px-6 py-4 bg-white shadow-sm">
-        <BrandLogo className="h-12" />
-        <div>
-          <h1 className="font-bold text-lg leading-none">GCE Srirangam</h1>
-          <p className="text-xs text-gray-500">Placement Cell</p>
-        </div>
-      </header>
-
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
+    <AuthShell current="student" audience="Students">
         <div className="w-full max-w-md">
           <div className="flex justify-center mb-5">
             <div className="bg-green-100 p-4 rounded-full">
@@ -95,7 +86,7 @@ export default function StudentLoginPage() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-1">Student Login</h2>
+          <h1 className="text-2xl font-bold text-gray-900 text-center mb-1">Student Login</h1>
           <p className="text-gray-500 text-center text-sm mb-7">
             Access your placement dashboard and track your progress
           </p>
@@ -110,7 +101,7 @@ export default function StudentLoginPage() {
 
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Register Number</label>
+              <label htmlFor="student-register-number" className="block text-sm font-medium text-gray-700 mb-1">Register Number</label>
               <input
                 id="student-register-number"
                 type="text"
@@ -132,13 +123,14 @@ export default function StudentLoginPage() {
 
             <div>
               <div className="flex justify-between mb-1">
-                <label className="text-sm font-medium text-gray-700">Password</label>
+                <label htmlFor="student-password" className="text-sm font-medium text-gray-700">Password</label>
                 <span className="text-gray-400 text-xs">Forgot it? Ask the placement cell to reset it.</span>
               </div>
               <div className="relative">
                 <input
                   id="student-password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   placeholder="Enter password"
                   value={form.password}
                   onChange={handleChange('password')}
@@ -151,6 +143,7 @@ export default function StudentLoginPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -173,19 +166,10 @@ export default function StudentLoginPage() {
             </button>
           </form>
 
-          <div className="mt-5 space-y-2 text-center text-sm">
-            <p className="text-gray-500">
-              Accounts are created by the placement cell. Contact them if you cannot sign in.
-            </p>
-            <p className="text-gray-500">
-              Not a student?{' '}
-              <Link to="/login" className="text-gray-600 hover:underline">
-                Go back
-              </Link>
-            </p>
-          </div>
+          <p className="mt-5 text-center text-sm text-gray-500">
+            Accounts are created by the placement cell. Contact them if you cannot sign in.
+          </p>
         </div>
-      </main>
-    </div>
+    </AuthShell>
   );
 }

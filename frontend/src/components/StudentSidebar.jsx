@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Briefcase,
@@ -47,15 +47,15 @@ export default function StudentSidebar({
     <div className="flex flex-col h-full bg-white border-r border-gray-200">
       {/* Brand Header */}
       <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <Link to="/student/dashboard" onClick={onCloseMobile} className="flex items-center gap-3" aria-label="Student dashboard">
           <BrandLogo className="h-11 shrink-0" />
           <div>
-            <h1 className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</h1>
+            <p className="font-bold text-sm text-gray-900 leading-tight">GCE Srirangam</p>
             <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 mt-0.5">
               Student Portal
             </div>
           </div>
-        </div>
+        </Link>
         {/* Mobile close button */}
         <button
           onClick={onCloseMobile}

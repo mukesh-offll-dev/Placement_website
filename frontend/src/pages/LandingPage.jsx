@@ -124,17 +124,17 @@ function Hero() {
           <p className="mt-5 text-base md:text-lg text-blue-100/85 leading-relaxed">{PLACEMENT_CELL_ROLE}</p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <Link
-              to="/login"
+              to="/student/login"
               className="inline-flex items-center justify-center gap-2 bg-amber-400 text-slate-950 font-semibold px-6 py-3 rounded-xl hover:bg-amber-300 transition-colors shadow-lg shadow-black/20"
             >
-              Login to the portal <ArrowRight className="w-4 h-4" />
+              <GraduationCap className="w-4 h-4" /> Student login
             </Link>
-            <a
-              href="#placements"
+            <Link
+              to="/login"
               className="inline-flex items-center justify-center gap-2 bg-white/10 text-white font-semibold px-6 py-3 rounded-xl ring-1 ring-white/25 hover:bg-white/20 transition-colors"
             >
-              Placement records
-            </a>
+              Institution login <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
 
@@ -534,7 +534,7 @@ function CallToAction() {
               <GraduationCap className="w-4 h-4" /> Student login
             </Link>
             <Link to="/login" className="inline-flex items-center justify-center gap-2 bg-amber-400 text-slate-950 font-semibold px-6 py-3 rounded-xl hover:bg-amber-300 transition-colors">
-              Staff login <ArrowRight className="w-4 h-4" />
+              Institution login <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
