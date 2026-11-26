@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   Award,
   BadgeCheck,
   Briefcase,
+  Check,
   CheckCircle2,
+  ChevronRight,
   Eye,
   EyeOff,
   FileText,
@@ -26,13 +28,15 @@ import {
   RotateCcw,
   Save,
   Send,
+  Settings,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Trophy,
   X,
   ExternalLink,
 } from 'lucide-react';
-import { getProfile, getStudentDashboard, updateProfile } from '../services/api/studentService';
+import { getProfile, updateProfile } from '../services/api/studentService';
 import {
   discardDraft,
   getDraft,
@@ -48,7 +52,6 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import { ProtectedMediaPreview, ProtectedFileLink } from '../components/ProtectedMedia';
 import { ProfileSkeleton } from '../components/Skeleton';
 import SectionCard from '../components/student/SectionCard';
-import StatusBanner from '../components/student/StatusBanner';
 import FormModal from '../components/student/FormModal';
 import { TextAreaField, SelectField } from '../components/student/FormFields';
 import ItemEditorModal from '../components/student/ItemEditorModal';
@@ -86,9 +89,27 @@ import {
   validateSkill,
 } from '../utils/profileDraft';
 import { toastError, toastInfo, toastSuccess } from '../utils/toast';
-import { placementSummary } from '../utils/placement';
+import { formatCtc } from '../utils/placement';
 
-const ADMIN_MANAGED_HINT = 'Managed by the placement cell — contact them to correct it.';
+const formatPlacedDate = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const MOBILE_PROFILE_ROWS = [
+  { key: 'PERSONAL', label: 'Personal & contact', kind: 'status' },
+  { key: 'ACADEMIC', label: 'Academic details', kind: 'status' },
+  { key: 'SKILLS', label: 'Skills', kind: 'list' },
+  { key: 'EDUCATION', label: 'Education', kind: 'list' },
+  { key: 'PROJECTS', label: 'Projects', kind: 'list' },
+  { key: 'EXPERIENCE', label: 'Internships & experience', kind: 'list' },
+  { key: 'CERTIFICATIONS', label: 'Certifications', kind: 'list' },
+  { key: 'ACHIEVEMENTS', label: 'Achievements', kind: 'list' },
+  { key: 'RESUME_DOCS', label: 'Resume & documents', kind: 'resume_docs' },
+];
 
 const displayValue = (value) =>
   value !== null && value !== undefined && String(value).trim() !== '' ? String(value) : 'Not provided';
@@ -111,7 +132,6 @@ export default function StudentProfile() {
   // Server state
   const [draft, setDraft] = useState(null); // GET /student/profile/draft response
   const [profile, setProfile] = useState(null); // official GET /student/profile (admin-managed fields)
-  const [dashboardStats, setDashboardStats] = useState(null);
 
   // Local working copy of the draft and the last saved copy
   const [data, setData] = useState(() => normalizeProfileData(null));
@@ -129,6 +149,8 @@ export default function StudentProfile() {
   const [confirm, setConfirm] = useState(null); // 'discard' | 'withdraw'
   const [submitNote, setSubmitNote] = useState('');
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [mobileSection, setMobileSection] = useState(null);
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
 
   // Busy flags
   const [saving, setSaving] = useState(false);
@@ -165,15 +187,13 @@ export default function StudentProfile() {
     setLoading(true);
     setFetchError(null);
     try {
-      const [draftRes, profileRes, statsRes] = await Promise.allSettled([
+      const [draftRes, profileRes] = await Promise.allSettled([
         getDraft(),
         getProfile(),
-        getStudentDashboard(),
       ]);
       if (draftRes.status === 'rejected') throw draftRes.reason;
       applyDraft(draftRes.value);
       setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
-      setDashboardStats(statsRes.status === 'fulfilled' ? statsRes.value : null);
     } catch (err) {
       setFetchError(err?.message || 'Unable to load your profile from the server.');
     } finally {
@@ -428,11 +448,6 @@ export default function StudentProfile() {
     }
   };
 
-  const scrollToTop = () => {
-    setViewOfficial(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // ── render ───────────────────────────────────────────────────────────────────
   if (loading) return <ProfileSkeleton />;
 
@@ -527,695 +542,1000 @@ export default function StudentProfile() {
       ? data[SECTION_FIELDS[modal.sectionKey]][modal.index]
       : null;
 
+  const isPlaced = profile?.placementStatus === 'PLACED';
+  const placedCtcLabel = formatCtc(profile?.placedCtc);
+  const placedDateLabel = formatPlacedDate(profile?.placedOn);
+  const placedSubline = [placedCtcLabel, placedDateLabel].filter(Boolean).join(' · ');
+  const headerSubline = [
+    managed.degree || managed.department || 'Department not assigned',
+    academic.semester != null ? `Sem ${academic.semester}` : null,
+    managed.batch ? `Batch ${String(managed.batch).replace('-', '–')}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const renderMobileRowBadge = (row) => {
+    if (row.kind === 'resume_docs') {
+      const isRowChanged =
+        !viewOfficial && (changedSections.includes('RESUME') || changedSections.includes('DOCUMENTS'));
+      const hasAnyDoc = Boolean(displayData.resume?.resumeUrl) || displayData.documents.length > 0;
+      if (isRowChanged) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#FEF3C7] text-[#92400E]">
+            {isPending ? 'In review' : 'Changed'}
+          </span>
+        );
+      }
+      if (!hasAnyDoc && lifecycle === 'ACTIVE' && !viewOfficial) {
+        return <span className="text-[13.5px] font-bold text-[#1D4ED8]">Add</span>;
+      }
+      if (draft?.profileVerificationStatus === 'VERIFIED' || isPending) {
+        return <span className="text-[13.5px] font-semibold text-[#059669]">Verified</span>;
+      }
+      const totalDocs = displayData.documents.length + (displayData.resume?.resumeUrl ? 1 : 0);
+      return <span className="text-[14px] font-medium text-[#64748B]">{totalDocs}</span>;
+    }
+
+    const isRowChanged = !viewOfficial && changedSections.includes(row.key);
+    if (isRowChanged) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-[#FEF3C7] text-[#92400E]">
+          {isPending ? 'In review' : 'Changed'}
+        </span>
+      );
+    }
+
+    if (row.kind === 'status') {
+      if (draft?.profileVerificationStatus === 'VERIFIED' || isPending) {
+        return <span className="text-[13.5px] font-semibold text-[#059669]">Verified</span>;
+      }
+      return <span className="text-[13.5px] font-semibold text-[#1D4ED8]">{editable ? 'Edit' : 'View'}</span>;
+    }
+
+    const count = displayData[SECTION_FIELDS[row.key]]?.length ?? 0;
+    if (count === 0 && lifecycle === 'ACTIVE' && !viewOfficial) {
+      return <span className="text-[13.5px] font-bold text-[#1D4ED8]">Add</span>;
+    }
+    return <span className="text-[14px] font-medium text-[#64748B]">{count}</span>;
+  };
+
+  const activeMobileRow = MOBILE_PROFILE_ROWS.find((r) => r.key === mobileSection) || null;
+
   return (
-    <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-6xl w-full mx-auto overflow-x-hidden">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight">My Profile</h1>
-          <p className="text-[#475569] text-sm">
-            Edit your profile as a draft and submit it to your faculty advisor for verification.
-          </p>
+    <>
+      {/* ── SCREENSHOT-MATCHED UI (Mobile-first & centered on desktop) ── */}
+      <main className="flex-1 w-full max-w-[480px] md:max-w-[540px] mx-auto pb-6 md:py-5 overflow-x-hidden">
+        {/* Deep Navy Hero Header */}
+        <div className="bg-[#0F2A6B] rounded-b-[28px] md:rounded-[28px] px-4 pt-5 pb-16 text-white relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-12 -top-12 w-40 h-40 rounded-full border-[24px] border-white/[0.04]"
+          />
+          <div className="flex items-center justify-between gap-3 relative z-10">
+            <h1 className="text-[20px] font-extrabold tracking-tight text-white">My profile</h1>
+            <button
+              type="button"
+              onClick={() => setMobileSettingsOpen(true)}
+              aria-label="Profile settings"
+              className="w-10 h-10 rounded-[14px] bg-white/12 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+            >
+              <Settings className="w-[19px] h-[19px]" strokeWidth={1.8} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3.5 mt-4 relative z-10">
+            <div className="w-[66px] h-[66px] rounded-full bg-[#F5B301] text-[#0F172A] border-2 border-[#FDE68A]/45 flex items-center justify-center text-[26px] font-extrabold shrink-0 overflow-hidden shadow-xs">
+              {personal.avatarUrl ? (
+                <ProtectedMediaPreview url={personal.avatarUrl} alt={studentName} />
+              ) : (
+                studentName.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[20px] font-extrabold text-white leading-tight truncate">{studentName}</h2>
+              <p className="text-[12.5px] text-white/85 font-medium mt-1 truncate">{headerSubline}</p>
+              <p className="text-[12px] text-white/75 mt-0.5 truncate">
+                Reg. no. {managed.rollNo || 'Not Assigned'}
+              </p>
+            </div>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowChangePassword(true)}
-          className="inline-flex items-center gap-2 bg-white text-[#0F172A] border border-[#E2E8F0] text-xs sm:text-sm font-bold px-4 h-[42px] rounded-[14px] hover:bg-slate-50 transition shadow-[0_1px_2px_rgba(15,23,42,0.04)] w-fit cursor-pointer"
-        >
-          <KeyRound className="w-4 h-4 text-[#1D4ED8]" /> Change Password
-        </button>
-      </div>
 
-      <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} registerNumber={profile?.rollNo || ''} />
+        {/* Floating Stats Card: CGPA / Backlogs / Complete */}
+        <div className="-mt-10 mx-4 bg-white rounded-[22px] shadow-[0_8px_24px_rgba(15,23,42,0.08)] border border-[#E5E9F2]/80 grid grid-cols-3 divide-x divide-[#EEF2F6] py-3.5 px-2 relative z-10 text-center">
+          <div className="px-2 min-w-0">
+            <p className="text-[22px] font-extrabold text-[#0F172A] leading-tight tabular-nums">
+              {academic.cgpa != null ? academic.cgpa : '—'}
+            </p>
+            <p className="text-[11.5px] text-[#64748B] font-medium mt-0.5">CGPA</p>
+          </div>
+          <div className="px-2 min-w-0">
+            <p className="text-[22px] font-extrabold text-[#0F172A] leading-tight tabular-nums">
+              {academic.activeBacklogs ?? 0}
+            </p>
+            <p className="text-[11.5px] text-[#64748B] font-medium mt-0.5">Backlogs</p>
+          </div>
+          <div className="px-2 min-w-0">
+            <p className="text-[22px] font-extrabold text-[#1D4ED8] leading-tight tabular-nums">
+              {completionPct}%
+            </p>
+            <p className="text-[11.5px] text-[#64748B] font-medium mt-0.5">Complete</p>
+          </div>
+        </div>
 
-      {notification && (
-        <div
-          className={`flex items-start gap-2.5 p-4 rounded-xl mb-6 text-sm ${
-            notification.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-blue-50 border border-blue-200 text-blue-800'
-          }`}
-        >
-          {notification.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0 text-green-600" />
-          ) : (
-            <Sparkles className="w-5 h-5 shrink-0 text-blue-600" />
+        {/* Notifications, Lifecycle & Review Status Card */}
+        <div className="px-4 mt-4 space-y-3">
+          {notification && (
+            <div
+              className={`flex items-start gap-2.5 p-3.5 rounded-[16px] text-xs ${
+                notification.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-blue-50 border border-blue-200 text-blue-800'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex-1 font-medium">{notification.text}</div>
+              <button
+                type="button"
+                onClick={() => setNotification(null)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           )}
-          <div className="flex-1 font-medium">{notification.text}</div>
-          <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600" aria-label="Dismiss">
-            <X className="w-4 h-4" />
+
+          {viewOfficial && (
+            <div className="flex items-center justify-between gap-2 bg-[#ECFDF5] border border-[#A7F3D0] rounded-[16px] px-3.5 py-2.5 text-xs text-[#065F46]">
+              <span className="font-semibold flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 shrink-0" /> Viewing verified profile
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewOfficial(false)}
+                className="font-bold underline underline-offset-2 shrink-0"
+              >
+                Back to draft
+              </button>
+            </div>
+          )}
+
+          {lifecycle !== 'ACTIVE' ? (
+            <div className="flex items-start gap-3 bg-gray-100 border border-gray-300 rounded-[18px] px-4 py-3.5 text-xs text-gray-800" role="note">
+              <Lock className="w-4 h-4 shrink-0 mt-0.5 text-gray-500" />
+              <p>
+                <span className="font-bold">
+                  Account {lifecycle === 'ARCHIVED' ? 'archived' : 'disabled'}.
+                </span>{' '}
+                Your profile is read-only. Contact the placement cell if this is a mistake.
+              </p>
+            </div>
+          ) : bannerState === 'PENDING' ? (
+            <Link
+              to="/student/verification"
+              className="flex items-center gap-3 bg-[#FFF8E6] border border-[#FCD9A0] rounded-[18px] px-4 py-3.5 active:scale-[0.99] transition"
+            >
+              <Lock className="w-5 h-5 text-[#92400E] shrink-0" strokeWidth={1.9} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold text-[#0F172A] leading-snug">
+                  Editing locked while under review
+                </p>
+                <p className="text-[12.5px] text-[#92400E] mt-0.5 leading-snug">
+                  Withdraw the request to make more changes
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#92400E] shrink-0" />
+            </Link>
+          ) : bannerState === 'REJECTED' ? (
+            <Link
+              to="/student/verification"
+              className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-[18px] px-4 py-3.5 active:scale-[0.99] transition"
+            >
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold text-[#0F172A] leading-snug">
+                  Changes requested by advisor
+                </p>
+                <p className="text-[12.5px] text-red-700 mt-0.5 leading-snug line-clamp-2">
+                  {draft?.reviewComment || 'Open verification to read comments, edit and resubmit.'}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-red-600 shrink-0" />
+            </Link>
+          ) : bannerState === 'CHANGES' ? (
+            <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[18px] px-4 py-3.5 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-bold text-[#0F172A] leading-snug">
+                    {hasUnsavedChanges ? 'Unsaved draft changes' : 'Draft ready to submit'}
+                  </p>
+                  <p className="text-[12px] text-[#1E40AF] mt-0.5 leading-snug">
+                    {changedSections.length > 0
+                      ? `Updated: ${changedSections.map(sectionLabel).join(', ')}`
+                      : 'Save your draft and submit to your faculty advisor.'}
+                  </p>
+                </div>
+                <Link
+                  to="/student/verification"
+                  className="text-[11.5px] font-bold text-[#1D4ED8] shrink-0 underline underline-offset-2"
+                >
+                  History
+                </Link>
+              </div>
+              {canEditDraft && !viewOfficial && (
+                <div className="flex items-center gap-2">
+                  {hasUnsavedChanges && (
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={saving}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 bg-white border border-[#93C5FD] text-[#1D4ED8] text-[12.5px] font-bold py-2 px-3 rounded-[12px] disabled:opacity-50"
+                    >
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      Save draft
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={openSubmit}
+                    disabled={submitting || saving}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#1D4ED8] text-white text-[12.5px] font-bold py-2 px-3 rounded-[12px] disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" /> Submit for review
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : bannerState === 'VERIFIED' ? (
+            <Link
+              to="/student/verification"
+              className="flex items-center gap-3 bg-[#ECFDF5] border border-[#A7F3D0] rounded-[18px] px-4 py-3.5 active:scale-[0.99] transition"
+            >
+              <CheckCircle2 className="w-5 h-5 text-[#059669] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold text-[#0F172A] leading-snug">Profile verified</p>
+                <p className="text-[12px] text-[#047857] mt-0.5 leading-snug">
+                  Tap a section below to edit or view verification history
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#059669] shrink-0" />
+            </Link>
+          ) : (
+            <Link
+              to="/student/verification"
+              className="flex items-center gap-3 bg-white border border-[#E5E9F2] rounded-[18px] px-4 py-3.5 active:scale-[0.99] transition"
+            >
+              <ShieldCheck className="w-5 h-5 text-[#1D4ED8] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-bold text-[#0F172A] leading-snug">
+                  Not submitted for verification
+                </p>
+                <p className="text-[12px] text-[#64748B] mt-0.5 leading-snug">
+                  Edit your profile sections below and submit for review
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#94A3B8] shrink-0" />
+            </Link>
+          )}
+        </div>
+
+        {/* Placement + Open to Opportunities Card */}
+        <div className="mx-4 mt-3.5 bg-white rounded-[20px] border border-[#E5E9F2] shadow-[0_1px_2px_rgba(15,23,42,0.04)] divide-y divide-[#F1F5F9]">
+          <div className="p-4 flex items-center gap-3.5">
+            <div
+              className={`w-11 h-11 rounded-[14px] flex items-center justify-center shrink-0 ${
+                isPlaced ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-[#EFF6FF] text-[#1D4ED8]'
+              }`}
+            >
+              <Award className="w-5 h-5" strokeWidth={1.9} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-[15px] font-bold leading-snug ${isPlaced ? 'text-[#065F46]' : 'text-[#0F172A]'}`}>
+                {isPlaced
+                  ? profile?.placedCompany?.name
+                    ? `Placed at ${profile.placedCompany.name}`
+                    : 'Placed'
+                  : 'Not placed yet'}
+              </p>
+              <p className="text-[13px] text-[#64748B] mt-0.5 truncate">
+                {isPlaced
+                  ? placedSubline || 'Placement recorded by cell'
+                  : openToOpportunities
+                  ? 'Open to active campus drives'
+                  : 'Not seeking opportunities right now'}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[14px] font-bold text-[#0F172A] leading-snug">
+                {isPlaced ? 'Open to more opportunities' : 'Open to opportunities'}
+              </p>
+              <p className="text-[12px] text-[#64748B] mt-0.5">Get alerts for new drives</p>
+            </div>
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={openToOpportunities}
+              aria-label="Open to more opportunities"
+              onClick={handleToggleOpportunities}
+              disabled={!profile || savingPreference || lifecycle !== 'ACTIVE'}
+              className={`w-6 h-6 rounded-[7px] border-2 flex items-center justify-center shrink-0 transition cursor-pointer disabled:opacity-50 ${
+                openToOpportunities
+                  ? 'bg-[#1D4ED8] border-[#1D4ED8] text-white'
+                  : 'bg-white border-[#94A3B8] text-transparent'
+              }`}
+            >
+              {savingPreference ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-current" />
+              ) : (
+                <Check className="w-3.5 h-3.5" strokeWidth={3} />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* PROFILE SECTIONS List */}
+        <section className="mx-4 mt-5" aria-label="Profile sections">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] mb-2.5 px-1">
+            PROFILE SECTIONS
+          </p>
+          <div className="bg-white rounded-[20px] border border-[#E5E9F2] shadow-[0_1px_2px_rgba(15,23,42,0.04)] divide-y divide-[#F1F5F9] overflow-hidden">
+            {MOBILE_PROFILE_ROWS.map((row) => (
+              <button
+                key={row.key}
+                type="button"
+                onClick={() => setMobileSection(row.key)}
+                className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/70 active:bg-slate-100/70 transition-colors min-h-[52px] cursor-pointer"
+              >
+                <span className="text-[15px] font-semibold text-[#0F172A] truncate">{row.label}</span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {renderMobileRowBadge(row)}
+                  <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Change password card (matches bottom card in Screenshot 2) */}
+        <div className="mx-4 mt-3">
+          <button
+            type="button"
+            onClick={() => setShowChangePassword(true)}
+            className="w-full bg-white rounded-[20px] border border-[#E5E9F2] shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/70 active:bg-slate-100/70 transition-colors min-h-[52px] cursor-pointer"
+          >
+            <span className="text-[15px] font-semibold text-[#0F172A]">Change password</span>
+            <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
           </button>
+        </div>
+      </main>
+
+      {/* Settings Sheet / Modal */}
+      {mobileSettingsOpen && (
+        <div
+          className="fixed inset-0 z-40 flex flex-col justify-end md:items-center md:justify-center md:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Profile settings"
+        >
+          <div
+            className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+            onClick={() => setMobileSettingsOpen(false)}
+          />
+          <div className="relative bg-white rounded-t-[24px] md:rounded-[24px] md:w-full md:max-w-md shadow-2xl p-5 space-y-2 pb-[calc(20px+env(safe-area-inset-bottom))] md:pb-5">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h3 className="text-[16px] font-extrabold text-[#0F172A]">Profile options</h3>
+              <button
+                type="button"
+                onClick={() => setMobileSettingsOpen(false)}
+                className="p-1.5 rounded-xl text-gray-400 hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setViewOfficial((v) => !v);
+                setMobileSettingsOpen(false);
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-[14px] hover:bg-slate-50 text-sm font-semibold text-[#0F172A]"
+            >
+              <span className="flex items-center gap-2.5">
+                {viewOfficial ? <EyeOff className="w-4 h-4 text-[#1D4ED8]" /> : <Eye className="w-4 h-4 text-[#1D4ED8]" />}
+                {viewOfficial ? 'Back to my draft' : 'View verified version'}
+              </span>
+              <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
+            </button>
+            <Link
+              to="/student/verification"
+              onClick={() => setMobileSettingsOpen(false)}
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-[14px] hover:bg-slate-50 text-sm font-semibold text-[#0F172A]"
+            >
+              <span className="flex items-center gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#1D4ED8]" />
+                Profile verification &amp; history
+              </span>
+              <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileSettingsOpen(false);
+                setShowChangePassword(true);
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-[14px] hover:bg-slate-50 text-sm font-semibold text-[#0F172A]"
+            >
+              <span className="flex items-center gap-2.5">
+                <KeyRound className="w-4 h-4 text-[#1D4ED8]" />
+                Change password
+              </span>
+              <ChevronRight className="w-4 h-4 text-[#94A3B8]" />
+            </button>
+            {canEditDraft && !viewOfficial && (
+              <>
+                <button
+                  type="button"
+                  disabled={!hasUnsavedChanges || saving}
+                  onClick={() => {
+                    setMobileSettingsOpen(false);
+                    handleSaveDraft();
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-[14px] hover:bg-slate-50 text-sm font-semibold text-[#0F172A] disabled:opacity-40"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Save className="w-4 h-4 text-[#1D4ED8]" />
+                    Save draft
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting || saving}
+                  onClick={() => {
+                    setMobileSettingsOpen(false);
+                    openSubmit();
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-[14px] hover:bg-slate-50 text-sm font-semibold text-[#1D4ED8] disabled:opacity-40"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Send className="w-4 h-4" />
+                    Submit for verification
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={!canDiscard || discarding}
+                  onClick={() => {
+                    setMobileSettingsOpen(false);
+                    setConfirm('discard');
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-[14px] hover:bg-red-50 text-sm font-semibold text-red-600 disabled:opacity-40"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <RotateCcw className="w-4 h-4" />
+                    Discard draft changes
+                  </span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {lifecycle !== 'ACTIVE' ? (
-        <div className="flex items-start gap-2.5 p-4 rounded-2xl mb-6 text-sm bg-gray-100 border border-gray-300 text-gray-800" role="note">
-          <Lock className="w-5 h-5 shrink-0 text-gray-500" />
-          <p>
-            <span className="font-semibold">Your account is {lifecycle === 'ARCHIVED' ? 'archived' : 'disabled'}.</span>{' '}
-            Your profile is read-only: you can view it but cannot edit or submit changes. Contact the placement cell if this
-            is a mistake.
-          </p>
-        </div>
-      ) : draft?.canEdit === false && !isPending ? (
-        <div className="flex items-start gap-2.5 p-4 rounded-2xl mb-6 text-sm bg-gray-100 border border-gray-300 text-gray-800" role="note">
-          <Lock className="w-5 h-5 shrink-0 text-gray-500" />
-          <p>Editing your profile is not available right now. Contact the placement cell if you need to make changes.</p>
-        </div>
-      ) : null}
-
-      <StatusBanner
-        state={bannerState}
-        draft={draft}
-        changedSections={changedSections}
-        hasUnsavedChanges={hasUnsavedChanges}
-        verifiedAt={profile?.profileVerifiedAt}
-        onWithdraw={lifecycle === 'ACTIVE' ? () => setConfirm('withdraw') : undefined}
-        withdrawing={withdrawing}
-        onEditRejected={canEditDraft ? scrollToTop : undefined}
-      />
-
-      {/* Draft action bar */}
-      <div className="sticky top-[68px] z-10 -mx-4 md:mx-0 px-4 md:px-4 py-3 mb-6 bg-white/95 backdrop-blur-md border-y md:border md:rounded-2xl border-gray-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs text-gray-600 min-w-0">
-          {viewOfficial ? (
-            <span className="font-semibold text-green-700 flex items-center gap-1.5">
-              <BadgeCheck className="w-4 h-4" /> Viewing your verified profile
-            </span>
-          ) : hasUnsavedChanges ? (
-            <span className="font-semibold text-amber-700 flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4" /> Unsaved changes
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-gray-400" />
-              {draft?.updatedAt ? `Draft saved ${new Date(draft.updatedAt).toLocaleString()}` : 'No unsaved changes'}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewOfficial((v) => !v)}
-            aria-pressed={viewOfficial}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition"
-          >
-            {viewOfficial ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {viewOfficial ? 'Back to my draft' : 'View verified version'}
-          </button>
-          {canEditDraft && !viewOfficial && (
-            <>
+      {/* Section Detail Sheet / Modal */}
+      {activeMobileRow && (
+        <div
+          className="fixed inset-0 z-40 flex flex-col justify-end md:items-center md:justify-center md:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeMobileRow.label}
+        >
+          <div
+            className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+            onClick={() => setMobileSection(null)}
+          />
+          <div className="relative bg-[#F4F6FB] rounded-t-[24px] md:rounded-[24px] md:w-full md:max-w-xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden">
+            <div className="bg-white px-4 py-3.5 border-b border-[#E5E9F2] flex items-center justify-between gap-3 shrink-0">
+              <div className="min-w-0">
+                <h3 className="text-[17px] font-extrabold text-[#0F172A] truncate">
+                  {activeMobileRow.label}
+                </h3>
+                <p className="text-[11.5px] text-[#64748B]">
+                  {isPending
+                    ? 'Under review by faculty advisor'
+                    : viewOfficial
+                    ? 'Verified profile snapshot'
+                    : editable
+                    ? 'Tap edit or add to update your draft'
+                    : 'Read-only view'}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setConfirm('discard')}
-                disabled={!canDiscard || discarding}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-red-200 text-red-600 bg-white hover:bg-red-50 transition disabled:opacity-40"
+                onClick={() => setMobileSection(null)}
+                className="w-9 h-9 rounded-xl bg-[#F4F6FB] text-[#475569] flex items-center justify-center shrink-0"
+                aria-label="Close section"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Discard
+                <X className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={!hasUnsavedChanges || saving}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition disabled:opacity-40"
-              >
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save draft
-              </button>
-              <button
-                type="button"
-                onClick={openSubmit}
-                disabled={submitting || saving}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition disabled:opacity-50"
-              >
-                <Send className="w-3.5 h-3.5" /> Submit for verification
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── LEFT: Main Content ── */}
-        <div className="lg:col-span-2 space-y-6 min-w-0">
-          {/* Profile header card + skills */}
-          <div className="bg-white rounded-[24px] shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-[#E5E9F2]/60 overflow-hidden">
-            <div className="h-28 sm:h-32 bg-[#0F2A6B] relative overflow-hidden">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-10 -top-10 w-40 h-40 rounded-full border-[26px] border-[#F5B301]/18"
-              />
             </div>
-            <div className="p-4 sm:p-6 relative">
-              <div className="absolute -top-12 left-4 sm:left-6">
-                <div className="w-24 h-24 rounded-full border-4 border-white bg-[#1D4ED8] overflow-hidden flex items-center justify-center text-white text-3xl font-extrabold shadow-md">
-                  {personal.avatarUrl ? (
-                    <ProtectedMediaPreview url={personal.avatarUrl} alt={studentName} />
-                  ) : (
-                    studentName.charAt(0).toUpperCase()
-                  )}
-                </div>
-              </div>
-              <div className="mt-14">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-extrabold text-[#0F172A] break-words">{studentName}</h2>
-                </div>
-                <p className="text-[#475569] text-sm font-medium mt-0.5">{profile?.degree || 'Degree not provided'}</p>
-                {profile?.college && (
-                  <p className="text-[#64748B] text-xs flex items-center gap-1 mt-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-[#1D4ED8]" /> {profile.college}
-                  </p>
-                )}
-                <div className="flex flex-wrap items-center gap-2 text-xs mt-3">
-                  <span className="bg-[#F4F6FB] px-2.5 py-1 rounded-[8px] font-semibold text-[#334155]">
-                    Roll: {profile?.rollNo || 'Not Assigned'}
-                  </span>
-                  {profile?.departmentCode && (
-                    <span className="bg-[#EEF2FF] text-[#1E3A8A] px-2.5 py-1 rounded-[8px] font-semibold">Dept: {profile.departmentCode}</span>
-                  )}
-                  {academic.cgpa != null && (
-                    <span className="bg-[#ECFDF5] text-[#047857] px-2.5 py-1 rounded-[8px] font-semibold">CGPA: {academic.cgpa}</span>
-                  )}
-                  {academic.semester != null && (
-                    <span className="bg-[#E0EAFF] text-[#1D4ED8] px-2.5 py-1 rounded-[8px] font-semibold">Sem: {academic.semester}</span>
-                  )}
-                </div>
-              </div>
 
-              {/* Skills */}
-              <div className="mt-5 pt-4 border-t border-gray-100" id="section-skills">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Technical Skills</p>
-                  {sectionProps('SKILLS').changed && (
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                      Changed
-                    </span>
-                  )}
+            <div className="overflow-y-auto px-4 py-4 space-y-4 flex-1">
+              {isPending && lifecycle === 'ACTIVE' && !viewOfficial && (
+                <div className="bg-[#FFF8E6] border border-[#FCD9A0] rounded-[16px] p-3.5 flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <Lock className="w-4 h-4 text-[#92400E] shrink-0 mt-0.5" />
+                    <p className="text-xs text-[#92400E] leading-snug">
+                      <span className="font-bold text-[#0F172A]">Editing locked while under review.</span>{' '}
+                      Withdraw your pending request to add or edit items here.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirm('withdraw')}
+                    disabled={withdrawing}
+                    className="shrink-0 bg-white border border-[#FCD34D] text-[#92400E] hover:bg-[#FFFBEB] text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer disabled:opacity-50"
+                  >
+                    Withdraw
+                  </button>
                 </div>
-                {sectionProps('SKILLS').comment && (
-                  <p className="mb-2 text-xs p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800">
-                    <span className="font-semibold">Reviewer comment:</span> {sectionProps('SKILLS').comment}
-                  </p>
-                )}
-                {validationErrors.SKILLS && (
-                  <p className="mb-2 text-xs p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800" role="alert">
-                    {validationErrors.SKILLS.join(' ')}
-                  </p>
-                )}
-                <ul className="flex flex-wrap gap-2" aria-label="Skills">
-                  {displayData.skills.map((skill, i) => (
-                    <li
-                      key={itemKey(skill, i)}
-                      className="bg-blue-50 text-blue-700 border border-blue-200 pl-3 pr-1.5 py-1 rounded-full text-xs font-medium flex items-center gap-1"
-                    >
-                      {skill.skillName}
-                      <span className="text-[10px] text-blue-500">· {enumLabel(skill.proficiency)}</span>
-                      {editable && (
+              )}
+
+              {mobileSection === 'PERSONAL' && (
+                <>
+                  <SectionCard
+                    icon={Phone}
+                    title="Personal & Contact Details"
+                    subtitle="Name, contact details and profile links."
+                    {...sectionProps('PERSONAL')}
+                    action={
+                      editable && (
                         <button
                           type="button"
-                          onClick={() => removeSkill(i)}
-                          className="ml-0.5 p-0.5 rounded-full hover:bg-red-100 hover:text-red-600"
-                          aria-label={`Remove skill ${skill.skillName}`}
+                          onClick={() => openModal({ type: 'personal' })}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5"
                         >
-                          <X className="w-3 h-3" />
+                          <Pencil className="w-3.5 h-3.5" /> Edit Details
+                        </button>
+                      )
+                    }
+                  >
+                    <div className="space-y-2.5">
+                      {[
+                        { icon: Phone, label: 'Phone', value: personal.phone },
+                        { icon: Mail, label: 'Email', value: managed.email, locked: true },
+                        { icon: MapPin, label: 'Address', value: personal.address },
+                      ].map(({ icon: RowIcon, label, value, locked }) => (
+                        <div key={label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl min-w-0">
+                          <RowIcon className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] text-gray-400 uppercase font-semibold flex items-center gap-1">
+                              {label} {locked && <Lock className="w-3 h-3" />}
+                            </p>
+                            <p className="text-sm font-medium text-gray-800 break-all">{displayValue(value)}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {[
+                        ['GitHub', personal.githubUrl],
+                        ['LinkedIn', personal.linkedinUrl],
+                        ['Portfolio', personal.portfolioUrl],
+                      ].map(([label, url]) => (
+                        <div key={label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl min-w-0">
+                          <LinkIcon className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] text-gray-400 uppercase font-semibold">{label}</p>
+                            {url ? (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium text-blue-600 hover:underline break-all inline-flex items-center gap-1"
+                              >
+                                {url.replace(/^https?:\/\//, '')} <ExternalLink className="w-3 h-3 shrink-0" />
+                              </a>
+                            ) : (
+                              <p className="text-sm font-medium text-gray-800">Not provided</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </SectionCard>
+
+                  <div className="bg-white p-4 rounded-[20px] border border-[#E5E9F2]">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-bold text-[15px] text-[#0F172A]">About Me</h4>
+                      {editable && !editAbout && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAboutDraft(personal.about || '');
+                            setEditAbout(true);
+                          }}
+                          className="text-blue-600 text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5" /> Edit
                         </button>
                       )}
-                    </li>
-                  ))}
-                  {displayData.skills.length === 0 && <li className="text-xs text-gray-400 italic">No skills added yet.</li>}
-                </ul>
-                {editable && (
-                  <form onSubmit={addSkill} className="mt-3 flex flex-col sm:flex-row gap-2">
-                    <label htmlFor="new-skill" className="sr-only">New skill</label>
-                    <input
-                      id="new-skill"
-                      type="text"
-                      value={skillInput}
-                      maxLength={60}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      placeholder="Add a skill, e.g. React"
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <label htmlFor="new-skill-level" className="sr-only">Proficiency</label>
-                    <select
-                      id="new-skill-level"
-                      value={skillLevel}
-                      onChange={(e) => setSkillLevel(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {SKILL_PROFICIENCIES.map((p) => (
-                        <option key={p} value={p}>{enumLabel(p)}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="submit"
-                      className="border border-dashed border-blue-500 text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" /> Add Skill
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Personal details */}
-          <SectionCard
-            id="section-personal"
-            icon={Phone}
-            title="Personal & Contact Details"
-            subtitle="Name, contact details and profile links."
-            {...sectionProps('PERSONAL')}
-            action={
-              editable && (
-                <button
-                  type="button"
-                  onClick={() => openModal({ type: 'personal' })}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit Details
-                </button>
-              )
-            }
-          >
-            <div className="grid sm:grid-cols-3 gap-3">
-              {[
-                { icon: Phone, label: 'Phone', value: personal.phone },
-                { icon: Mail, label: 'Email', value: managed.email, locked: true },
-                { icon: MapPin, label: 'Address', value: personal.address },
-              ].map(({ icon: RowIcon, label, value, locked }) => (
-                <div key={label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl min-w-0">
-                  <RowIcon className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-400 uppercase font-semibold flex items-center gap-1">
-                      {label} {locked && (
-                        <span title={ADMIN_MANAGED_HINT} className="inline-flex">
-                          <Lock className="w-3 h-3" aria-label="Managed by the placement cell" />
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-sm font-medium text-gray-800 break-all">{displayValue(value)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3 mt-3">
-              {[
-                ['GitHub', personal.githubUrl],
-                ['LinkedIn', personal.linkedinUrl],
-                ['Portfolio', personal.portfolioUrl],
-              ].map(([label, url]) => (
-                <div key={label} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl min-w-0">
-                  <LinkIcon className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-400 uppercase font-semibold">{label}</p>
-                    {url ? (
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:underline break-all inline-flex items-center gap-1">
-                        {url.replace(/^https?:\/\//, '')} <ExternalLink className="w-3 h-3 shrink-0" />
-                      </a>
+                    </div>
+                    {editable && editAbout ? (
+                      <div className="space-y-2.5">
+                        <textarea
+                          value={aboutDraft}
+                          onChange={(e) => setAboutDraft(e.target.value)}
+                          rows={4}
+                          maxLength={2000}
+                          placeholder="A concise professional summary…"
+                          className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-400">{aboutDraft.length} / 2000</span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditAbout(false)}
+                              className="text-gray-600 text-xs px-3 py-1.5 rounded-lg hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={saveAbout}
+                              className="bg-blue-600 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg"
+                            >
+                              Update draft
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
-                      <p className="text-sm font-medium text-gray-800">Not provided</p>
+                      <p className="text-sm text-gray-600 whitespace-pre-line break-words">
+                        {personal.about || <span className="text-gray-400 italic">No summary provided yet.</span>}
+                      </p>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          {/* About */}
-          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold text-lg text-gray-900">About Me</h3>
-              {editable && !editAbout && (
-                <button
-                  onClick={() => {
-                    setAboutDraft(personal.about || '');
-                    setEditAbout(true);
-                  }}
-                  className="text-gray-400 hover:text-blue-600 p-1 rounded-lg hover:bg-gray-50 transition"
-                  aria-label="Edit about description"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {editable && editAbout ? (
-              <div className="space-y-3">
-                <label htmlFor="about-text" className="sr-only">About me</label>
-                <textarea
-                  id="about-text"
-                  value={aboutDraft}
-                  onChange={(e) => setAboutDraft(e.target.value)}
-                  rows={4}
-                  maxLength={2000}
-                  placeholder="A concise professional summary: career goals, key strengths, areas of expertise…"
-                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-gray-400">{aboutDraft.length} / 2000</span>
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditAbout(false)} className="text-gray-600 text-xs px-3.5 py-1.5 rounded-lg hover:bg-gray-100 transition">
-                      Cancel
-                    </button>
-                    <button onClick={saveAbout} className="bg-blue-600 text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-blue-700 transition">
-                      Update draft
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line break-words">
-                {personal.about || <span className="text-gray-400 italic">No summary provided yet.</span>}
-              </p>
-            )}
-          </div>
-
-          {/* Academic */}
-          <SectionCard
-            id="section-academic"
-            icon={GraduationCap}
-            title="Academic Overview"
-            subtitle="CGPA, backlogs and semester are verified by your faculty advisor."
-            {...sectionProps('ACADEMIC')}
-            action={
-              editable && (
-                <button
-                  type="button"
-                  onClick={() => openModal({ type: 'academic' })}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit Academics
-                </button>
-              )
-            }
-          >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="p-3 bg-green-50/60 rounded-xl">
-                <p className="text-xs text-gray-500 font-medium">CGPA</p>
-                <p className="text-sm font-bold text-green-900 mt-1">{academic.cgpa != null ? `${academic.cgpa} / 10` : 'Not provided'}</p>
-              </div>
-              <div className="p-3 bg-purple-50/60 rounded-xl">
-                <p className="text-xs text-gray-500 font-medium">Semester</p>
-                <p className="text-sm font-bold text-purple-900 mt-1">{academic.semester != null ? `Semester ${academic.semester}` : 'N/A'}</p>
-              </div>
-              <div className="p-3 bg-amber-50/60 rounded-xl">
-                <p className="text-xs text-gray-500 font-medium">Active Backlogs</p>
-                <p className="text-sm font-bold text-amber-900 mt-1">{displayValue(academic.activeBacklogs)}</p>
-              </div>
-              <div className="p-3 bg-orange-50/60 rounded-xl">
-                <p className="text-xs text-gray-500 font-medium">Total Backlogs</p>
-                <p className="text-sm font-bold text-orange-900 mt-1">{displayValue(academic.totalBacklogs)}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 text-sm">
-              {[
-                ['Department', managed.department],
-                ['Batch', managed.batch],
-                ['Degree', managed.degree],
-              ].map(([label, value]) => (
-                <div key={label} className="p-3 bg-gray-50 rounded-xl">
-                  <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
-                    <Lock className="w-3 h-3" aria-hidden="true" /> {label}
-                  </p>
-                  <p className="font-semibold text-gray-800 mt-0.5 break-words">{displayValue(value)}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-3 flex items-center gap-1">
-              <Lock className="w-3 h-3 shrink-0" /> Register number, department, batch, degree and email: {ADMIN_MANAGED_HINT}
-            </p>
-          </SectionCard>
-
-          {listSection('EDUCATION')}
-          {listSection('EXPERIENCE')}
-
-          {/* Projects */}
-          <SectionCard
-            id="section-projects"
-            icon={Layers}
-            iconClass="text-purple-600"
-            title="Projects Showcase"
-            subtitle="Portfolio projects visible to recruiters once verified."
-            {...sectionProps('PROJECTS')}
-            action={
-              editable && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/student/add-project')}
-                    disabled={hasUnsavedChanges}
-                    title={hasUnsavedChanges ? 'Save your draft before opening the full project form' : undefined}
-                    className="text-xs font-semibold px-3 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition disabled:opacity-40"
-                  >
-                    Full form
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openModal({ type: 'item', sectionKey: 'PROJECTS', index: null })}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Project
-                  </button>
                 </>
-              )
-            }
-          >
-            {displayData.projects.length > 0 ? (
-              <div className="grid sm:grid-cols-2 gap-4">
-                {displayData.projects.map((proj, index) => (
-                  <ProjectItem
-                    key={itemKey(proj, index)}
-                    item={proj}
-                    actions={
-                      <ItemActions
-                        editable={editable}
-                        label={itemLabel('PROJECTS', proj)}
-                        onEdit={() => openModal({ type: 'item', sectionKey: 'PROJECTS', index })}
-                        onRemove={() => removeListItem('PROJECTS', index)}
-                      />
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                type="empty"
-                icon={Layers}
-                title="No projects yet"
-                description={editable ? 'Add projects to showcase your practical work to visiting companies.' : undefined}
-                action={editable ? { label: 'Add First Project', onClick: () => openModal({ type: 'item', sectionKey: 'PROJECTS', index: null }), icon: Plus } : undefined}
-                compact
-                className="bg-gray-50/50 border-dashed border-gray-200"
-              />
-            )}
-          </SectionCard>
-
-          {listSection('CERTIFICATIONS')}
-          {listSection('ACHIEVEMENTS')}
-
-          {/* Resume */}
-          <SectionCard
-            id="section-resume"
-            icon={FileText}
-            title="Resume"
-            subtitle="PDF up to 10 MB. Recruiters see the resume once your advisor approves it."
-            {...sectionProps('RESUME')}
-          >
-            {editable ? (
-              <VerificationFileField
-                section="RESUME"
-                extensions={['pdf']}
-                fileUrl={displayData.resume.resumeUrl}
-                fileName={displayData.resume.fileName}
-                onUploaded={(r) => setSection('resume', { resumeUrl: r.fileUrl, fileName: r.fileName })}
-                onRemove={() => setSection('resume', { resumeUrl: null, fileName: null })}
-              />
-            ) : displayData.resume.resumeUrl ? (
-              <VerificationFileField
-                section="RESUME"
-                disabled
-                fileUrl={displayData.resume.resumeUrl}
-                fileName={displayData.resume.fileName}
-                onUploaded={() => {}}
-              />
-            ) : (
-              <p className="text-sm text-gray-400 italic">No resume uploaded.</p>
-            )}
-          </SectionCard>
-
-          {listSection('DOCUMENTS')}
-
-          {/* Evidence */}
-          {!viewOfficial && (
-            <SectionCard
-              id="section-evidence"
-              icon={Paperclip}
-              iconClass="text-gray-600"
-              title="Evidence for your advisor"
-              subtitle="Extra files that support a change (e.g. a new marksheet for a CGPA update). Only your advisor sees these."
-            >
-              {data.evidence.length > 0 ? (
-                <ul className="space-y-2 mb-4">
-                  {data.evidence.map((ev, index) => (
-                    <li key={`${ev.fileUrl}-${index}`} className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 break-all">
-                          <ProtectedFileLink url={ev.fileUrl} className="hover:underline text-left">
-                            {ev.fileName || 'Evidence file'}
-                          </ProtectedFileLink>
-                        </p>
-                        <p className="text-[11px] text-gray-500">
-                          For: {sectionLabel(ev.section)}
-                          {ev.size ? ` · ${formatFileSize(ev.size)}` : ''}
-                        </p>
-                        {ev.note && <p className="text-xs text-gray-600 mt-1 break-words">{ev.note}</p>}
-                      </div>
-                      {editable && (
-                        <button
-                          type="button"
-                          onClick={() => setSection('evidence', data.evidence.filter((_, i) => i !== index))}
-                          className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg"
-                          aria-label={`Remove evidence ${ev.fileName || ''}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-gray-400 italic mb-4">No evidence attached.</p>
               )}
-              {editable && (
-                <div className="rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <SelectField
-                      label="Supports section"
-                      value={evidenceSection}
-                      onChange={setEvidenceSection}
-                      options={EVIDENCE_SECTIONS.map((k) => ({ value: k, label: sectionLabel(k) }))}
-                    />
-                    <div>
-                      <label htmlFor="evidence-note" className="block text-xs font-semibold text-gray-700 mb-1">
-                        Note (optional)
-                      </label>
-                      <input
-                        id="evidence-note"
-                        type="text"
-                        maxLength={255}
-                        value={evidenceNote}
-                        onChange={(e) => setEvidenceNote(e.target.value)}
-                        placeholder="e.g. Semester 6 grade sheet"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+
+              {mobileSection === 'ACADEMIC' && (
+                <SectionCard
+                  icon={GraduationCap}
+                  title="Academic Overview"
+                  subtitle="CGPA, backlogs and semester are verified by your faculty advisor."
+                  {...sectionProps('ACADEMIC')}
+                  action={
+                    editable && (
+                      <button
+                        type="button"
+                        onClick={() => openModal({ type: 'academic' })}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5"
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> Edit Academics
+                      </button>
+                    )
+                  }
+                >
+                  <div className="grid grid-cols-2 gap-2.5 text-center">
+                    <div className="p-3 bg-green-50/60 rounded-xl">
+                      <p className="text-xs text-gray-500 font-medium">CGPA</p>
+                      <p className="text-sm font-bold text-green-900 mt-1">
+                        {academic.cgpa != null ? `${academic.cgpa} / 10` : 'Not provided'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-purple-50/60 rounded-xl">
+                      <p className="text-xs text-gray-500 font-medium">Semester</p>
+                      <p className="text-sm font-bold text-purple-900 mt-1">
+                        {academic.semester != null ? `Semester ${academic.semester}` : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-amber-50/60 rounded-xl">
+                      <p className="text-xs text-gray-500 font-medium">Active Backlogs</p>
+                      <p className="text-sm font-bold text-amber-900 mt-1">{displayValue(academic.activeBacklogs)}</p>
+                    </div>
+                    <div className="p-3 bg-orange-50/60 rounded-xl">
+                      <p className="text-xs text-gray-500 font-medium">Total Backlogs</p>
+                      <p className="text-sm font-bold text-orange-900 mt-1">{displayValue(academic.totalBacklogs)}</p>
                     </div>
                   </div>
-                  <VerificationFileField
-                    compact
-                    section={evidenceSection}
-                    fileUrl={null}
-                    onUploaded={(r) => {
-                      if (data.evidence.length >= MAX_ITEMS) {
-                        toastError(`You can attach at most ${MAX_ITEMS} evidence files.`);
-                        return;
-                      }
-                      setSection('evidence', [
-                        ...data.evidence,
-                        {
-                          section: evidenceSection,
-                          fileUrl: r.fileUrl,
-                          fileName: r.fileName,
-                          contentType: r.contentType,
-                          size: r.size,
-                          note: evidenceNote.trim() || null,
-                        },
-                      ]);
-                      setEvidenceNote('');
-                    }}
-                  />
-                </div>
+                  <div className="grid grid-cols-1 gap-2.5 mt-3 text-sm">
+                    {[
+                      ['Department', managed.department],
+                      ['Batch', managed.batch],
+                      ['Degree', managed.degree],
+                    ].map(([label, value]) => (
+                      <div key={label} className="p-3 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> {label}
+                        </p>
+                        <p className="font-semibold text-gray-800 mt-0.5 break-words">{displayValue(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
               )}
-            </SectionCard>
-          )}
-        </div>
 
-        {/* ── RIGHT: Sidebar Widgets ── */}
-        <div className="space-y-6">
-          <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex justify-between text-sm font-semibold mb-2">
-              <span className="text-gray-900">Profile Completion</span>
-              <span className="text-blue-600">{completionPct}%</span>
-            </div>
-            <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
-              <div className="bg-blue-600 h-full rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
-            </div>
-            <p className="text-xs text-gray-400 mt-2">Based on your verified profile.</p>
-          </div>
+              {mobileSection === 'SKILLS' && (
+                <SectionCard
+                  icon={Sparkles}
+                  title="Technical Skills"
+                  subtitle="Skills visible to recruiters once verified."
+                  {...sectionProps('SKILLS')}
+                >
+                  <ul className="flex flex-wrap gap-2" aria-label="Skills">
+                    {displayData.skills.map((skill, i) => (
+                      <li
+                        key={itemKey(skill, i)}
+                        className="bg-blue-50 text-blue-700 border border-blue-200 pl-3 pr-1.5 py-1 rounded-full text-xs font-medium flex items-center gap-1"
+                      >
+                        {skill.skillName}
+                        <span className="text-[10px] text-blue-500">· {enumLabel(skill.proficiency)}</span>
+                        {editable && (
+                          <button
+                            type="button"
+                            onClick={() => removeSkill(i)}
+                            className="ml-0.5 p-0.5 rounded-full hover:bg-red-100 hover:text-red-600"
+                            aria-label={`Remove skill ${skill.skillName}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                    {displayData.skills.length === 0 && (
+                      <li className="text-xs text-gray-400 italic">No skills added yet.</li>
+                    )}
+                  </ul>
+                  {editable && (
+                    <form onSubmit={addSkill} className="mt-3 space-y-2">
+                      <input
+                        type="text"
+                        value={skillInput}
+                        maxLength={60}
+                        onChange={(e) => setSkillInput(e.target.value)}
+                        placeholder="Add a skill, e.g. React"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={skillLevel}
+                          onChange={(e) => setSkillLevel(e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white"
+                        >
+                          {SKILL_PROFICIENCIES.map((p) => (
+                            <option key={p} value={p}>{enumLabel(p)}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </SectionCard>
+              )}
 
-          <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-semibold text-sm text-gray-900 mb-3">Placement Status</h3>
-            <div
-              className={`p-4 rounded-xl border ${
-                profile?.placementStatus === 'PLACED' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-blue-50 border-blue-200 text-blue-800'
-              }`}
-            >
-              <div className="flex items-center gap-2 font-bold text-sm">
-                <Award className="w-4 h-4" />
-                {profile?.placementStatus === 'PLACED' ? 'Placed' : 'Not placed yet'}
+              {mobileSection === 'PROJECTS' && (
+                <SectionCard
+                  icon={Layers}
+                  iconClass="text-purple-600"
+                  title="Projects Showcase"
+                  subtitle="Portfolio projects visible to recruiters once verified."
+                  {...sectionProps('PROJECTS')}
+                  action={
+                    editable && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/student/add-project')}
+                          disabled={hasUnsavedChanges}
+                          className="text-xs font-semibold px-3 py-2 rounded-xl border border-gray-300 text-gray-700 disabled:opacity-40"
+                        >
+                          Full form
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openModal({ type: 'item', sectionKey: 'PROJECTS', index: null })}
+                          className="bg-blue-600 text-white text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Project
+                        </button>
+                      </div>
+                    )
+                  }
+                >
+                  {displayData.projects.length > 0 ? (
+                    <div className="space-y-3">
+                      {displayData.projects.map((proj, index) => (
+                        <ProjectItem
+                          key={itemKey(proj, index)}
+                          item={proj}
+                          actions={
+                            <ItemActions
+                              editable={editable}
+                              label={itemLabel('PROJECTS', proj)}
+                              onEdit={() => openModal({ type: 'item', sectionKey: 'PROJECTS', index })}
+                              onRemove={() => removeListItem('PROJECTS', index)}
+                            />
+                          }
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState
+                      type="empty"
+                      icon={Layers}
+                      title="No projects yet"
+                      description={editable ? 'Add projects to showcase your work.' : undefined}
+                      action={editable ? { label: 'Add First Project', onClick: () => openModal({ type: 'item', sectionKey: 'PROJECTS', index: null }), icon: Plus } : undefined}
+                      compact
+                    />
+                  )}
+                </SectionCard>
+              )}
+
+              {['EDUCATION', 'EXPERIENCE', 'CERTIFICATIONS', 'ACHIEVEMENTS'].includes(mobileSection) &&
+                listSection(mobileSection)}
+
+              {mobileSection === 'RESUME_DOCS' && (
+                <>
+                  <SectionCard
+                    icon={FileText}
+                    title="Resume"
+                    subtitle="PDF up to 10 MB. Recruiters see the resume once approved."
+                    {...sectionProps('RESUME')}
+                  >
+                    {editable ? (
+                      <VerificationFileField
+                        section="RESUME"
+                        extensions={['pdf']}
+                        fileUrl={displayData.resume.resumeUrl}
+                        fileName={displayData.resume.fileName}
+                        onUploaded={(r) => setSection('resume', { resumeUrl: r.fileUrl, fileName: r.fileName })}
+                        onRemove={() => setSection('resume', { resumeUrl: null, fileName: null })}
+                      />
+                    ) : displayData.resume.resumeUrl ? (
+                      <VerificationFileField
+                        section="RESUME"
+                        disabled
+                        fileUrl={displayData.resume.resumeUrl}
+                        fileName={displayData.resume.fileName}
+                        onUploaded={() => {}}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No resume uploaded.</p>
+                    )}
+                  </SectionCard>
+
+                  {listSection('DOCUMENTS')}
+
+                  {!viewOfficial && (
+                    <SectionCard
+                      icon={Paperclip}
+                      iconClass="text-gray-600"
+                      title="Evidence for your advisor"
+                      subtitle="Extra supporting files visible only to your advisor."
+                    >
+                      {data.evidence.length > 0 ? (
+                        <ul className="space-y-2 mb-3">
+                          {data.evidence.map((ev, index) => (
+                            <li
+                              key={`${ev.fileUrl}-${index}`}
+                              className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <ProtectedFileLink url={ev.fileUrl} className="text-sm font-semibold text-blue-600 break-all text-left">
+                                  {ev.fileName || 'Evidence file'}
+                                </ProtectedFileLink>
+                                <p className="text-[11px] text-gray-500">
+                                  For: {sectionLabel(ev.section)}
+                                  {ev.size ? ` · ${formatFileSize(ev.size)}` : ''}
+                                </p>
+                              </div>
+                              {editable && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSection('evidence', data.evidence.filter((_, i) => i !== index))}
+                                  className="text-gray-400 hover:text-red-600 p-1"
+                                  aria-label={`Remove evidence ${ev.fileName || ''}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic mb-3">No evidence attached.</p>
+                      )}
+                      {editable && (
+                        <div className="space-y-2.5">
+                          <SelectField
+                            label="Supports section"
+                            value={evidenceSection}
+                            onChange={setEvidenceSection}
+                            options={EVIDENCE_SECTIONS.map((k) => ({ value: k, label: sectionLabel(k) }))}
+                          />
+                          <input
+                            type="text"
+                            maxLength={255}
+                            value={evidenceNote}
+                            onChange={(e) => setEvidenceNote(e.target.value)}
+                            placeholder="Optional note (e.g. Sem 6 grade sheet)"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm"
+                          />
+                          <VerificationFileField
+                            compact
+                            section={evidenceSection}
+                            fileUrl={null}
+                            onUploaded={(r) => {
+                              if (data.evidence.length >= MAX_ITEMS) {
+                                toastError(`You can attach at most ${MAX_ITEMS} evidence files.`);
+                                return;
+                              }
+                              setSection('evidence', [
+                                ...data.evidence,
+                                {
+                                  section: evidenceSection,
+                                  fileUrl: r.fileUrl,
+                                  fileName: r.fileName,
+                                  contentType: r.contentType,
+                                  size: r.size,
+                                  note: evidenceNote.trim() || null,
+                                },
+                              ]);
+                              setEvidenceNote('');
+                            }}
+                          />
+                        </div>
+                      )}
+                    </SectionCard>
+                  )}
+                </>
+              )}
+            </div>
+
+            {canEditDraft && !viewOfficial && (hasUnsavedChanges || changedSections.length > 0) && (
+              <div className="bg-white border-t border-[#E5E9F2] px-4 py-3 flex items-center gap-2 shrink-0 pb-[calc(12px+env(safe-area-inset-bottom))]">
+                {hasUnsavedChanges && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={saving}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 border border-[#93C5FD] bg-[#EFF6FF] text-[#1D4ED8] text-xs font-bold py-2.5 rounded-xl disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Save draft
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileSection(null);
+                    openSubmit();
+                  }}
+                  disabled={submitting || saving}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#1D4ED8] text-white text-xs font-bold py-2.5 rounded-xl disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" /> Submit for review
+                </button>
               </div>
-              <p className="text-xs mt-1 opacity-90">
-                {profile?.placementStatus === 'PLACED'
-                  ? placementSummary({ status: 'PLACED', companyName: profile?.placedCompany?.name, ctc: profile?.placedCtc })
-                  : openToOpportunities
-                  ? 'Open to opportunities. You can apply to any number of drives.'
-                  : 'Not seeking opportunities right now.'}
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-3 mt-4">
-              <label htmlFor="open-opportunities" className="text-xs text-gray-700 font-medium">
-                I am actively seeking placement & internship opportunities
-              </label>
-              <button
-                id="open-opportunities"
-                type="button"
-                role="switch"
-                aria-checked={openToOpportunities}
-                onClick={handleToggleOpportunities}
-                disabled={!profile || savingPreference || lifecycle !== 'ACTIVE'}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
-                  openToOpportunities ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                    openToOpportunities ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1">This preference applies immediately and is not part of verification.</p>
-          </div>
-
-          <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-semibold text-sm text-gray-900 mb-3">Activity Summary</h3>
-            <div className="space-y-3 text-sm">
-              {[
-                ['Applied Jobs', dashboardStats?.appliedJobsCount ?? 0, 'text-gray-800'],
-                ['Active Campus Drives', dashboardStats?.activeJobsCount ?? 0, 'text-blue-600'],
-                ['Education Entries', displayData.education.length, 'text-blue-600'],
-                ['Internships', displayData.experience.length, 'text-indigo-600'],
-                ['Projects', displayData.projects.length, 'text-purple-600'],
-                ['Certifications', displayData.certifications.length, 'text-emerald-600'],
-                ['Achievements', displayData.achievements.length, 'text-amber-600'],
-              ].map(([label, value, cls]) => (
-                <div key={label} className="flex justify-between py-1.5 border-b border-gray-100 last:border-0">
-                  <span className="text-gray-500">{label}</span>
-                  <span className={`font-bold ${cls}`}>{value}</span>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Modals ── */}
+
+      <ChangePasswordModal open={showChangePassword} onClose={() => setShowChangePassword(false)} registerNumber={profile?.rollNo || ''} />
+
+      {/* ── Modals (shared across mobile & desktop) ── */}
       {modal?.type === 'personal' && (
         <PersonalDetailsModal
           key={`personal-${modalSeq}`}
@@ -1297,6 +1617,6 @@ export default function StudentProfile() {
         onConfirm={handleWithdraw}
         onCancel={() => setConfirm(null)}
       />
-    </main>
+    </>
   );
 }
