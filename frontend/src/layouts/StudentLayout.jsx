@@ -63,6 +63,13 @@ export default function StudentLayout() {
     if (breadcrumbMap[location.pathname]) {
       return breadcrumbMap[location.pathname];
     }
+    if (location.pathname.startsWith('/student/applications/')) {
+      return [
+        { label: 'Student', to: '/student/dashboard' },
+        { label: 'My Applications', to: '/student/applications' },
+        { label: 'Application Timeline' },
+      ];
+    }
     if (location.pathname.startsWith('/student/jobs/')) {
       return [
         { label: 'Student', to: '/student/dashboard' },
@@ -86,7 +93,7 @@ export default function StudentLayout() {
   };
 
   return (
-    <div className="student-app-shell min-h-screen bg-[#F4F6FB] flex flex-col md:flex-row antialiased text-[#0F172A] overflow-x-hidden">
+    <div className="student-app-shell min-h-screen bg-[#F8F9FC] flex flex-col md:flex-row antialiased text-[#20243A] overflow-x-hidden">
       {/* Desktop Sidebar & Optional Mobile Drawer */}
       <StudentSidebar
         mobileOpen={mobileOpen}
@@ -98,7 +105,7 @@ export default function StudentLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile App Header (< md) — inspired directly by Page 2 */}
-        <header className="md:hidden sticky top-0 z-20 bg-[#F4F6FB]/95 backdrop-blur-md px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-2">
+        <header className="md:hidden sticky top-0 z-20 bg-[#F8F9FC]/95 backdrop-blur-md px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
             <Link
               to="/student/profile"
@@ -151,7 +158,7 @@ export default function StudentLayout() {
         </header>
 
         {/* Desktop / Tablet Topbar (>= md) */}
-        <header className="hidden md:flex sticky top-0 z-20 bg-[#F4F6FB]/90 backdrop-blur-md border-b border-[#E5E9F2] px-6 lg:px-8 py-3.5 items-center justify-between transition-all">
+        <header className="hidden md:flex sticky top-0 z-20 bg-[#F8F9FC]/90 backdrop-blur-md border-b border-[#E5E9F2] px-6 lg:px-8 py-3.5 items-center justify-between transition-all">
           <nav className="flex items-center gap-1.5 text-sm" aria-label="Breadcrumb">
             {breadcrumbs.map((item, index) => {
               const isLast = index === breadcrumbs.length - 1;
@@ -193,7 +200,7 @@ export default function StudentLayout() {
             >
               <Bell className="w-5 h-5" strokeWidth={1.8} />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#F59E0B] text-white text-[10px] font-bold rounded-full ring-2 ring-[#F4F6FB] flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#F59E0B] text-white text-[10px] font-bold rounded-full ring-2 ring-[#F8F9FC] flex items-center justify-center">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}

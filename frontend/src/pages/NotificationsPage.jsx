@@ -17,7 +17,7 @@ import EmptyState from '../components/EmptyState';
 import { ListRowSkeleton } from '../components/Skeleton';
 import { toastSuccess, toastError } from '../utils/toast';
 import { useAuth } from '../context/AuthContext';
-import { notifyNotificationsChanged } from '../hooks/useUnreadNotifications';
+import useUnreadNotifications, { notifyNotificationsChanged } from '../hooks/useUnreadNotifications';
 
 const typeConfig = {
   job: { icon: BriefcaseIcon, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -27,7 +27,7 @@ const typeConfig = {
   verification: { icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-100' },
 };
 
-const FILTERS = ['All', 'Unread', 'Job Drives', 'Applications', 'Verification', 'Alerts'];
+const FILTERS = ['All', 'Unread', 'Applications', 'Drives', 'Verification'];
 
 /** Only same-app paths are followed, so a notification can never send someone off-site. */
 const safeActionUrl = (url) =>
@@ -35,7 +35,7 @@ const safeActionUrl = (url) =>
 
 const mapNotificationType = (rawType) => {
   const type = (rawType || '').toUpperCase();
-  if (type === 'JOB' || type === 'PLACEMENT_DRIVE') return 'job';
+  if (type === 'JOB' || type === 'PLACEMENT_DRIVE' || type === 'DEADLINE') return 'job';
   if (type === 'APPLICATION' || type === 'INTERVIEW') return 'application';
   if (type === 'ANNOUNCEMENT' || type === 'GENERAL') return 'success';
   if (type === 'VERIFICATION') return 'verification';
@@ -84,6 +84,7 @@ const formatRelativeTime = (timestamp) => {
 
 export default function NotificationsPage() {
   const { role } = useAuth();
+  const { count: unreadCount } = useUnreadNotifications();
   const navigate = useNavigate();
   const isAdmin = role === 'ADMIN' || role === 'PLACEMENT_OFFICER';
   const isFaculty = role === 'FACULTY_ADVISOR';
@@ -190,14 +191,11 @@ export default function NotificationsPage() {
 
   const filtered = notifs.filter((n) => {
     if (activeFilter === 'Unread') return !n.read;
-    if (activeFilter === 'Job Drives') return n.type === 'job';
+    if (activeFilter === 'Drives') return n.type === 'job';
     if (activeFilter === 'Applications') return n.type === 'application';
     if (activeFilter === 'Verification') return n.type === 'verification';
-    if (activeFilter === 'Alerts') return n.type === 'alert' || n.type === 'success';
     return true;
   });
-
-  const unreadCount = notifs.filter((n) => !n.read).length;
 
   /** Clicking a notification that points somewhere marks it read and opens that page. */
   const openNotification = (n) => {
@@ -212,7 +210,7 @@ export default function NotificationsPage() {
   return (
     <main className="flex-1 px-4 md:px-8 py-4 md:py-6 max-w-5xl w-full mx-auto overflow-x-hidden">
       <div className="flex items-center justify-between gap-3 mb-1">
-        <h2 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight">Alerts &amp; Notifications</h2>
+        <h2 className="text-xl md:text-2xl font-extrabold text-[#0F172A] tracking-tight">Notifications</h2>
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}

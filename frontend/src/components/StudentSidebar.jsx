@@ -91,7 +91,7 @@ export default function StudentSidebar({
               `flex items-center justify-between px-3.5 py-2.5 rounded-[16px] text-[14px] transition-all duration-150 ${
                 isActive
                   ? 'bg-[#E0EAFF] text-[#1D4ED8] font-bold'
-                  : 'text-[#475569] hover:bg-[#F4F6FB] hover:text-[#0F172A] font-semibold'
+                  : 'text-[#475569] hover:bg-[#F8F9FC] hover:text-[#0F172A] font-semibold'
               }`
             }
           >
@@ -126,7 +126,7 @@ export default function StudentSidebar({
       </div>
 
       {/* User profile & Logout Footer */}
-      <div className="p-3 border-t border-[#E5E9F2] bg-[#F4F6FB]/70">
+      <div className="p-3 border-t border-[#E5E9F2] bg-[#F8F9FC]/70">
         <div className="flex items-center justify-between p-2.5 rounded-[16px] bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <Link to="/student/profile" onClick={onCloseMobile} className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="relative w-9 h-9 rounded-full bg-[#1D4ED8] text-white flex items-center justify-center font-bold text-sm shrink-0">
