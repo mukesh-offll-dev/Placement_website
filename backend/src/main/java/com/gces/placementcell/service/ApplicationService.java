@@ -1,6 +1,7 @@
 package com.gces.placementcell.service;
 
 import com.gces.placementcell.dto.request.ApplicationStatusUpdateRequest;
+import com.gces.placementcell.dto.request.ApplicationTimelineNoteRequest;
 import com.gces.placementcell.dto.request.ApplicationTimelineRequest;
 import com.gces.placementcell.dto.request.JobApplicationRequest;
 import com.gces.placementcell.dto.response.JobApplicationResponse;
@@ -372,6 +373,26 @@ public class ApplicationService {
         }
         String company = job.getCompany() == null ? null : job.getCompany().getName();
         return company == null || company.isBlank() ? job.getJobRole() : job.getJobRole() + " at " + company;
+    }
+
+    @Transactional
+    public JobApplicationResponse addTimelineNote(String adminEmail, Long applicationId,
+                                                  ApplicationTimelineNoteRequest request) {
+        JobApplication application = findApplicationWithTimeline(applicationId);
+        User reviewer = userRepository.findByEmailAndIsDeletedFalse(adminEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", adminEmail));
+
+        String note = request != null ? request.getEffectiveNote() : "";
+        if (note.isEmpty()) {
+            throw new BadRequestException("Timeline note cannot be empty");
+        }
+        if (note.length() > 255) {
+            throw new BadRequestException("Timeline note cannot exceed 255 characters");
+        }
+
+        String stage = request != null ? request.getEffectiveStageLabel() : "Admin Note";
+        addTimeline(application, stage, LocalDate.now(), TimelineStatus.DONE, note, reviewer);
+        return JobApplicationResponse.withTimeline(applicationRepository.save(application));
     }
 
     private StudentProfile findStudent(String email) {

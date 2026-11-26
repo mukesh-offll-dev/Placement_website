@@ -2,6 +2,7 @@ package com.gces.placementcell.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gces.placementcell.dto.request.ApplicationStatusUpdateRequest;
+import com.gces.placementcell.dto.request.ApplicationTimelineNoteRequest;
 import com.gces.placementcell.dto.response.CompanyResponse;
 import com.gces.placementcell.dto.response.JobApplicationResponse;
 import com.gces.placementcell.dto.response.JobSummaryResponse;
@@ -211,5 +212,48 @@ class AdminApplicationControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /admin/applications/{id}/notes as admin adds timeline note and returns 200")
+    void testAddTimelineNoteAsAdmin() throws Exception {
+        JobApplicationResponse response = sampleResponse(1L, ApplicationStatus.APPLIED, "Application Submitted");
+        when(applicationService.addTimelineNote(eq("admin@gces.edu"), eq(1L), any(ApplicationTimelineNoteRequest.class)))
+                .thenReturn(response);
+
+        ApplicationTimelineNoteRequest req = new ApplicationTimelineNoteRequest("Candidate has great projects", "Admin Note");
+
+        mockMvc.perform(post("/admin/applications/1/notes")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Timeline note added successfully"));
+
+        verify(applicationService).addTimelineNote(eq("admin@gces.edu"), eq(1L), any(ApplicationTimelineNoteRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /admin/applications/{id}/notes as student returns 403 Forbidden")
+    void testAddTimelineNoteAsStudentReturnsForbidden() throws Exception {
+        ApplicationTimelineNoteRequest req = new ApplicationTimelineNoteRequest("Student attempt note", null);
+
+        mockMvc.perform(post("/admin/applications/1/notes")
+                        .header(HttpHeaders.AUTHORIZATION, studentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /admin/applications/{id}/notes unauthenticated returns 401 Unauthorized")
+    void testAddTimelineNoteUnauthenticatedReturns401() throws Exception {
+        ApplicationTimelineNoteRequest req = new ApplicationTimelineNoteRequest("Note text", null);
+
+        mockMvc.perform(post("/admin/applications/1/notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized());
     }
 }

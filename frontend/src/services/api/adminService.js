@@ -277,6 +277,19 @@ export const addInterviewStage = async (id, timelineData) => {
 export const addTimeline = addInterviewStage;
 
 /**
+ * Add a quick note to an application's timeline (stage label defaults to "Admin Note").
+ * POST /api/admin/applications/{id}/notes
+ * @param {number|string} id - Application ID
+ * @param {Object|string} noteData - { note, stageLabel } or the note text
+ * @returns {Promise<Object>} Updated JobApplicationResponse
+ */
+export const addTimelineNote = async (id, noteData) => {
+  const payload = typeof noteData === 'string' ? { note: noteData } : noteData;
+  const response = await axiosClient.post(`/admin/applications/${id}/notes`, payload);
+  return response?.data !== undefined ? response.data : response;
+};
+
+/**
  * Get authenticated admin info.
  * GET /api/admin/me
  */

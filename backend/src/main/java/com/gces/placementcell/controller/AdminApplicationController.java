@@ -1,6 +1,7 @@
 package com.gces.placementcell.controller;
 
 import com.gces.placementcell.dto.request.ApplicationStatusUpdateRequest;
+import com.gces.placementcell.dto.request.ApplicationTimelineNoteRequest;
 import com.gces.placementcell.dto.request.ApplicationTimelineRequest;
 import com.gces.placementcell.dto.response.ApiResponse;
 import com.gces.placementcell.dto.response.JobApplicationResponse;
@@ -55,6 +56,15 @@ public class AdminApplicationController {
             @Valid @RequestBody ApplicationStatusUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Application status updated successfully",
                 applicationService.updateStatus(userDetails.getUsername(), id, request)));
+    }
+
+    @PostMapping(value = {"/{id}/notes", "/{id}/timeline/notes", "/{id}/timeline-notes"})
+    public ResponseEntity<ApiResponse<JobApplicationResponse>> addTimelineNote(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @Valid @RequestBody ApplicationTimelineNoteRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Timeline note added successfully",
+                applicationService.addTimelineNote(userDetails.getUsername(), id, request)));
     }
 
     @PostMapping("/{id}/timeline")
