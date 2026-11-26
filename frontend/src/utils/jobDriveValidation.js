@@ -47,7 +47,7 @@ export const emptyJobDrive = () => ({
   backlogsAllowed: false,
   graduationYear: '',
   applicationDeadline: '',
-  status: 'DRAFT',
+  status: 'ACTIVE',
   skills: [],
   requirements: [],
   // Empty means "open to every department / degree".
@@ -256,7 +256,7 @@ export function buildJobPayload(form) {
     backlogsAllowed: Boolean(form.backlogsAllowed),
     graduationYear: number(form.graduationYear),
     applicationDeadline: text(form.applicationDeadline),
-    status: form.status || 'DRAFT',
+    status: form.status || 'ACTIVE',
     skills: (form.skills || []).map((s) => s.trim()).filter(Boolean),
     requirements: (form.requirements || []).map((r) => r.trim()).filter(Boolean),
     eligibleDepartments: cleanList(form.eligibleDepartments).map((d) => d.toUpperCase()),

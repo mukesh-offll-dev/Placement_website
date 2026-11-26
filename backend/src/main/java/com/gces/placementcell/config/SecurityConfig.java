@@ -110,6 +110,8 @@ public class SecurityConfig {
                 // Note: this proves a caller is signed in, not senseless ownership;
                 // per-owner checks still belong in the services.
                 .requestMatchers("/students/**").authenticated()
+                // Project images stay behind sign-in like every other file: the frontend
+                // fetches them with the token (ProtectedMedia), so no public rule is needed.
                 .requestMatchers("/files/**").authenticated()
                 .requestMatchers("/notifications/**").authenticated()
                 // Deny by default: a new controller is protected until a rule opens it.

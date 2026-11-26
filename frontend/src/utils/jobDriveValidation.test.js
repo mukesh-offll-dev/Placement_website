@@ -118,10 +118,10 @@ describe('Job drive payload', () => {
     assert.deepEqual(payload.skills, ['Java', 'React']);
   });
 
-  it('always sends a boolean for backlogsAllowed and defaults status to DRAFT', () => {
+  it('always sends a boolean for backlogsAllowed and defaults status to ACTIVE', () => {
     const payload = buildJobPayload({ ...validForm(), backlogsAllowed: undefined, status: '' });
     assert.equal(payload.backlogsAllowed, false);
-    assert.equal(payload.status, 'DRAFT');
+    assert.equal(payload.status, 'ACTIVE');
   });
 
   it('asks for eligible students to be emailed by default, and sends false when unticked', () => {

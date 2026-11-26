@@ -92,14 +92,11 @@ public class JobService {
     @Transactional
     public JobResponse updateJob(Long id, JobRequest request) {
         Job job = findManagedJob(id);
-        boolean wasOpen = job.isOpen();
         applyRequest(job, request);
         Job saved = jobRepository.save(job);
-        // Only the moment a draft/closed drive goes live is announced, so editing a live
-        // drive (typo fix, new deadline) never re-sends mail to everyone.
-        if (!wasOpen) {
-            announceIfRequested(saved, request);
-        }
+        // Safe on every save: JobNotificationService skips students already alerted about this
+        // job, so only newly eligible students (or a draft going live) get an alert.
+        announceIfRequested(saved, request);
         return JobResponse.from(saved);
     }
 
@@ -120,11 +117,12 @@ public class JobService {
     }
 
     /**
-     * Publishes the alert event when the admin asked for it and the job is actually open to
-     * applications. The mail itself is sent by JobNotificationService after this transaction commits.
+     * Publishes the alert event when the job is open to applications, unless the admin unticked
+     * "Notify eligible students" (false); not sending the flag means notify. The mail itself is
+     * sent by JobNotificationService after this transaction commits.
      */
     private void announceIfRequested(Job job, JobRequest request) {
-        if (Boolean.TRUE.equals(request.notifyEligibleStudents()) && job.isOpen()) {
+        if (job.isOpen() && (request == null || !Boolean.FALSE.equals(request.notifyEligibleStudents()))) {
             eventPublisher.publishEvent(new JobPostedEvent(job.getId()));
         }
     }

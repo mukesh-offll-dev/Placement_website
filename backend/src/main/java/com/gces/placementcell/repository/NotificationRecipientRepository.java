@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Spring Data JPA Repository for NotificationRecipient entity.
@@ -31,6 +32,13 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
     long countByUserIdAndIsReadFalse(Long userId);
 
     List<NotificationRecipient> findByNotificationId(Long notificationId);
+
+    @Query("""
+            SELECT r.user.id
+            FROM NotificationRecipient r
+            WHERE r.notification.relatedJob.id = :jobId
+            """)
+    Set<Long> findNotifiedUserIdsByJobId(@Param("jobId") Long jobId);
 
     // -- Paged feed. The notification body is on the parent row, so fetch it with the
     // delivery record or every feed page costs one extra query per item.

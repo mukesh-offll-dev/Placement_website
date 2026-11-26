@@ -85,6 +85,15 @@ public class ProjectMediaServiceImpl implements ProjectMediaService {
     public ProjectMediaResponse uploadProjectMedia(String studentEmail, Long projectId, MultipartFile file) {
         StudentProject project = findOwnProject(studentEmail, projectId);
 
+        // Delete any existing media file before attaching new one
+        if (project.getMediaUrl() != null && !project.getMediaUrl().isBlank()) {
+            try {
+                String oldFileName = project.getMediaUrl().substring(project.getMediaUrl().lastIndexOf('/') + 1);
+                fileStorageService.deleteFile(properties.getProjectMediaSubdir(), oldFileName);
+            } catch (Exception ignored) {
+            }
+        }
+
         String storedFileName = fileStorageService.storeFile(
                 file,
                 properties.getProjectMediaSubdir(),
