@@ -238,12 +238,18 @@ public class JobService {
         return company;
     }
 
-    private String formatCtcText(java.math.BigDecimal ctcValue) {
-        if (ctcValue == null) {
+    /**
+     * "6.5 LPA" from the CTC. The job form sends rupees (e.g. 650000); a small value is taken as
+     * already being in lakhs, so older API callers that sent 6.5 still read correctly.
+     */
+    static String formatCtcText(java.math.BigDecimal ctcValue) {
+        if (ctcValue == null || ctcValue.signum() <= 0) {
             return null;
         }
-        String num = ctcValue.stripTrailingZeros().toPlainString();
-        return num + " LPA";
+        java.math.BigDecimal lakhs = ctcValue.compareTo(java.math.BigDecimal.valueOf(1000)) >= 0
+                ? ctcValue.divide(java.math.BigDecimal.valueOf(100000), 2, java.math.RoundingMode.HALF_UP)
+                : ctcValue;
+        return lakhs.stripTrailingZeros().toPlainString() + " LPA";
     }
 
     private String buildShortName(String name) {
