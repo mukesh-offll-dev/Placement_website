@@ -76,6 +76,7 @@ const jobsCache = new Map();
 export default function JobsPage({ isAdmin = false }) {
   const cacheKey = isAdmin ? 'admin' : 'student';
   const [search, setSearch] = useState('');
+  const [mobileFilter, setMobileFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [jobs, setJobs] = useState(() => jobsCache.get(cacheKey) || []);
   const [loading, setLoading] = useState(() => !jobsCache.has(cacheKey));
@@ -162,11 +163,15 @@ export default function JobsPage({ isAdmin = false }) {
 
   const filtered = jobs.filter((j) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       j.company.toLowerCase().includes(q) ||
       j.role.toLowerCase().includes(q) ||
-      j.location.toLowerCase().includes(q)
-    );
+      j.location.toLowerCase().includes(q);
+    if (!matchesSearch || isAdmin) return matchesSearch;
+    if (mobileFilter === 'open') return j.status === 'Open' || j.status === 'Closing Soon';
+    if (mobileFilter === 'closing') return j.status === 'Closing Soon';
+    if (mobileFilter === 'internship') return j.type === 'Internship';
+    return true;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -235,6 +240,37 @@ export default function JobsPage({ isAdmin = false }) {
         </div>
       </div>
 
+      {/* Status chips (students): one search box above serves every screen size. */}
+      {!isAdmin && (
+        <div className="-mt-2 mb-4">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1" role="group" aria-label="Filter job drives">
+            {[
+              ['all', 'All'],
+              ['open', 'Open'],
+              ['closing', 'Closing soon'],
+              ['internship', 'Internships'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setMobileFilter(value);
+                  setPage(1);
+                }}
+                aria-pressed={mobileFilter === value}
+                className={`shrink-0 h-9 rounded-full px-3.5 text-[13px] font-semibold transition-colors ${
+                  mobileFilter === value
+                    ? 'bg-[#1D4ED8] text-white'
+                    : 'bg-white text-[#334155] border border-[#DDE3EE] hover:border-[#1D4ED8]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Loading Skeleton State */}
       {loading && <JobCardSkeleton count={PAGE_SIZE} />}
 
@@ -254,15 +290,20 @@ export default function JobsPage({ isAdmin = false }) {
 
       {/* Empty State / Search Not Found */}
       {!loading && !error && filtered.length === 0 && (
-        search.trim() ? (
+        search.trim() || (!isAdmin && mobileFilter !== 'all') ? (
           <EmptyState
             type="search"
             title="No matching job drives found"
-            description={`We couldn't find any job drives matching "${search}". Try adjusting your keywords or clearing the search.`}
+            description={
+              search.trim()
+                ? `We couldn't find any job drives matching "${search}". Try adjusting your keywords or clearing the search.`
+                : 'No drives match this filter. Choose another filter to see more opportunities.'
+            }
             action={{
-              label: 'Clear Search',
+              label: search.trim() ? 'Clear Search' : 'Clear Filter',
               onClick: () => {
                 setSearch('');
+                setMobileFilter('all');
                 setPage(1);
               },
               icon: RotateCw,
@@ -388,7 +429,7 @@ export default function JobsPage({ isAdmin = false }) {
       {/* Pagination */}
       {!loading && !error && filtered.length > 0 && (
         <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
-          <p>
+          <p className={isAdmin ? '' : 'hidden sm:block'}>
             Showing {Math.min((currentPage - 1) * PAGE_SIZE + 1, filtered.length)}–
             {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
           </p>
