@@ -262,6 +262,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     vacancies            INT NULL,
     bond                 VARCHAR(100) NULL,
     min_cgpa             DECIMAL(4,2) NULL,
+    max_cgpa             DECIMAL(4,2) NULL,
+    contact_email        VARCHAR(150) NULL,
+    application_url      VARCHAR(500) NULL,
+    application_instructions VARCHAR(1000) NULL,
     backlogs_allowed     BOOLEAN NOT NULL DEFAULT FALSE,
     graduation_year      SMALLINT NULL,
     application_deadline DATE NOT NULL,
@@ -787,3 +791,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs (entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs (action);
+
+-- Job Drives enhancements: max_cgpa, contact_email, application_url, application_instructions
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS max_cgpa DECIMAL(4,2) NULL;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS contact_email VARCHAR(150) NULL;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_url VARCHAR(500) NULL;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_instructions VARCHAR(1000) NULL;

@@ -119,12 +119,15 @@ export function validateJobDrive(form = {}) {
     errors.ctcText = 'Keep the CTC label under 30 characters, e.g. "12 LPA"';
   }
 
+  // CTC and minimum CGPA are required: the backend rejects a drive without them.
   const ctc = parseDecimal(form.ctcValue);
   if (!ctc.ok) {
     errors.ctcValue = 'Enter the CTC as a number, e.g. 1200000';
-  } else if (ctc.value !== null) {
-    if (ctc.value < 0) {
-      errors.ctcValue = 'CTC cannot be negative';
+  } else if (ctc.value === null) {
+    errors.ctcValue = 'CTC is required';
+  } else {
+    if (ctc.value <= 0) {
+      errors.ctcValue = 'CTC must be more than 0';
     } else if (decimalPlaces(form.ctcValue) > 2) {
       errors.ctcValue = 'CTC can have at most 2 decimal places';
     } else if (Math.trunc(ctc.value).toString().length > 10) {
@@ -148,7 +151,9 @@ export function validateJobDrive(form = {}) {
   const cgpa = parseDecimal(form.minCgpa);
   if (!cgpa.ok) {
     errors.minCgpa = 'Enter the minimum CGPA as a number, e.g. 7.5';
-  } else if (cgpa.value !== null) {
+  } else if (cgpa.value === null) {
+    errors.minCgpa = 'Minimum CGPA is required (use 0 for no cut-off)';
+  } else {
     if (cgpa.value < 0) {
       errors.minCgpa = 'CGPA cannot be negative';
     } else if (cgpa.value > 10) {

@@ -20,6 +20,8 @@ const validForm = (overrides = {}) => ({
   jobRole: 'Software Engineer',
   jobType: 'FULL_TIME',
   applicationDeadline: futureDate(),
+  ctcValue: '600000',
+  minCgpa: '6.5',
   ...overrides,
 });
 
@@ -30,7 +32,7 @@ describe('Job drive validation', () => {
 
   it('requires the fields the backend marks NotNull or NotBlank', () => {
     const errors = validateJobDrive(emptyJobDrive());
-    for (const field of ['companyId', 'jobRole', 'applicationDeadline']) {
+    for (const field of ['companyId', 'jobRole', 'applicationDeadline', 'ctcValue', 'minCgpa']) {
       assert.ok(errors[field], `${field} should be required`);
     }
   });
@@ -92,7 +94,7 @@ describe('Job drive payload', () => {
     const payload = buildJobPayload(validForm());
 
     // "" for a number or a date is a 400 from the backend.
-    for (const field of ['jobDescription', 'location', 'ctcText', 'ctcValue', 'vacancies', 'bond', 'minCgpa', 'graduationYear']) {
+    for (const field of ['jobDescription', 'location', 'ctcText', 'vacancies', 'bond', 'graduationYear']) {
       assert.equal(payload[field], null, `${field} should be null when blank`);
     }
   });

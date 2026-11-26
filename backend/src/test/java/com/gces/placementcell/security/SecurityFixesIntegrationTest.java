@@ -362,6 +362,7 @@ class SecurityFixesIntegrationTest {
         Map<String, Object> create = new java.util.HashMap<>(Map.of(
                 "companyId", company.getId(), "jobRole", "SDE", "jobType", "FULL_TIME",
                 "applicationDeadline", LocalDate.now().plusDays(5).toString(),
+                "ctcValue", 600000, "minCgpa", 6.5,
                 "skills", java.util.List.of("Java", "SQL"),
                 "eligibleDepartments", java.util.List.of("cse", " ece ", "CSE"),
                 "eligibleDegrees", java.util.List.of("B.E.")));

@@ -24,13 +24,36 @@ public record JobSummaryResponse(
         BigDecimal ctcValue,
         Integer vacancies,
         BigDecimal minCgpa,
+        BigDecimal maxCgpa,
         Boolean backlogsAllowed,
         LocalDate applicationDeadline,
         LocalDate postedDate,
         JobStatus status,
         Boolean isActive,
-        boolean expired
+        boolean expired,
+        Long daysRemaining
 ) {
+
+    public JobSummaryResponse(
+            Long id,
+            CompanyResponse company,
+            String jobRole,
+            EmploymentType jobType,
+            String location,
+            String ctcText,
+            BigDecimal ctcValue,
+            Integer vacancies,
+            BigDecimal minCgpa,
+            Boolean backlogsAllowed,
+            LocalDate applicationDeadline,
+            LocalDate postedDate,
+            JobStatus status,
+            Boolean isActive,
+            boolean expired) {
+        this(id, company, jobRole, jobType, location, ctcText, ctcValue, vacancies, minCgpa,
+                null, backlogsAllowed, applicationDeadline, postedDate, status, isActive, expired,
+                applicationDeadline == null ? null : java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), applicationDeadline));
+    }
 
     public static JobSummaryResponse from(Job job) {
         if (job == null) {
@@ -46,12 +69,14 @@ public record JobSummaryResponse(
                 job.getCtcValue(),
                 job.getVacancies(),
                 job.getMinCgpa(),
+                job.getMaxCgpa(),
                 job.getBacklogsAllowed(),
                 job.getApplicationDeadline(),
                 job.getPostedDate(),
                 job.getStatus(),
                 job.getIsActive(),
-                job.isExpired()
+                job.isExpired(),
+                job.getDaysRemaining()
         );
     }
 }

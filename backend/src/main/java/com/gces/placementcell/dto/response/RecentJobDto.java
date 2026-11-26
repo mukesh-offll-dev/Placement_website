@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 public class RecentJobDto {
     private Long id;
     private String company;
+    private String logoUrl;
     private String title;
     private String role;
     private String salary;
