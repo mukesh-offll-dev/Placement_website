@@ -575,8 +575,7 @@ export default function JobsPage({ isAdmin = false }) {
       {!loading && !error && filtered.length > 0 && (
         <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
           <p className={isAdmin ? '' : 'hidden sm:block'}>
-            Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
-            {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+            Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)} - {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-1">
             <button
