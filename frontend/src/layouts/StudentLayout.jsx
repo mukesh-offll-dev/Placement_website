@@ -17,7 +17,7 @@ import useUnreadNotifications from '../hooks/useUnreadNotifications';
 import useVerificationStatus from '../components/student/useVerificationStatus';
 
 const breadcrumbMap = {
-  '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Home' }],
+  '/student/dashboard': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Dashboard' }],
   '/student/jobs': [{ label: 'Student', to: '/student/dashboard' }, { label: 'Job Drives' }],
   '/student/applications': [{ label: 'Student', to: '/student/dashboard' }, { label: 'My Applications' }],
   '/student/profile': [{ label: 'Student', to: '/student/dashboard' }, { label: 'My Profile' }],
@@ -86,7 +86,7 @@ export default function StudentLayout() {
   };
 
   return (
-    <div className="student-app-shell min-h-screen bg-[#F4F6FB] flex flex-col md:flex-row antialiased text-[#0F172A] overflow-x-hidden">
+    <div className="student-app-shell min-h-screen bg-gray-50 flex flex-col md:flex-row antialiased text-gray-900 overflow-x-hidden">
       {/* Desktop Sidebar & Optional Mobile Drawer */}
       <StudentSidebar
         mobileOpen={mobileOpen}
@@ -150,65 +150,69 @@ export default function StudentLayout() {
           </div>
         </header>
 
-        {/* Desktop / Tablet Topbar (>= md) */}
-        <header className="hidden md:flex sticky top-0 z-20 bg-[#F4F6FB]/90 backdrop-blur-md border-b border-[#E5E9F2] px-6 lg:px-8 py-3.5 items-center justify-between transition-all">
+        {/* Desktop / Tablet Topbar (>= md): the original portal header */}
+        <header className="hidden md:flex sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-8 py-3.5 items-center justify-between transition-all">
+          {/* Breadcrumbs */}
           <nav className="flex items-center gap-1.5 text-sm" aria-label="Breadcrumb">
             {breadcrumbs.map((item, index) => {
               const isLast = index === breadcrumbs.length - 1;
               return (
                 <div key={index} className="flex items-center gap-1.5">
-                  {index > 0 && <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />}
+                  {index > 0 && <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
                   {item.to && !isLast ? (
                     <Link
                       to={item.to}
-                      className="text-[#64748B] hover:text-[#1D4ED8] font-medium transition-colors"
+                      className="text-gray-500 hover:text-blue-600 font-medium transition-colors"
                     >
                       {item.label}
                     </Link>
                   ) : (
-                    <span className="text-[#0F172A] font-bold">{item.label}</span>
+                    <span className="text-gray-900 font-semibold">{item.label}</span>
                   )}
                 </div>
               );
             })}
           </nav>
 
+          {/* Right: Quick actions & Student Profile */}
           <div className="flex items-center gap-3">
             <Link
               to="/student/jobs"
-              className="inline-flex items-center gap-1.5 bg-[#E0EAFF] hover:bg-[#D2E0FF] text-[#1D4ED8] text-xs font-bold px-3.5 py-2 rounded-[12px] transition-colors"
+              className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border border-blue-200/60"
             >
               <Briefcase className="w-3.5 h-3.5" />
-              Explore Drives
+              Explore Jobs
             </Link>
 
+            {/* Notification bell with unread badge */}
             <Link
               to="/student/notifications"
-              className={`relative w-10 h-10 rounded-[12px] flex items-center justify-center transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${
+              className={`relative p-2 rounded-xl transition-colors ${
                 location.pathname === '/student/notifications'
-                  ? 'bg-[#E0EAFF] text-[#1D4ED8]'
-                  : 'bg-white text-[#0F172A] hover:bg-slate-50'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-600 hover:bg-gray-100'
               }`}
               aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
             >
-              <Bell className="w-5 h-5" strokeWidth={1.8} />
+              <Bell className="w-5 h-5" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#F59E0B] text-white text-[10px] font-bold rounded-full ring-2 ring-[#F4F6FB] flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full ring-2 ring-white flex items-center justify-center">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </Link>
 
+            {/* Student Profile Pill */}
             <Link
               to="/student/profile"
-              className="flex items-center gap-2.5 py-1 px-2 rounded-[14px] hover:bg-white/80 transition-colors"
+              className="flex items-center gap-2.5 pl-2.5 py-1 px-2 rounded-xl hover:bg-gray-100/80 transition-colors"
             >
-              <div className="w-9 h-9 rounded-full bg-[#1D4ED8] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                 {initial}
               </div>
               <div className="text-left">
-                <p className="text-xs font-bold text-[#0F172A] leading-tight">{displayName}</p>
-                <p className="text-[11px] text-[#64748B]">{currentUser?.email || ''}</p>
+                <p className="text-xs font-bold text-gray-900 leading-tight">{displayName}</p>
+                <p className="text-[10px] text-gray-500">{currentUser?.email || ''}</p>
               </div>
             </Link>
 
@@ -217,7 +221,7 @@ export default function StudentLayout() {
               onClick={handleLogout}
               title="Logout"
               aria-label="Logout"
-              className="w-10 h-10 flex items-center justify-center text-[#64748B] hover:text-red-600 hover:bg-red-50 bg-white rounded-[12px] transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.05)] cursor-pointer"
+              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
