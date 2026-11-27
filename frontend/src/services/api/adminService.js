@@ -243,10 +243,23 @@ export const getAllApplications = async (params = {}) => {
  * @param {number|string} id
  * @returns {Promise<Object>} JobApplicationResponse
  */
+/**
+ * Get application details with timeline.
+ * GET /api/admin/applications/{id}
+ * @param {number|string} id
+ * @returns {Promise<Object>} JobApplicationResponse
+ */
 export const getApplicationById = async (id) => {
   const response = await axiosClient.get(`/admin/applications/${id}`);
   return response.data;
 };
+ 
+
+/**
+ * Add interview stage to an application.
+ * POST /admin/applications/{id}/timeline
+ */
+ 
 
 /**
  * Update the status of a job application.
@@ -275,6 +288,17 @@ export const addInterviewStage = async (id, timelineData) => {
 
 /** Alias of addInterviewStage: adds a stage or note to an application's timeline. */
 export const addTimeline = addInterviewStage;
+
+/**
+ * Schedule an interview for an application.
+ * POST /admin/applications/{id}/interview
+ * @param {number|string} id - Application ID
+ * @param {Object} data - interview details payload
+ */
+export const scheduleInterview = async (id, data) => {
+  const response = await axiosClient.post(`/admin/applications/${id}/interview`, data);
+  return response.data;
+};
 
 /**
  * Add a quick note to an application's timeline (stage label defaults to "Admin Note").
@@ -443,7 +467,7 @@ const adminService = {
   getApplications,
   getAllApplications,
   getApplicationById,
-  updateApplicationStatus,
+  scheduleInterview,
   addInterviewStage,
   addTimeline,
   getAdminInfo,

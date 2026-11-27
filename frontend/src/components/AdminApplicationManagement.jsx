@@ -31,7 +31,11 @@ import {
   updateApplicationStatus,
   getApplicationById,
   addTimeline,
+  scheduleInterview,
 } from '../services/api/adminService';
+
+import { getJobs } from '../services/api/jobService';
+import InterviewSchedulingModal from './InterviewSchedulingModal';
 
 const TIMELINE_STATUSES = [
   { value: 'DONE', label: 'Done' },
@@ -180,6 +184,21 @@ export default function AdminApplicationManagement({
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [jobFilter, setJobFilter] = useState('ALL');
+  const [jobs, setJobs] = useState([]);
+
+  // Load jobs for filter dropdown
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const data = await getJobs({ page: 0, size: 1000 });
+        setJobs(data.content || []);
+      } catch (e) {
+        console.error('Failed to load jobs', e);
+      }
+    };
+    fetchJobs();
+  }, []);
 
   // Updating tracking: disable duplicate calls while processing
   const [updatingId, setUpdatingId] = useState(null);
@@ -277,11 +296,28 @@ export default function AdminApplicationManagement({
   };
 
   // Status change initiator with confirmation check
+  // State for interview scheduling modal
+  const [interviewModal, setInterviewModal] = useState({ isOpen: false, application: null });
+
+  const openInterviewModal = (app) => {
+    setInterviewModal({ isOpen: true, application: app });
+  };
+
+  const closeInterviewModal = () => {
+    setInterviewModal({ isOpen: false, application: null });
+  };
+
+  const handleInterviewSuccess = () => {
+    // Refresh list after successful interview scheduling
+    fetchApplications();
+  };
+
+  // Updated status change initiator
   const handleInitiateStatusChange = (application, newStatus) => {
     if (!application || !newStatus) return;
     if (application.status === newStatus) return;
 
-    // Ask confirmation for high-impact terminal stages: SELECTED and REJECTED
+    // Confirmation for SELECTED and REJECTED
     if (newStatus === 'SELECTED' || newStatus === 'REJECTED') {
       setConfirmModal({
         isOpen: true,
@@ -292,7 +328,13 @@ export default function AdminApplicationManagement({
       return;
     }
 
-    // Direct progression for APPLIED, SHORTLISTED, INTERVIEW
+    // Open interview modal for INTERVIEW status
+    if (newStatus === 'INTERVIEW') {
+      openInterviewModal(application);
+      return;
+    }
+
+    // Direct progression for other statuses (APPLIED, SHORTLISTED)
     handleExecuteStatusUpdate(application.id, newStatus);
   };
 
@@ -473,11 +515,10 @@ export default function AdminApplicationManagement({
       {/* Real-time Feedback Banner */}
       {feedback && (
         <div
-          className={`flex items-start justify-between gap-3 p-4 rounded-xl text-xs md:text-sm shadow-xs border transition-all ${
-            feedback.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
-          }`}
+          className={`flex items-start justify-between gap-3 p-4 rounded-xl text-xs md:text-sm shadow-xs border transition-all ${feedback.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}
         >
           <div className="flex items-start gap-2.5">
             {feedback.type === 'success' ? (
@@ -526,11 +567,10 @@ export default function AdminApplicationManagement({
         {/* Total */}
         <button
           onClick={() => setStatusFilter('ALL')}
-          className={`text-left p-3.5 rounded-xl border transition-all ${
-            statusFilter === 'ALL'
-              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-              : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-800'
-          }`}
+          className={`text-left p-3.5 rounded-xl border transition-all ${statusFilter === 'ALL'
+            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+            : 'bg-white hover:bg-gray-50 border-gray-200 text-gray-800'
+            }`}
         >
           <div className="text-[11px] font-medium opacity-80 uppercase tracking-wider">All Applications</div>
           <div className="text-2xl font-black mt-1">{counts.total}</div>
@@ -544,9 +584,8 @@ export default function AdminApplicationManagement({
               type="button"
               onClick={() => setStatusFilter(card.status)}
               aria-pressed={selected}
-              className={`text-left p-3.5 rounded-xl border transition-all ${
-                selected ? `${card.selectedBg} text-white shadow-sm` : `bg-white ${card.hoverBg} border-gray-200 text-gray-800`
-              }`}
+              className={`text-left p-3.5 rounded-xl border transition-all ${selected ? `${card.selectedBg} text-white shadow-sm` : `bg-white ${card.hoverBg} border-gray-200 text-gray-800`
+                }`}
             >
               <div className="flex items-center justify-between">
                 {/* Selected: white text on the stage colour; otherwise stage-coloured text on white. */}
@@ -736,13 +775,12 @@ export default function AdminApplicationManagement({
                             <button
                               onClick={() => handleInitiateStatusChange(app, suggestion.nextStatus)}
                               disabled={isUpdating}
-                              className={`hidden sm:inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all shadow-2xs ${
-                                suggestion.color === 'blue'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                                  : suggestion.color === 'purple'
+                              className={`hidden sm:inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all shadow-2xs ${suggestion.color === 'blue'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                : suggestion.color === 'purple'
                                   ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                                   : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                              } disabled:opacity-50`}
+                                } disabled:opacity-50`}
                               title={`Advance application directly to ${suggestion.nextStatus}`}
                             >
                               {isUpdating ? (
@@ -807,18 +845,16 @@ export default function AdminApplicationManagement({
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div
-              className={`p-5 border-b flex items-start gap-3.5 ${
-                confirmModal.targetStatus === 'SELECTED'
-                  ? 'bg-emerald-50/70 border-emerald-100 text-emerald-900'
-                  : 'bg-rose-50/70 border-rose-100 text-rose-900'
-              }`}
+              className={`p-5 border-b flex items-start gap-3.5 ${confirmModal.targetStatus === 'SELECTED'
+                ? 'bg-emerald-50/70 border-emerald-100 text-emerald-900'
+                : 'bg-rose-50/70 border-rose-100 text-rose-900'
+                }`}
             >
               <div
-                className={`p-2 rounded-xl shrink-0 ${
-                  confirmModal.targetStatus === 'SELECTED'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-rose-100 text-rose-700'
-                }`}
+                className={`p-2 rounded-xl shrink-0 ${confirmModal.targetStatus === 'SELECTED'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-rose-100 text-rose-700'
+                  }`}
               >
                 {confirmModal.targetStatus === 'SELECTED' ? (
                   <UserCheck className="w-5 h-5" />
@@ -916,11 +952,10 @@ export default function AdminApplicationManagement({
               <button
                 type="button"
                 onClick={handleConfirmModalSubmit}
-                className={`px-4 py-2 text-xs font-bold text-white rounded-xl shadow-xs transition-colors flex items-center gap-1.5 ${
-                  confirmModal.targetStatus === 'SELECTED'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
-                }`}
+                className={`px-4 py-2 text-xs font-bold text-white rounded-xl shadow-xs transition-colors flex items-center gap-1.5 ${confirmModal.targetStatus === 'SELECTED'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
               >
                 <span>Confirm {formatStatusLabel(confirmModal.targetStatus)}</span>
               </button>
@@ -1035,9 +1070,8 @@ export default function AdminApplicationManagement({
                     {sortTimeline(detailModal.data.timeline).map((stage, idx) => (
                       <div key={stage.id || idx} className="relative pl-8 flex items-start gap-2">
                         <div
-                          className={`absolute left-2 top-1 w-3.5 h-3.5 -translate-x-1/2 rounded-full ring-4 ${
-                            TIMELINE_DOT[stage.status] || TIMELINE_DOT.UPCOMING
-                          }`}
+                          className={`absolute left-2 top-1 w-3.5 h-3.5 -translate-x-1/2 rounded-full ring-4 ${TIMELINE_DOT[stage.status] || TIMELINE_DOT.UPCOMING
+                            }`}
                         />
                         <div className="flex-1 bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
                           <div className="flex items-center justify-between gap-2">
@@ -1158,6 +1192,14 @@ export default function AdminApplicationManagement({
             </div>
           </div>
         </div>
+      )}
+      {interviewModal.isOpen && interviewModal.application && (
+        <InterviewSchedulingModal
+          isOpen={interviewModal.isOpen}
+          application={interviewModal.application}
+          onClose={closeInterviewModal}
+          onSuccess={handleInterviewSuccess}
+        />
       )}
     </div>
   );

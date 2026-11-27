@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { jobService } from '../services/api';
+import studentService from '../services/api/studentService';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { JobCardSkeleton } from '../components/Skeleton';
@@ -69,7 +70,151 @@ const formatJobType = (type) => {
   }
 };
 
-// Last list seen per portal. Revisiting the page shows it instantly while a fresh copy loads
+// Filter state
+  const [filterCompany, setFilterCompany] = useState('');
+
+
+  // Load student's applications to know which jobs are applied
+  useEffect(() => {
+    if (!isAdmin) {
+      (async () => {
+        try {
+          const apps = await studentService.getMyApplications();
+          const ids = new Set(apps.map((a) => a.jobId || a.job?.id));
+          setAppliedJobIds(ids);
+        } catch (e) {
+          console.error('Failed to load applications', e);
+        }
+      })();
+    }
+  }, [isAdmin]);
+
+  // Filtering logic
+  const filtered = jobs.filter((job) => {
+    if (filterCompany && !job.company.toLowerCase().includes(filterCompany.toLowerCase())) return false;
+    if (filterRole && !job.role.toLowerCase().includes(filterRole.toLowerCase())) return false;
+    if (filterLocation && !job.location.toLowerCase().includes(filterLocation.toLowerCase())) return false;
+    if (filterType && job.type !== filterType) return false;
+    // Salary parsing – assume ctc format like "10 LPA" or numeric string
+    if (salaryMin) {
+      const num = parseFloat(job.ctc);
+      if (isNaN(num) || num < parseFloat(salaryMin)) return false;
+    }
+    if (salaryMax) {
+      const num = parseFloat(job.ctc);
+      if (isNaN(num) || num > parseFloat(salaryMax)) return false;
+    }
+    if (cgpaMin) {
+      const cg = parseFloat(job.cgpa);
+      if (isNaN(cg) || cg < parseFloat(cgpaMin)) return false;
+    }
+    if (applicationStatusFilter !== 'all') {
+      const isApplied = appliedJobIds.has(job.id);
+      if (applicationStatusFilter === 'applied' && !isApplied) return false;
+      if (applicationStatusFilter === 'not_applied' && isApplied) return false;
+    }
+    return true;
+  });
+
+  // UI for filter panel (basic)
+  const renderFilterPanel = () => (
+    <div className="bg-[#F9FAFB] p-4 rounded-md mb-4 border border-[#E5E7EB]">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <input
+          type="text"
+          placeholder="Company"
+          value={filterCompany}
+          onChange={(e) => setFilterCompany(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <input
+          type="text"
+          placeholder="Role"
+          value={filterRole}
+          onChange={(e) => setFilterRole(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <input
+          type="text"
+          placeholder="Location"
+          value={filterLocation}
+          onChange={(e) => setFilterLocation(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
+          <option value="">All Types</option>
+          <option value="FULL_TIME">Full Time</option>
+          <option value="INTERNSHIP">Internship</option>
+          <option value="PART_TIME">Part Time</option>
+          <option value="CONTRACT">Contract</option>
+        </select>
+        <input
+          type="number"
+          placeholder="Salary Min (LPA)"
+          value={salaryMin}
+          onChange={(e) => setSalaryMin(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <input
+          type="number"
+          placeholder="Salary Max (LPA)"
+          value={salaryMax}
+          onChange={(e) => setSalaryMax(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <input
+          type="number"
+          step="0.01"
+          placeholder="CGPA Min"
+          value={cgpaMin}
+          onChange={(e) => setCgpaMin(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+        <select
+          value={applicationStatusFilter}
+          onChange={(e) => setApplicationStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
+          <option value="all">All Applications</option>
+          <option value="applied">Applied</option>
+          <option value="not_applied">Not Applied</option>
+        </select>
+      </div>
+      <div className="flex space-x-2 mt-3">
+        <button
+          onClick={() => {
+            // Apply – already reactive via state, just force re‑render
+            setPage(1);
+          }}
+          className="bg-blue-600 text-white px-3 py-1 rounded"
+        >Apply Filters</button>
+        <button
+          onClick={() => {
+            setFilterCompany('');
+            setFilterRole('');
+            setFilterLocation('');
+            setFilterType('');
+            setSalaryMin('');
+            setSalaryMax('');
+            setCgpaMin('');
+            setApplicationStatusFilter('all');
+            setPage(1);
+          }}
+          className="bg-gray-300 px-3 py-1 rounded"
+        >Clear</button>
+      </div>
+    </div>
+  );
+
+  // Replace original jobs rendering with filtered slice
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Update job count display to use filtered.length
+
 // in the background, which hides most of the database latency.
 const jobsCache = new Map();
 
@@ -426,7 +571,41 @@ export default function JobsPage({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Pagination */
+      {!loading && !error && filtered.length > 0 && (
+        <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
+          <p className={isAdmin ? '' : 'hidden sm:block'}>
+            Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–
+            {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+              className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: Math.ceil(filtered.length / PAGE_SIZE) }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`w-8 h-8 rounded text-sm ${page === p ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              disabled={page === Math.ceil(filtered.length / PAGE_SIZE)}
+              onClick={() => setPage(page + 1)}
+              className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+}
       {!loading && !error && filtered.length > 0 && (
         <div className="flex justify-between items-center mt-5 text-sm text-gray-500">
           <p className={isAdmin ? '' : 'hidden sm:block'}>
