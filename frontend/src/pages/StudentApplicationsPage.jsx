@@ -46,10 +46,10 @@ const STATUS_CONFIG = {
 
 /** Tracker tabs; the active one is kept in ?tab= (default = In progress). */
 const TABS = [
-  { value: 'IN_PROGRESS', label: 'In progress', countKey: 'inProgress' },
+  { value: 'ALL', label: 'All', countKey: 'total' },
+  { value: 'IN_PROGRESS', label: 'Active', countKey: 'inProgress' },
   { value: 'OFFERS', label: 'Offers', countKey: 'offers' },
   { value: 'CLOSED', label: 'Closed', countKey: 'closed' },
-  { value: 'ALL', label: 'All', countKey: 'total' },
 ];
 const TAB_VALUES = new Set(TABS.map((t) => t.value));
 const TAB_LABELS = Object.fromEntries(TABS.map((t) => [t.value, t.label]));
@@ -479,6 +479,13 @@ export default function StudentApplicationsPage() {
                       className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                     />
                   </button>
+                  <Link
+                    to={`/student/applications/${application.id}`}
+                    className="flex items-center gap-1 text-blue-600 text-sm hover:underline shrink-0"
+                  >
+                    View Timeline
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
                   </div>
                 </div>
 

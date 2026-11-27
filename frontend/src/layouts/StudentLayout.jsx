@@ -63,6 +63,13 @@ export default function StudentLayout() {
     if (breadcrumbMap[location.pathname]) {
       return breadcrumbMap[location.pathname];
     }
+    if (location.pathname.startsWith('/student/applications/')) {
+      return [
+        { label: 'Student', to: '/student/dashboard' },
+        { label: 'My Applications', to: '/student/applications' },
+        { label: 'Application Timeline' },
+      ];
+    }
     if (location.pathname.startsWith('/student/jobs/')) {
       return [
         { label: 'Student', to: '/student/dashboard' },
@@ -98,7 +105,7 @@ export default function StudentLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile App Header (< md) — inspired directly by Page 2 */}
-        <header className="md:hidden sticky top-0 z-20 bg-[#F4F6FB]/95 backdrop-blur-md px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-2">
+        <header className="md:hidden sticky top-0 z-20 bg-[#F8F9FC]/95 backdrop-blur-md px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
             <Link
               to="/student/profile"

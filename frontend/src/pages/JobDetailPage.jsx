@@ -10,6 +10,7 @@ import {
   Briefcase,
   Users,
   CheckCircle,
+  FileText,
   Calendar,
   Building2,
   Share2,
@@ -18,9 +19,11 @@ import {
   X,
   AlertTriangle,
   Loader2,
+  UploadCloud,
 } from 'lucide-react';
 import { jobService } from '../services/api';
 import { submitApplication, getMyApplications, getProfile } from '../services/api/studentService.js';
+import { getResume, formatFileSize } from '../services/api/fileService.js';
 import EmptyState from '../components/EmptyState';
 import { JobDetailSkeleton } from '../components/Skeleton';
 import { toastSuccess, toastInfo, toastError } from '../utils/toast';
@@ -131,6 +134,9 @@ export default function JobDetailPage() {
   const [applyForm, setApplyForm] = useState({ coverLetter: '', consent: false });
   const [submittingApplication, setSubmittingApplication] = useState(false);
   const [applicationError, setApplicationError] = useState('');
+  const [resume, setResume] = useState(null);
+  const [resumeState, setResumeState] = useState('idle');
+  const [resumeError, setResumeError] = useState('');
 
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -192,16 +198,48 @@ export default function JobDetailPage() {
 
   const openApply = async () => {
     setApplicationError('');
+    setResumeError('');
     setApplyStep(1);
     setShowApply(true);
-    if (profileState === 'success' || profileState === 'loading') return;
-    setProfileState('loading');
+
+    let profileData = profile;
+    if (!profileData) {
+      setProfileState('loading');
+    }
     try {
-      const data = await getProfile();
-      setProfile(data || null);
-      setProfileState(data ? 'success' : 'error');
-    } catch {
+      if (!profileData) {
+        profileData = await getProfile();
+        setProfile(profileData || null);
+      }
+      setProfileState(profileData ? 'success' : 'error');
+    } catch (error) {
       setProfileState('error');
+      setResumeState('error');
+      setResumeError(error?.message || 'Unable to load your profile. Update your profile before attaching a resume.');
+      return;
+    }
+
+    if (!profileData?.id) {
+      setResume(null);
+      setResumeState('error');
+      setResumeError('Your student profile is missing an ID. Please contact the placement cell.');
+      return;
+    }
+
+    setResumeState('loading');
+    try {
+      const resumeData = await getResume(profileData.id);
+      setResume(resumeData || null);
+      setResumeState(resumeData ? 'success' : 'empty');
+    } catch (error) {
+      if (error?.status === 404) {
+        setResume(null);
+        setResumeState('empty');
+      } else {
+        setResume(null);
+        setResumeState('error');
+        setResumeError(error?.message || 'Unable to load your resume details.');
+      }
     }
   };
 
@@ -229,7 +267,7 @@ export default function JobDetailPage() {
       const created = await submitApplication({
         jobId: Number(job.id),
         coverLetter: applyForm.coverLetter.trim() || null,
-        resumeUrl: null,
+        resumeUrl: resume?.resumeUrl || profile?.resumeUrl || null,
         consentGiven: applyForm.consent,
       });
       setExistingApplication(created && typeof created === 'object' ? created : { status: 'APPLIED' });
@@ -876,32 +914,63 @@ export default function JobDetailPage() {
 
       {/* ── Apply Modal ── */}
       {showApply && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#20243A]/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeApply();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="apply-sheet-title"
+            className="flex max-h-[94dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:rounded-[24px]"
+          >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h3 className="font-bold text-gray-900">Apply — {job.company}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{job.role} · {job.location}</p>
+            <div className="flex items-center justify-between gap-3 border-b border-[#ECECF4] px-5 py-4 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[#F4F2FF] text-sm font-extrabold text-[#3563E9]">
+                  {job.logo}
+                  {job.logoUrl && (
+                    <img
+                      src={job.logoUrl}
+                      alt={`${job.company} logo`}
+                      className="absolute inset-0 h-full w-full bg-white object-contain"
+                      onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 id="apply-sheet-title" className="truncate font-extrabold text-[#20243A]">
+                    Apply to {job.company}
+                  </h3>
+                  <p className="mt-0.5 truncate text-xs text-[#777B90]">{job.role} · {job.location}</p>
+                </div>
               </div>
-              <button onClick={closeApply} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-                <X className="w-5 h-5 text-gray-500" />
+              <button
+                type="button"
+                onClick={closeApply}
+                aria-label="Close application form"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#777B90] transition hover:bg-[#F4F2FF] hover:text-[#20243A]"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Step indicator */}
-            <div className="flex px-6 pt-4 gap-2">
+            <div className="flex gap-2 px-5 pt-4 sm:px-6">
               {['Review Profile', 'Confirm & Submit'].map((s, i) => (
                 <div key={s} className="flex-1">
-                  <div className={`h-1 rounded-full ${applyStep > i ? 'bg-blue-600' : 'bg-gray-200'}`} />
-                  <p className={`text-xs mt-1 ${applyStep === i + 1 ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>{s}</p>
+                  <div className={`h-1 rounded-full ${applyStep > i ? 'bg-[#3563E9]' : 'bg-[#E8E8F0]'}`} />
+                  <p className={`mt-1 text-xs ${applyStep === i + 1 ? 'font-semibold text-[#3563E9]' : 'text-[#9A9CAE]'}`}>{s}</p>
                 </div>
               ))}
             </div>
 
-            <form onSubmit={handleApply} className="px-6 py-4 space-y-4">
+            <form onSubmit={handleApply} className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="space-y-4">
               {applicationError && (
-                <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3" role="alert">
+                <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
                   {applicationError}
                 </p>
               )}
@@ -962,24 +1031,79 @@ export default function JobDetailPage() {
                 </>
               ) : (
                 <>
+                  <section className="rounded-2xl border border-[#E8E7F5] bg-[#F8F9FC] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-bold text-[#20243A]">Resume</h4>
+                        <p className="mt-1 text-xs text-[#777B90]">Your verified resume is sent with this application.</p>
+                      </div>
+                      {resumeState === 'success' && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                          <CheckCircle className="h-3 w-3" /> Selected
+                        </span>
+                      )}
+                    </div>
+                    {resumeState === 'loading' ? (
+                      <p className="mt-3 flex items-center gap-2 text-sm text-[#777B90]" role="status">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Checking your resume…
+                      </p>
+                    ) : resume ? (
+                      <div className="mt-3 flex items-center gap-3 rounded-xl bg-white p-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF1FF] text-[#3563E9]">
+                          <FileText className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-[#20243A]">
+                            {resume.fileName || 'Resume.pdf'}
+                          </p>
+                          <p className="text-xs text-[#777B90]">
+                            {resume.fileSize ? formatFileSize(resume.fileSize) : 'Uploaded resume'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 rounded-xl bg-white px-3 py-2.5 text-sm text-[#777B90]">
+                        No verified resume yet. You can apply without one, or add it in My Profile (your advisor verifies it).
+                      </p>
+                    )}
+                    {resumeError && (
+                      <p className="mt-2 text-xs font-medium text-red-700" role="alert">{resumeError}</p>
+                    )}
+                    {/* Resumes change only through the verified profile (the backend refuses a direct
+                        student upload), so send the student there instead of uploading here. */}
+                    <Link
+                      to="/student/profile"
+                      className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#D8DDF8] bg-white px-3.5 text-xs font-bold text-[#3563E9] transition hover:bg-[#F4F2FF]"
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                      {resume ? 'Update resume in My Profile' : 'Add resume in My Profile'}
+                    </Link>
+                  </section>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cover Letter (optional)</label>
+                    <label htmlFor="application-cover-note" className="mb-1.5 block text-sm font-bold text-[#20243A]">
+                      Cover note <span className="font-medium text-[#9A9CAE]">(optional)</span>
+                    </label>
                     <textarea
+                      id="application-cover-note"
                       rows={4}
                       placeholder="Why are you interested in this role at this company?"
                       value={applyForm.coverLetter}
                       onChange={(e) => setApplyForm((f) => ({ ...f, coverLetter: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      maxLength={4000}
+                      className="w-full resize-none rounded-xl border border-[#E3E4ED] px-4 py-3 text-sm text-[#20243A] placeholder:text-[#9A9CAE] transition focus:border-[#3563E9] focus:outline-none focus:ring-2 focus:ring-[#3563E9]/15"
                     />
+                    <p className="mt-1 text-right text-[11px] text-[#9A9CAE]">
+                      {applyForm.coverLetter.length}/4000
+                    </p>
                   </div>
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2.5 rounded-xl bg-[#F8F9FC] p-3.5">
                     <input
                       type="checkbox"
                       id="consent"
                       checked={applyForm.consent}
                       onChange={(e) => setApplyForm((f) => ({ ...f, consent: e.target.checked }))}
                       required
-                      className="mt-0.5 accent-blue-600"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[#3563E9]"
                     />
                     <label htmlFor="consent" className="text-xs text-gray-600">
                       I confirm that all information in my profile is accurate and I meet the eligibility requirements for this position.
@@ -988,18 +1112,21 @@ export default function JobDetailPage() {
                 </>
               )}
 
-              <div className="flex gap-3 pt-1">
+              </div>
+              <div className="mt-5 flex gap-3 border-t border-[#ECECF4] bg-white pt-4">
                 {applyStep === 2 && (
-                  <button type="button" onClick={() => setApplyStep(1)} className="flex-1 border border-gray-300 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+                  <button type="button" onClick={() => setApplyStep(1)} className="min-h-11 flex-1 rounded-xl border border-[#E3E4ED] text-sm font-bold text-[#60657B] transition hover:bg-[#F8F9FC]">
                     Back
                   </button>
                 )}
                 <button
                   type="submit"
-                  disabled={submittingApplication || (applyStep === 1 && profileState === 'loading')}
-                  className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={submittingApplication || (applyStep === 1 && profileState === 'loading') || (applyStep === 2 && !applyForm.consent)}
+                  className="flex-1 rounded-xl bg-[#3563E9] py-3 text-sm font-bold text-white transition hover:bg-[#2448B8] disabled:cursor-not-allowed disabled:opacity-55"
                 >
-                  {submittingApplication ? 'Submitting…' : applyStep === 1 ? 'Continue →' : 'Submit Application'}
+                  {submittingApplication ? (
+                    <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</span>
+                  ) : applyStep === 1 ? 'Continue' : 'Submit Application'}
                 </button>
               </div>
             </form>

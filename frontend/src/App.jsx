@@ -33,6 +33,7 @@ import StudentProfile from './pages/StudentProfile';
 import AddProjectPage from './pages/AddProjectPage';
 import StudentVerificationPage from './pages/StudentVerificationPage';
 import StudentApplicationsPage from './pages/StudentApplicationsPage';
+import ApplicationTimelinePage from './pages/ApplicationTimelinePage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import ProtectedRoute from './components/ProtectedRoute';
@@ -168,6 +169,7 @@ export default function App() {
           <Route path="/student/add-project" element={<AddProjectPage />} />
           <Route path="/student/jobs/:id" element={<JobDetailPage />} />
           <Route path="/student/applications" element={<StudentApplicationsPage />} />
+          <Route path="/student/applications/:applicationId" element={<ApplicationTimelinePage />} />
           <Route path="/student/notifications" element={<NotificationsPage />} />
           <Route path="/student/verification" element={<StudentVerificationPage />} />
         </Route>
