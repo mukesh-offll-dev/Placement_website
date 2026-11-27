@@ -84,6 +84,12 @@ export default function StudentLayout() {
   const displayName = currentUser?.fullName || 'Student';
   const initial = displayName.trim() ? displayName.trim()[0].toUpperCase() : 'S';
   const isHome = location.pathname === '/student/dashboard';
+  const hideMobileHeader =
+    location.pathname === '/student/profile' || location.pathname === '/student/verification';
+  const isProfileSectionRoute =
+    location.pathname === '/student/profile' ||
+    location.pathname === '/student/verification' ||
+    location.pathname === '/student/add-project';
   const pageTitle = breadcrumbs[breadcrumbs.length - 1]?.label || 'Portal';
 
   const handleLogout = () => {
@@ -104,8 +110,9 @@ export default function StudentLayout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile App Header (< md) — inspired directly by Page 2 */}
-        <header className="md:hidden sticky top-0 z-20 bg-[#F8F9FC]/95 backdrop-blur-md px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-2">
+        {/* Mobile App Header (< md) — hidden on Profile & Verification where custom mobile headers are rendered */}
+        {!hideMobileHeader && (
+          <header className="md:hidden sticky top-0 z-20 bg-[#F8F9FC]/95 backdrop-blur-md px-4 pt-3.5 pb-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
             <Link
               to="/student/profile"
@@ -155,7 +162,8 @@ export default function StudentLayout() {
               <Menu className="w-5 h-5" strokeWidth={1.8} />
             </button>
           </div>
-        </header>
+          </header>
+        )}
 
         {/* Desktop / Tablet Topbar (>= md): the original portal header */}
         <header className="hidden md:flex sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-8 py-3.5 items-center justify-between transition-all">
@@ -250,27 +258,31 @@ export default function StudentLayout() {
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-1 py-0.5 text-[11px] transition-colors ${
-                isActive ? 'text-[#1D4ED8] font-bold' : 'text-[#64748B] font-semibold'
-              }`
-            }
+            className={({ isActive }) => {
+              const active = isActive || (to === '/student/profile' && isProfileSectionRoute);
+              return `flex flex-col items-center justify-center gap-1 py-0.5 text-[11px] transition-colors ${
+                active ? 'text-[#1D4ED8] font-bold' : 'text-[#64748B] font-semibold'
+              }`;
+            }}
           >
-            {({ isActive }) => (
-              <>
-                <span
-                  className={`relative w-[52px] h-[30px] rounded-[15px] flex items-center justify-center transition-colors ${
-                    isActive ? 'bg-[#E0EAFF] text-[#1D4ED8]' : 'bg-transparent'
-                  }`}
-                >
-                  <NavIcon className="w-[21px] h-[21px]" strokeWidth={isActive ? 2.1 : 1.8} aria-hidden="true" />
-                  {showUnread && unreadCount > 0 && (
-                    <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-[#F59E0B] ring-2 ring-white" />
-                  )}
-                </span>
-                <span className="leading-none">{label}</span>
-              </>
-            )}
+            {({ isActive }) => {
+              const active = isActive || (to === '/student/profile' && isProfileSectionRoute);
+              return (
+                <>
+                  <span
+                    className={`relative w-[52px] h-[30px] rounded-[15px] flex items-center justify-center transition-colors ${
+                      active ? 'bg-[#E0EAFF] text-[#1D4ED8]' : 'bg-transparent'
+                    }`}
+                  >
+                    <NavIcon className="w-[21px] h-[21px]" strokeWidth={active ? 2.1 : 1.8} aria-hidden="true" />
+                    {showUnread && unreadCount > 0 && (
+                      <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-[#F59E0B] ring-2 ring-white" />
+                    )}
+                  </span>
+                  <span className="leading-none">{label}</span>
+                </>
+              );
+            }}
           </NavLink>
         ))}
       </nav>
