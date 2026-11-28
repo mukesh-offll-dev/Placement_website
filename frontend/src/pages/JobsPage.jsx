@@ -12,12 +12,16 @@ import {
   RotateCw,
   Pencil,
   Trash2,
+  SlidersHorizontal,
+  CheckCircle2,
 } from 'lucide-react';
 import { jobService } from '../services/api';
+import studentService from '../services/api/studentService';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { JobCardSkeleton } from '../components/Skeleton';
 import { toastError, toastSuccess } from '../utils/toast';
+import { getCtcInLpa } from '../utils/jobFilterUtils';
 
 const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 
@@ -77,6 +81,13 @@ export default function JobsPage({ isAdmin = false }) {
   const cacheKey = isAdmin ? 'admin' : 'student';
   const [search, setSearch] = useState('');
   const [mobileFilter, setMobileFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState('');
+  const [salaryMin, setSalaryMin] = useState('');
+  const [salaryMax, setSalaryMax] = useState('');
+  const [cgpaMin, setCgpaMin] = useState('');
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState('all');
+  const [appliedJobIds, setAppliedJobIds] = useState(() => new Set());
   const [page, setPage] = useState(1);
   const [jobs, setJobs] = useState(() => jobsCache.get(cacheKey) || []);
   const [loading, setLoading] = useState(() => !jobsCache.has(cacheKey));
@@ -161,16 +172,69 @@ export default function JobsPage({ isAdmin = false }) {
     return () => controller.abort();
   }, [fetchJobs]);
 
+  useEffect(() => {
+    if (isAdmin) return;
+    const controller = new AbortController();
+    studentService
+      .getMyApplications({ signal: controller.signal })
+      .then((apps) => {
+        if (!Array.isArray(apps)) return;
+        const ids = new Set(apps.map((a) => a.job?.id ?? a.jobId).filter(Boolean));
+        setAppliedJobIds(ids);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [isAdmin]);
+
+  const activeAdvancedFilterCount =
+    (filterType ? 1 : 0) +
+    (salaryMin !== '' ? 1 : 0) +
+    (salaryMax !== '' ? 1 : 0) +
+    (cgpaMin !== '' ? 1 : 0) +
+    (!isAdmin && applicationStatusFilter !== 'all' ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setMobileFilter('all');
+    setFilterType('');
+    setSalaryMin('');
+    setSalaryMax('');
+    setCgpaMin('');
+    setApplicationStatusFilter('all');
+    setPage(1);
+  };
+
   const filtered = jobs.filter((j) => {
     const q = search.toLowerCase();
     const matchesSearch =
       j.company.toLowerCase().includes(q) ||
       j.role.toLowerCase().includes(q) ||
       j.location.toLowerCase().includes(q);
-    if (!matchesSearch || isAdmin) return matchesSearch;
-    if (mobileFilter === 'open') return j.status === 'Open' || j.status === 'Closing Soon';
-    if (mobileFilter === 'closing') return j.status === 'Closing Soon';
-    if (mobileFilter === 'internship') return j.type === 'Internship';
+    if (!matchesSearch) return false;
+
+    if (filterType && j.raw?.jobType !== filterType) return false;
+
+    if (salaryMin !== '' || salaryMax !== '') {
+      const lpa = getCtcInLpa(j);
+      if (lpa === null) return false;
+      if (salaryMin !== '' && lpa < Number(salaryMin)) return false;
+      if (salaryMax !== '' && lpa > Number(salaryMax)) return false;
+    }
+
+    if (cgpaMin !== '') {
+      const minCg = Number(j.raw?.minCgpa);
+      if (!Number.isFinite(minCg) || minCg < Number(cgpaMin)) return false;
+    }
+
+    if (!isAdmin) {
+      if (mobileFilter === 'open' && j.status !== 'Open' && j.status !== 'Closing Soon') return false;
+      if (mobileFilter === 'closing' && j.status !== 'Closing Soon') return false;
+      if (mobileFilter === 'internship' && j.type !== 'Internship') return false;
+
+      if (applicationStatusFilter === 'applied' && !appliedJobIds.has(j.id)) return false;
+      if (applicationStatusFilter === 'not_applied' && appliedJobIds.has(j.id)) return false;
+    }
+
     return true;
   });
 
@@ -220,24 +284,132 @@ export default function JobsPage({ isAdmin = false }) {
       <p className="text-[#475569] text-sm mb-5">Browse active campus recruitment drives.</p>
 
       {/* Search & Filter */}
-      <div className="bg-white rounded-[20px] p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] mb-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
-          <input
-            type="text"
-            placeholder="Search company, role, or location..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full h-[46px] pl-10 pr-4 border-[1.5px] border-[#E2E8F0] rounded-[14px] text-[15px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1D4ED8] focus:bg-[#F8FAFF] transition-all"
-          />
+      <div className="bg-white rounded-[20px] p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] mb-5 space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B]" />
+            <input
+              type="text"
+              placeholder="Search company, role, or location..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full h-[46px] pl-10 pr-4 border-[1.5px] border-[#E2E8F0] rounded-[14px] text-[15px] text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1D4ED8] focus:bg-[#F8FAFF] transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              aria-expanded={showFilters}
+              className={`h-[46px] inline-flex items-center gap-2 px-3.5 rounded-[14px] border text-sm font-semibold transition-colors ${
+                showFilters || activeAdvancedFilterCount > 0
+                  ? 'bg-[#EEF2FF] text-[#1D4ED8] border-[#C7D2FE]'
+                  : 'bg-white text-[#334155] border-[#E2E8F0] hover:bg-[#F8FAFC]'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Filters</span>
+              {activeAdvancedFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-[#1D4ED8] text-white text-[11px] font-bold">
+                  {activeAdvancedFilterCount}
+                </span>
+              )}
+            </button>
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#475569] bg-[#F4F6FB] px-3.5 py-2.5 rounded-[12px]">
+              <Filter className="w-3.5 h-3.5 text-[#1D4ED8]" />
+              <span>{filtered.length} drives found</span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-[#475569] bg-[#F4F6FB] px-3.5 py-2.5 rounded-[12px] shrink-0">
-          <Filter className="w-3.5 h-3.5 text-[#1D4ED8]" />
-          <span>{filtered.length} drives found</span>
-        </div>
+
+        {showFilters && (
+          <div className="pt-3 border-t border-[#E2E8F0] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <select
+              aria-label="Filter by job type"
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(e.target.value);
+                setPage(1);
+              }}
+              className="h-10 px-3 border border-[#E2E8F0] rounded-[12px] text-sm text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#1D4ED8]"
+            >
+              <option value="">All Job Types</option>
+              <option value="FULL_TIME">Full Time</option>
+              <option value="INTERNSHIP">Internship</option>
+              <option value="PART_TIME">Part Time</option>
+              <option value="CONTRACT">Contract</option>
+            </select>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              aria-label="Minimum salary in LPA"
+              placeholder="Min CTC (LPA)"
+              value={salaryMin}
+              onChange={(e) => {
+                setSalaryMin(e.target.value);
+                setPage(1);
+              }}
+              className="h-10 px-3 border border-[#E2E8F0] rounded-[12px] text-sm text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#1D4ED8]"
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              aria-label="Maximum salary in LPA"
+              placeholder="Max CTC (LPA)"
+              value={salaryMax}
+              onChange={(e) => {
+                setSalaryMax(e.target.value);
+                setPage(1);
+              }}
+              className="h-10 px-3 border border-[#E2E8F0] rounded-[12px] text-sm text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#1D4ED8]"
+            />
+            <input
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              aria-label="Minimum CGPA requirement"
+              placeholder="Min CGPA"
+              value={cgpaMin}
+              onChange={(e) => {
+                setCgpaMin(e.target.value);
+                setPage(1);
+              }}
+              className="h-10 px-3 border border-[#E2E8F0] rounded-[12px] text-sm text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#1D4ED8]"
+            />
+            <div className="flex items-center gap-2">
+              {!isAdmin && (
+                <select
+                  aria-label="Filter by application status"
+                  value={applicationStatusFilter}
+                  onChange={(e) => {
+                    setApplicationStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="flex-1 h-10 px-3 border border-[#E2E8F0] rounded-[12px] text-sm text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#1D4ED8]"
+                >
+                  <option value="all">All Drives</option>
+                  <option value="applied">Applied</option>
+                  <option value="not_applied">Not Applied</option>
+                </select>
+              )}
+              {activeAdvancedFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="h-10 px-3 rounded-[12px] text-xs font-semibold text-[#1D4ED8] bg-[#EEF2FF] hover:bg-[#E0E7FF] transition-colors shrink-0"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status chips (students): one search box above serves every screen size. */}
@@ -290,22 +462,18 @@ export default function JobsPage({ isAdmin = false }) {
 
       {/* Empty State / Search Not Found */}
       {!loading && !error && filtered.length === 0 && (
-        search.trim() || (!isAdmin && mobileFilter !== 'all') ? (
+        search.trim() || (!isAdmin && mobileFilter !== 'all') || activeAdvancedFilterCount > 0 ? (
           <EmptyState
             type="search"
             title="No matching job drives found"
             description={
               search.trim()
-                ? `We couldn't find any job drives matching "${search}". Try adjusting your keywords or clearing the search.`
-                : 'No drives match this filter. Choose another filter to see more opportunities.'
+                ? `We couldn't find any job drives matching "${search}". Try adjusting your keywords or clearing the filters.`
+                : 'No drives match these filters. Choose another filter to see more opportunities.'
             }
             action={{
-              label: search.trim() ? 'Clear Search' : 'Clear Filter',
-              onClick: () => {
-                setSearch('');
-                setMobileFilter('all');
-                setPage(1);
-              },
+              label: 'Clear Filters',
+              onClick: clearAllFilters,
               icon: RotateCw,
             }}
           />
@@ -363,17 +531,24 @@ export default function JobsPage({ isAdmin = false }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="font-bold text-[16px] text-[#0F172A] truncate">{job.role}</h3>
-                      <span
-                        className={`text-[11px] px-2.5 py-1 rounded-full font-bold shrink-0 ${
-                          job.status === 'Closing Soon' || job.status === 'Expired'
-                            ? 'bg-[#FEF3C7] text-[#B45309]'
-                            : job.status === 'Draft' || job.status === 'Closed'
-                              ? 'bg-slate-100 text-[#475569]'
-                              : 'bg-[#ECFDF5] text-[#047857]'
-                        }`}
-                      >
-                        {job.status}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isAdmin && appliedJobIds.has(job.id) && (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full font-bold bg-[#EEF2FF] text-[#1D4ED8]">
+                            <CheckCircle2 className="w-3 h-3" /> Applied
+                          </span>
+                        )}
+                        <span
+                          className={`text-[11px] px-2.5 py-1 rounded-full font-bold ${
+                            job.status === 'Closing Soon' || job.status === 'Expired'
+                              ? 'bg-[#FEF3C7] text-[#B45309]'
+                              : job.status === 'Draft' || job.status === 'Closed'
+                                ? 'bg-slate-100 text-[#475569]'
+                                : 'bg-[#ECFDF5] text-[#047857]'
+                          }`}
+                        >
+                          {job.status}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-[#475569] text-[13px] font-medium mt-0.5 truncate">
                       {job.company} · {job.location}

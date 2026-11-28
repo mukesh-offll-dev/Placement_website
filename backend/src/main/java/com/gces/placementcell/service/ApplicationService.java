@@ -219,7 +219,11 @@ public class ApplicationService {
         application.setCurrentRound(round);
         application.setReviewedBy(reviewer);
         application.setRemarks(request.remarks());
-        addTimeline(application, stage, LocalDate.now(), TimelineStatus.DONE, request.remarks(), reviewer);
+        LocalDate stageDate = request.stageDate() != null ? request.stageDate() : LocalDate.now();
+        TimelineStatus timelineStatus = (request.status() == ApplicationStatus.INTERVIEW && request.stageDate() != null)
+                ? TimelineStatus.UPCOMING
+                : TimelineStatus.DONE;
+        addTimeline(application, stage, stageDate, timelineStatus, request.remarks(), reviewer);
 
         // If the application is SELECTED, also update the student profile's placement details if not already placed
         if (request.status() == ApplicationStatus.SELECTED && application.getStudentProfile() != null) {

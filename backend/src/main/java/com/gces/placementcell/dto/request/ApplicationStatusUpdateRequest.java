@@ -4,6 +4,8 @@ import com.gces.placementcell.entity.enums.ApplicationStatus;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDate;
+
 /**
  * Moves an application to a new status during shortlisting.
  *
@@ -21,6 +23,16 @@ public record ApplicationStatusUpdateRequest(
         Long currentRoundId,
 
         @Size(max = 255, message = "Remarks cannot exceed 255 characters")
-        String remarks
+        String remarks,
+
+        LocalDate stageDate
 ) {
+    /** Keeps 4-argument callers and tests working when no explicit stageDate is supplied. */
+    public ApplicationStatusUpdateRequest(
+            ApplicationStatus status,
+            String currentStage,
+            Long currentRoundId,
+            String remarks) {
+        this(status, currentStage, currentRoundId, remarks, null);
+    }
 }

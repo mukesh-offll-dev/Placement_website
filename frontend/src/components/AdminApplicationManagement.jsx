@@ -13,6 +13,7 @@ import {
   Mail,
   Hash,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ArrowRight,
   Loader2,
@@ -32,6 +33,11 @@ import {
   getApplicationById,
   addTimeline,
 } from '../services/api/adminService';
+import { getAllJobs } from '../services/api/jobService';
+import InterviewSchedulingModal from './InterviewSchedulingModal';
+import { buildInterviewStatusPayload, getJobDriveStatusBadge } from '../utils/jobFilterUtils';
+
+const APPLICATIONS_PAGE_SIZE = 20;
 
 const TIMELINE_STATUSES = [
   { value: 'DONE', label: 'Done' },
@@ -180,6 +186,9 @@ export default function AdminApplicationManagement({
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [jobFilter, setJobFilter] = useState('ALL');
+  const [jobs, setJobs] = useState([]);
+  const [page, setPage] = useState(1);
 
   // Updating tracking: disable duplicate calls while processing
   const [updatingId, setUpdatingId] = useState(null);
@@ -193,6 +202,12 @@ export default function AdminApplicationManagement({
     application: null,
     targetStatus: null,
     remarks: '',
+  });
+
+  // Interview scheduling modal when advancing an application to INTERVIEW
+  const [interviewModal, setInterviewModal] = useState({
+    isOpen: false,
+    application: null,
   });
 
   // Application detail view modal
@@ -230,14 +245,24 @@ export default function AdminApplicationManagement({
     fetchApplications();
   }, [fetchApplications]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    getAllJobs({ admin: true }, { signal: controller.signal })
+      .then((list) => setJobs(Array.isArray(list) ? list : []))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
   // Execute actual status update call to Spring Boot backend
-  const handleExecuteStatusUpdate = async (applicationId, newStatus, remarks = '') => {
+  const handleExecuteStatusUpdate = async (applicationId, newStatus, remarks = '', extra = {}) => {
     setUpdatingId(applicationId);
     setFeedback(null);
     try {
       const payload = {
         status: newStatus,
         remarks: remarks || undefined,
+        ...(extra.currentStage ? { currentStage: extra.currentStage } : {}),
+        ...(extra.stageDate ? { stageDate: extra.stageDate } : {}),
       };
 
       const result = await updateApplicationStatus(applicationId, payload);
@@ -292,8 +317,28 @@ export default function AdminApplicationManagement({
       return;
     }
 
-    // Direct progression for APPLIED, SHORTLISTED, INTERVIEW
+    // Prompt for interview date, time and mode/venue when moving to INTERVIEW
+    if (newStatus === 'INTERVIEW') {
+      setInterviewModal({
+        isOpen: true,
+        application,
+      });
+      return;
+    }
+
+    // Direct progression for APPLIED, SHORTLISTED, UNDER_REVIEW
     handleExecuteStatusUpdate(application.id, newStatus);
+  };
+
+  const handleInterviewConfirm = async (details) => {
+    if (!interviewModal.application) return;
+    const appId = interviewModal.application.id;
+    const payload = buildInterviewStatusPayload(details);
+    await handleExecuteStatusUpdate(appId, payload.status, payload.remarks, {
+      currentStage: payload.currentStage,
+      stageDate: payload.stageDate,
+    });
+    setInterviewModal({ isOpen: false, application: null });
   };
 
   const handleConfirmModalSubmit = () => {
@@ -383,16 +428,44 @@ export default function AdminApplicationManagement({
     }
   };
 
-  // Metrics summary counts
+  // Job drive choices merged from /admin/jobs and any applications already loaded
+  const jobOptions = useMemo(() => {
+    const map = new Map();
+    jobs.forEach((j) => {
+      if (j?.id != null) {
+        map.set(String(j.id), {
+          id: String(j.id),
+          label: `${j.company?.name || 'Company'} — ${j.jobRole || 'Drive'}`,
+        });
+      }
+    });
+    applications.forEach((app) => {
+      const j = app.job;
+      if (j?.id != null && !map.has(String(j.id))) {
+        map.set(String(j.id), {
+          id: String(j.id),
+          label: `${j.company?.name || 'Company'} — ${j.jobRole || 'Drive'}`,
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [jobs, applications]);
+
+  const jobFilteredApplications = useMemo(() => {
+    if (jobFilter === 'ALL') return applications;
+    return applications.filter((app) => String(app.job?.id) === String(jobFilter));
+  }, [applications, jobFilter]);
+
+  // Metrics summary counts (reflecting the selected job drive filter)
   const counts = useMemo(() => {
-    const total = applications.length;
+    const total = jobFilteredApplications.length;
     let applied = 0;
     let shortlisted = 0;
     let interview = 0;
     let selected = 0;
     let rejected = 0;
 
-    applications.forEach((app) => {
+    jobFilteredApplications.forEach((app) => {
       const s = String(app.status || '').toUpperCase();
       if (s === 'APPLIED') applied++;
       else if (s === 'SHORTLISTED') shortlisted++;
@@ -402,11 +475,11 @@ export default function AdminApplicationManagement({
     });
 
     return { total, applied, shortlisted, interview, selected, rejected };
-  }, [applications]);
+  }, [jobFilteredApplications]);
 
   // Filtered applications
   const filteredApplications = useMemo(() => {
-    return applications.filter((app) => {
+    return jobFilteredApplications.filter((app) => {
       // Status filter
       if (statusFilter !== 'ALL') {
         const appStatus = String(app.status || '').toUpperCase();
@@ -435,11 +508,16 @@ export default function AdminApplicationManagement({
 
       return true;
     });
-  }, [applications, statusFilter, searchTerm]);
+  }, [jobFilteredApplications, statusFilter, searchTerm]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredApplications.length / APPLICATIONS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
   const displayedApplications = maxDisplayCount
     ? filteredApplications.slice(0, maxDisplayCount)
-    : filteredApplications;
+    : filteredApplications.slice(
+        (currentPage - 1) * APPLICATIONS_PAGE_SIZE,
+        currentPage * APPLICATIONS_PAGE_SIZE
+      );
 
   return (
     <div className="space-y-6">
@@ -525,7 +603,10 @@ export default function AdminApplicationManagement({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Total */}
         <button
-          onClick={() => setStatusFilter('ALL')}
+          onClick={() => {
+            setStatusFilter('ALL');
+            setPage(1);
+          }}
           className={`text-left p-3.5 rounded-xl border transition-all ${
             statusFilter === 'ALL'
               ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
@@ -542,7 +623,10 @@ export default function AdminApplicationManagement({
             <button
               key={card.status}
               type="button"
-              onClick={() => setStatusFilter(card.status)}
+              onClick={() => {
+                setStatusFilter(card.status);
+                setPage(1);
+              }}
               aria-pressed={selected}
               className={`text-left p-3.5 rounded-xl border transition-all ${
                 selected ? `${card.selectedBg} text-white shadow-sm` : `bg-white ${card.hoverBg} border-gray-200 text-gray-800`
@@ -562,20 +646,26 @@ export default function AdminApplicationManagement({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search by student, email, roll no, company, or role..."
             className="w-full pl-10 pr-4 py-2 text-xs md:text-sm bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
           />
           {searchTerm && (
             <button
-              onClick={() => setSearchTerm('')}
+              onClick={() => {
+                setSearchTerm('');
+                setPage(1);
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               <X className="w-3.5 h-3.5" />
@@ -583,21 +673,52 @@ export default function AdminApplicationManagement({
           )}
         </div>
 
-        {/* Stage Filter Dropdown */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 whitespace-nowrap">Filter Status:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs md:text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="ALL">All Stages ({counts.total})</option>
-            <option value="APPLIED">Applied ({counts.applied})</option>
-            <option value="SHORTLISTED">Shortlisted ({counts.shortlisted})</option>
-            <option value="INTERVIEW">Interview ({counts.interview})</option>
-            <option value="SELECTED">Selected ({counts.selected})</option>
-            <option value="REJECTED">Rejected ({counts.rejected})</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Job Drive Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="admin-app-job-filter" className="text-xs font-medium text-gray-500 whitespace-nowrap">
+              Job Drive:
+            </label>
+            <select
+              id="admin-app-job-filter"
+              value={jobFilter}
+              onChange={(e) => {
+                setJobFilter(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs md:text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 max-w-[220px]"
+            >
+              <option value="ALL">All Job Drives ({applications.length})</option>
+              {jobOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Stage Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="admin-app-status-filter" className="text-xs font-medium text-gray-500 whitespace-nowrap">
+              Filter Status:
+            </label>
+            <select
+              id="admin-app-status-filter"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="text-xs md:text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="ALL">All Stages ({counts.total})</option>
+              <option value="APPLIED">Applied ({counts.applied})</option>
+              <option value="SHORTLISTED">Shortlisted ({counts.shortlisted})</option>
+              <option value="INTERVIEW">Interview ({counts.interview})</option>
+              <option value="SELECTED">Selected ({counts.selected})</option>
+              <option value="REJECTED">Rejected ({counts.rejected})</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -613,15 +734,17 @@ export default function AdminApplicationManagement({
             <FileCheck className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="font-semibold text-gray-800 text-sm">No student applications match your filter</p>
             <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
-              {searchTerm || statusFilter !== 'ALL'
-                ? 'Try adjusting your search keywords or status filter.'
+              {searchTerm || statusFilter !== 'ALL' || jobFilter !== 'ALL'
+                ? 'Try adjusting your search keywords or filters.'
                 : 'Job applications submitted by students will appear in real time here.'}
             </p>
-            {(searchTerm || statusFilter !== 'ALL') && (
+            {(searchTerm || statusFilter !== 'ALL' || jobFilter !== 'ALL') && (
               <button
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('ALL');
+                  setJobFilter('ALL');
+                  setPage(1);
                 }}
                 className="mt-3 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >
@@ -686,10 +809,20 @@ export default function AdminApplicationManagement({
                       {/* 2. Company & Job Role */}
                       <td className="py-3.5 px-4">
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 text-xs md:text-sm flex items-center gap-1.5 truncate">
-                            <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                            {companyName}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold text-gray-900 text-xs md:text-sm flex items-center gap-1.5 truncate">
+                              <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              {companyName}
+                            </p>
+                            {(() => {
+                              const jobBadge = getJobDriveStatusBadge(app.job);
+                              return jobBadge ? (
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${jobBadge.classes}`}>
+                                  {jobBadge.label}
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
                           <p className="text-gray-500 text-xs flex items-center gap-1.5 mt-0.5 truncate">
                             <Briefcase className="w-3 h-3 text-gray-400 shrink-0" />
                             {jobRole}
@@ -797,6 +930,37 @@ export default function AdminApplicationManagement({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!maxDisplayCount && filteredApplications.length > APPLICATIONS_PAGE_SIZE && (
+          <div className="px-4 py-3 bg-gray-50/60 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
+            <span>
+              Showing {(currentPage - 1) * APPLICATIONS_PAGE_SIZE + 1}–
+              {Math.min(currentPage * APPLICATIONS_PAGE_SIZE, filteredApplications.length)} of{' '}
+              {filteredApplications.length}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setPage(currentPage - 1)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Prev
+              </button>
+              <span className="px-2 font-semibold text-gray-700">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage(currentPage + 1)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+              >
+                Next <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1158,6 +1322,17 @@ export default function AdminApplicationManagement({
             </div>
           </div>
         </div>
+      )}
+
+      {interviewModal.isOpen && interviewModal.application && (
+        <InterviewSchedulingModal
+          key={interviewModal.application.id}
+          isOpen={interviewModal.isOpen}
+          application={interviewModal.application}
+          busy={updatingId === interviewModal.application.id}
+          onClose={() => setInterviewModal({ isOpen: false, application: null })}
+          onConfirm={handleInterviewConfirm}
+        />
       )}
     </div>
   );

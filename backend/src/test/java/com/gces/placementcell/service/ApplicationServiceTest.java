@@ -345,6 +345,37 @@ class ApplicationServiceTest {
                 () -> applicationService.withdraw(studentUser.getEmail(), anotherStudentsApplication.getId()));
     }
 
+    @Test
+    void updateStatusToInterviewRecordsScheduledStageDateAsUpcoming() {
+        User studentUser = User.builder().id(3L).email("student@example.com").build();
+        User reviewer = User.builder().id(1L).email("admin@example.com").build();
+        StudentProfile student = StudentProfile.builder().id(5L).user(studentUser).fullName("Asha").build();
+        Job job = openJob();
+        JobApplication application = JobApplication.builder()
+                .id(12L).job(job).studentProfile(student).status(ApplicationStatus.SHORTLISTED).build();
+        LocalDate interviewDate = LocalDate.now().plusDays(4);
+
+        when(userRepository.findByEmailAndIsDeletedFalse("admin@example.com")).thenReturn(Optional.of(reviewer));
+        when(applicationRepository.findWithTimelineById(12L)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(JobApplication.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(timelineRepository.findByJobApplicationIdOrderByDisplayOrderAsc(12L)).thenReturn(List.of());
+        when(timelineRepository.save(any(ApplicationTimeline.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = applicationService.updateStatus("admin@example.com", 12L,
+                new com.gces.placementcell.dto.request.ApplicationStatusUpdateRequest(
+                        ApplicationStatus.INTERVIEW,
+                        "Technical Interview",
+                        null,
+                        "Online at 10:30",
+                        interviewDate));
+
+        assertEquals(ApplicationStatus.INTERVIEW, response.status());
+        assertEquals("Technical Interview", response.currentStage());
+        assertEquals(1, response.timeline().size());
+        assertEquals(interviewDate, response.timeline().get(0).stageDate());
+        assertEquals(TimelineStatus.UPCOMING, response.timeline().get(0).status());
+    }
+
     private Job openJob() {
         return Job.builder()
                 .id(7L)
