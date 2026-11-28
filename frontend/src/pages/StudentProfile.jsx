@@ -11,7 +11,6 @@ import {
   Eye,
   EyeOff,
   FileText,
-  FolderOpen,
   GraduationCap,
   KeyRound,
   Layers,
@@ -20,7 +19,6 @@ import {
   Lock,
   Mail,
   MapPin,
-  Paperclip,
   Pencil,
   Phone,
   Plus,
@@ -44,7 +42,6 @@ import {
   submitDraft,
   withdrawDraft,
 } from '../services/api/studentDraftService';
-import { formatFileSize } from '../services/api/fileService';
 import { getUser } from '../services/authService';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -60,8 +57,6 @@ import { PersonalDetailsModal, AcademicModal } from '../components/student/Profi
 import {
   AchievementItem,
   CertificationItem,
-  DocumentItem,
-  EducationItem,
   ExperienceItem,
   ItemActions,
   ProjectItem,
@@ -103,26 +98,21 @@ const MOBILE_PROFILE_ROWS = [
   { key: 'PERSONAL', label: 'Personal & contact', kind: 'status' },
   { key: 'ACADEMIC', label: 'Academic details', kind: 'status' },
   { key: 'SKILLS', label: 'Skills', kind: 'list' },
-  { key: 'EDUCATION', label: 'Education', kind: 'list' },
   { key: 'PROJECTS', label: 'Projects', kind: 'list' },
   { key: 'EXPERIENCE', label: 'Internships & experience', kind: 'list' },
   { key: 'CERTIFICATIONS', label: 'Certifications', kind: 'list' },
   { key: 'ACHIEVEMENTS', label: 'Achievements', kind: 'list' },
-  { key: 'RESUME_DOCS', label: 'Resume & documents', kind: 'resume_docs' },
+  { key: 'RESUME_DOCS', label: 'Resume', kind: 'resume_docs' },
 ];
 
 const displayValue = (value) =>
   value !== null && value !== undefined && String(value).trim() !== '' ? String(value) : 'Not provided';
 
 const LIST_SECTIONS = {
-  EDUCATION: { Item: EducationItem, icon: GraduationCap, iconClass: 'text-blue-600', title: 'Education & Qualifications', subtitle: 'Academic qualifications, degrees, and school history.', addLabel: 'Add Education', empty: 'No education entries yet', emptyText: 'Add your degree and school history so your advisor and recruiters can see your background.' },
   EXPERIENCE: { Item: ExperienceItem, icon: Briefcase, iconClass: 'text-indigo-600', title: 'Internships & Work Experience', subtitle: 'Internships, industrial training, and employment history.', addLabel: 'Add Internship', empty: 'No internships or experience yet', emptyText: 'Add internships, summer training, or research experience to stand out to companies.' },
   CERTIFICATIONS: { Item: CertificationItem, icon: BadgeCheck, iconClass: 'text-emerald-600', title: 'Certifications', subtitle: 'Professional and online certifications. Attach the certificate so your advisor can verify it.', addLabel: 'Add Certification', empty: 'No certifications yet', emptyText: 'Add certifications such as cloud, language or vendor courses, with the certificate file.' },
   ACHIEVEMENTS: { Item: AchievementItem, icon: Trophy, iconClass: 'text-amber-600', title: 'Achievements', subtitle: 'Hackathons, competitions, awards, publications.', addLabel: 'Add Achievement', empty: 'No achievements yet', emptyText: 'Add hackathon wins, awards or publications, with proof if you have it.' },
-  DOCUMENTS: { Item: DocumentItem, icon: FolderOpen, iconClass: 'text-sky-600', title: 'Supporting Documents', subtitle: 'Marksheets, certificates and ID proof that back up your profile.', addLabel: 'Add Document', empty: 'No supporting documents yet', emptyText: 'Upload marksheets or certificates that prove your CGPA, backlogs and qualifications.' },
 };
-
-const EVIDENCE_SECTIONS = SECTION_KEYS.filter((k) => k !== 'DOCUMENTS');
 
 export default function StudentProfile() {
   const navigate = useNavigate();
@@ -164,8 +154,6 @@ export default function StudentProfile() {
   const [aboutDraft, setAboutDraft] = useState('');
   const [skillInput, setSkillInput] = useState('');
   const [skillLevel, setSkillLevel] = useState('INTERMEDIATE');
-  const [evidenceSection, setEvidenceSection] = useState('ACADEMIC');
-  const [evidenceNote, setEvidenceNote] = useState('');
 
   useEffect(() => {
     if (location.state?.message) {
@@ -1381,7 +1369,7 @@ export default function StudentProfile() {
                 </SectionCard>
               )}
 
-              {['EDUCATION', 'EXPERIENCE', 'CERTIFICATIONS', 'ACHIEVEMENTS'].includes(mobileSection) &&
+              {['EXPERIENCE', 'CERTIFICATIONS', 'ACHIEVEMENTS'].includes(mobileSection) &&
                 listSection(mobileSection)}
 
               {mobileSection === 'RESUME_DOCS' && (
@@ -1414,90 +1402,6 @@ export default function StudentProfile() {
                     )}
                   </SectionCard>
 
-                  {listSection('DOCUMENTS')}
-
-                  {!viewOfficial && (
-                    <SectionCard
-                      icon={Paperclip}
-                      iconClass="text-gray-600"
-                      title="Evidence for your advisor"
-                      subtitle="Extra supporting files visible only to your advisor."
-                    >
-                      {data.evidence.length > 0 ? (
-                        <ul className="space-y-2 mb-3">
-                          {data.evidence.map((ev, index) => (
-                            <li
-                              key={`${ev.fileUrl}-${index}`}
-                              className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-2"
-                            >
-                              <div className="min-w-0">
-                                <ProtectedFileLink url={ev.fileUrl} className="text-sm font-semibold text-blue-600 break-all text-left">
-                                  {ev.fileName || 'Evidence file'}
-                                </ProtectedFileLink>
-                                <p className="text-[11px] text-gray-500">
-                                  For: {sectionLabel(ev.section)}
-                                  {ev.size ? ` · ${formatFileSize(ev.size)}` : ''}
-                                </p>
-                              </div>
-                              {editable && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSection('evidence', data.evidence.filter((_, i) => i !== index))}
-                                  className="text-gray-400 hover:text-red-600 p-1"
-                                  aria-label={`Remove evidence ${ev.fileName || ''}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-400 italic mb-3">No evidence attached.</p>
-                      )}
-                      {editable && (
-                        <div className="space-y-2.5">
-                          <SelectField
-                            label="Supports section"
-                            value={evidenceSection}
-                            onChange={setEvidenceSection}
-                            options={EVIDENCE_SECTIONS.map((k) => ({ value: k, label: sectionLabel(k) }))}
-                          />
-                          <input
-                            type="text"
-                            maxLength={255}
-                            value={evidenceNote}
-                            onChange={(e) => setEvidenceNote(e.target.value)}
-                            placeholder="Optional note (e.g. Sem 6 grade sheet)"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm"
-                          />
-                          <VerificationFileField
-                            compact
-                            section={evidenceSection}
-                            fileUrl={null}
-                            onUploaded={(r) => {
-                              if (data.evidence.length >= MAX_ITEMS) {
-                                toastError(`You can attach at most ${MAX_ITEMS} evidence files.`);
-                                return;
-                              }
-                              setSection('evidence', [
-                                ...data.evidence,
-                                {
-                                  section: evidenceSection,
-                                  fileUrl: r.fileUrl,
-                                  fileName: r.fileName,
-                                  contentType: r.contentType,
-                                  size: r.size,
-                                  note: evidenceNote.trim() || null,
-                                },
-                              ]);
-                              setEvidenceNote('');
-                            }}
-                          />
-                        </div>
-                      )}
-                    </SectionCard>
-                  )}
                 </>
               )}
             </div>

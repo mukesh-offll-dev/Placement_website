@@ -124,7 +124,7 @@ export function AcademicModal({ academic, managed, onSave, onClose }) {
         <TextField label="Active backlogs" type="number" min="0" step="1" value={form.activeBacklogs} onChange={set('activeBacklogs')} error={errors.activeBacklogs} hint="Cannot exceed total backlogs." />
       </div>
       <p className="text-[11px] text-gray-500">
-        Your advisor checks these against your marksheets — attach them under Supporting documents or Evidence.
+        Your advisor checks these against your marksheets.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <ReadOnlyField label="Department" value={managed.department} />

@@ -125,8 +125,8 @@ export default function StudentSidebar({
         ))}
       </div>
 
-      {/* User profile & Logout Footer */}
-      <div className="p-3 border-t border-[#E5E9F2] bg-[#F8F9FC]/70">
+      {/* Profile and logout live in the top bar on desktop; only the phone drawer shows them here. */}
+      <div className="md:hidden p-3 border-t border-[#E5E9F2] bg-[#F8F9FC]/70">
         <div className="flex items-center justify-between p-2.5 rounded-[16px] bg-white border border-[#E2E8F0] shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <Link to="/student/profile" onClick={onCloseMobile} className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="relative w-9 h-9 rounded-full bg-[#1D4ED8] text-white flex items-center justify-center font-bold text-sm shrink-0">
