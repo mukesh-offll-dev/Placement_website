@@ -459,31 +459,12 @@ export default function StudentApplicationsPage() {
                       Withdraw
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isExpanded) {
-                        setExpanded(null);
-                      } else {
-                        setExpanded(application.id);
-                        if (details?.status !== 'success' && details?.status !== 'loading') {
-                          loadTimeline(application);
-                        }
-                      }
-                    }}
-                    aria-expanded={isExpanded}
-                    className="flex items-center gap-1 text-blue-600 text-sm hover:underline shrink-0"
-                  >
-                    {isExpanded ? 'Hide' : 'Timeline'}
-                    <ChevronRight
-                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                    />
-                  </button>
+                  {/* One way in: the full Application Timeline page. */}
                   <Link
                     to={`/student/applications/${application.id}`}
                     className="flex items-center gap-1 text-blue-600 text-sm hover:underline shrink-0"
                   >
-                    View Timeline
+                    Timeline
                     <ChevronRight className="w-4 h-4" />
                   </Link>
                   </div>

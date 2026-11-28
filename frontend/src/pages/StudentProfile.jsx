@@ -604,7 +604,7 @@ export default function StudentProfile() {
   return (
     <>
       {/* ── SCREENSHOT-MATCHED UI (Mobile-first & centered on desktop) ── */}
-      <main className="flex-1 w-full max-w-[480px] md:max-w-[540px] mx-auto pb-6 md:py-5 overflow-x-hidden">
+      <main className="flex-1 w-full max-w-[480px] md:max-w-3xl mx-auto pb-6 md:py-5 md:px-6 overflow-x-hidden">
         {/* Deep Navy Hero Header */}
         <div className="bg-[#0F2A6B] rounded-b-[28px] md:rounded-[28px] px-4 pt-5 pb-16 text-white relative overflow-hidden">
           <div

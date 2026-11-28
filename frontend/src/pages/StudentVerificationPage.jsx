@@ -337,7 +337,7 @@ export default function StudentVerificationPage() {
   return (
     <>
       {/* ── SCREENSHOT-MATCHED UI (Mobile-first & centered on desktop) ── */}
-      <main className="flex-1 w-full max-w-[480px] md:max-w-[540px] mx-auto px-4 pt-4 md:py-6 pb-6 overflow-x-hidden">
+      <main className="flex-1 w-full max-w-[480px] md:max-w-3xl mx-auto px-4 pt-4 md:py-6 pb-6 overflow-x-hidden">
         {/* Top Mobile Header: < Profile verification */}
         <div className="flex items-center gap-3 mb-4">
           <button

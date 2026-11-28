@@ -9,13 +9,11 @@ body {
 }
 
 /* ---- Student Portal Mobile App Design System ---- */
-/* Phones only: desktop keeps the original look (Inter, gray background, sidebar). */
-@media (max-width: 767px) {
-  .student-app-shell {
-    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
-    background-color: #F8F9FC;
-    color: #0F172A;
-  }
+/* Student portal: the same app design on every screen size (admin and faculty keep Inter). */
+.student-app-shell {
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background-color: #F8F9FC;
+  color: #0F172A;
 }
 
 .no-scrollbar::-webkit-scrollbar {

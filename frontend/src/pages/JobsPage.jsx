@@ -586,6 +586,14 @@ export default function JobsPage({ isAdmin = false }) {
                         <Trash2 className="w-4 h-4" /> Delete
                       </button>
                     </div>
+                  ) : appliedJobIds.has(job.id) ? (
+                    // Already applied: no second Apply button, just a way to follow it.
+                    <Link
+                      to="/student/applications"
+                      className="h-[44px] bg-[#ECFDF5] text-[#047857] text-[14px] font-bold px-5 rounded-[14px] hover:bg-[#D1FAE5] transition-all flex items-center justify-center text-center"
+                    >
+                      View application
+                    </Link>
                   ) : (
                     <Link
                       to={`/student/jobs/${job.id}`}
