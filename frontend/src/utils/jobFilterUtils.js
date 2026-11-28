@@ -71,13 +71,43 @@ export function buildInterviewStatusPayload({
   };
 }
 
+/** yyyy-mm-dd in the browser's local time (what a date input produces). */
+export function toLocalIsoDate(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function toLocalTime(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const IN_PROGRESS = ['APPLIED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW'];
+
+/**
+ * Mirrors the server's rule for officer status changes (ApplicationService.isAllowedTransition),
+ * so the stage dropdown only offers moves the server will accept.
+ */
+export function isAllowedStatusTransition(from, to) {
+  if (!from || !to || to === 'WITHDRAWN' || from === 'WITHDRAWN') return false;
+  if (from === to) return true;
+  if (IN_PROGRESS.includes(from)) return to !== 'APPLIED';
+  if (from === 'SELECTED') return to === 'REJECTED';
+  if (from === 'REJECTED') return to === 'UNDER_REVIEW' || to === 'SHORTLISTED';
+  return false;
+}
+
 /**
  * Validates the interview scheduling modal inputs. Returns a field-keyed error object.
  */
-export function validateInterviewSchedule(form) {
+export function validateInterviewSchedule(form, now = new Date()) {
   const errors = {};
   if (!form?.date) errors.date = 'Select an interview date.';
+  else if (form.date < toLocalIsoDate(now)) errors.date = 'The interview date cannot be in the past.';
   if (!form?.time) errors.time = 'Select an interview time.';
+  else if (form?.date === toLocalIsoDate(now) && form.time < toLocalTime(now)) {
+    errors.time = 'That time has already passed today.';
+  }
   if (!form?.round || !String(form.round).trim()) errors.round = 'Select an interview round.';
 
   if (form?.mode === 'Online') {
@@ -113,4 +143,30 @@ export function getJobDriveStatusBadge(job) {
     default:
       return null;
   }
+}
+
+/** Whole days from today to a yyyy-mm-dd deadline (negative once it has passed); null without one. */
+export function daysUntil(deadline, now = new Date()) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(deadline || ''));
+  if (!match) return null;
+  const end = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((end - today) / 86400000);
+}
+
+/**
+ * The closing line for a drive card: "Closes in 12 days", "Closes tomorrow", "Closes today" or "Closed".
+ * tone: 'closed' | 'soon' (within 5 days) | 'open', for the colour of the chip.
+ */
+export function closingInfo(job, now = new Date()) {
+  const status = String(job?.status || '').toUpperCase();
+  const days = daysUntil(job?.applicationDeadline, now);
+  if (job?.expired || status === 'CLOSED' || (days !== null && days < 0)) {
+    return { text: 'Closed', tone: 'closed' };
+  }
+  if (status === 'DRAFT') return { text: 'Draft: not open yet', tone: 'closed' };
+  if (days === null) return { text: 'No closing date', tone: 'open' };
+  if (days === 0) return { text: 'Closes today', tone: 'soon' };
+  if (days === 1) return { text: 'Closes tomorrow', tone: 'soon' };
+  return { text: `Closes in ${days} days`, tone: days <= 5 ? 'soon' : 'open' };
 }

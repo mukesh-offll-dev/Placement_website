@@ -28,6 +28,8 @@ export {
   completeFirstLogin,
   changePassword,
   changeStaffPassword,
+  requestPasswordReset,
+  resetPassword,
   registerAdmin,
   getCurrentUser,
   logout,

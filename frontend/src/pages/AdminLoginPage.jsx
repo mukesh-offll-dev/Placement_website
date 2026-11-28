@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -102,9 +102,7 @@ export default function AdminLoginPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 text-center mb-1">Admin &amp; Placement Officer Login</h1>
-          <p className="text-gray-500 text-center text-sm mb-6">
-            Manage students, job drives and the full placement process
-          </p>
+          <p className="text-gray-500 text-center text-sm mb-6">Sign in to the admin panel</p>
 
           {/* API-level error banner */}
           {apiError && (
@@ -115,7 +113,6 @@ export default function AdminLoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4" noValidate>
-            {/* Email (labelled as Username for admin familiarity) */}
             <div>
               <label htmlFor="admin-email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
@@ -124,7 +121,6 @@ export default function AdminLoginPage() {
                 id="admin-email"
                 type="email"
                 autoComplete="username"
-                placeholder="you@gce.edu.in"
                 value={form.username}
                 onChange={handleChange('username')}
                 disabled={loading}
@@ -137,16 +133,17 @@ export default function AdminLoginPage() {
 
             {/* Password */}
             <div>
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between items-center mb-1">
                 <label htmlFor="admin-password" className="text-sm font-medium text-gray-700">Password</label>
-                <span className="text-gray-400 text-xs">Forgot it? Ask the system administrator.</span>
+                <Link to="/forgot-password?role=admin" className="text-blue-600 text-xs font-medium hover:underline">
+                  Forgot password?
+                </Link>
               </div>
               <div className="relative">
                 <input
                   id="admin-password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="Enter password"
                   value={form.password}
                   onChange={handleChange('password')}
                   disabled={loading}
@@ -186,7 +183,6 @@ export default function AdminLoginPage() {
               <input
                 id="admin-captcha"
                 type="text"
-                placeholder="Enter CAPTCHA"
                 value={form.captchaInput}
                 onChange={handleChange('captchaInput')}
                 maxLength={5}

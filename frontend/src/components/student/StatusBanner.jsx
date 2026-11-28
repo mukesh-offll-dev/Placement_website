@@ -30,9 +30,9 @@ const CONFIG = {
     title: 'Your draft has changes that are not yet verified',
   },
   PENDING: {
-    cls: 'bg-[#FFF7E6] border-[#FCD9A0] text-[#0F172A]',
+    cls: 'bg-yellow-50 border-yellow-200 text-[#0F172A]',
     icon: Clock,
-    iconCls: 'text-[#92400E]',
+    iconCls: 'text-yellow-700',
     title: 'Profile under review',
   },
   REJECTED: {

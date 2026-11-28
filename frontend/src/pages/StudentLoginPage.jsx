@@ -49,7 +49,7 @@ export default function StudentLoginPage() {
 
       if (!result.success) {
         const errMsg = result.error?.startsWith('Unauthorized:')
-          ? 'This login is for students only. Faculty and admins: use Staff sign in.'
+          ? 'This login is for students only. Faculty and admins: use Institution login.'
           : result.error;
         setApiError(errMsg);
         toastError(errMsg);
@@ -110,9 +110,6 @@ export default function StudentLoginPage() {
           <h1 className="mt-1.5 text-[28px] sm:text-[30px] leading-[1.15] font-extrabold tracking-[-0.5px] text-white">
             Your placement journey, in your pocket.
           </h1>
-          <p className="mt-2.5 text-[14px] text-[#C7D2FE] leading-[1.5]">
-            Apply to drives, track every round and keep your profile verified.
-          </p>
         </div>
 
         {/* White Bottom Sheet Form */}
@@ -166,7 +163,6 @@ export default function StudentLoginPage() {
                 inputMode="text"
                 autoComplete="username"
                 autoCapitalize="characters"
-                placeholder="e.g. 912822104001"
                 value={form.registerNumber}
                 onChange={handleChange('registerNumber')}
                 onFocus={() => setFocusedField('registerNumber')}
@@ -182,9 +178,17 @@ export default function StudentLoginPage() {
 
           {/* Password */}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="student-password" className="text-[13px] font-semibold text-[#334155]">
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="student-password" className="text-[13px] font-semibold text-[#334155]">
+                Password
+              </label>
+              <Link
+                to="/forgot-password?role=student"
+                className="text-[13px] font-semibold text-[#1D4ED8] hover:text-[#1E3A8A] transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <div
               className={`flex items-center gap-2.5 h-[54px] rounded-[16px] border-[1.5px] pl-3.5 pr-1.5 transition-all ${
                 errors.password
@@ -208,7 +212,6 @@ export default function StudentLoginPage() {
                 id="student-password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
-                placeholder="Enter your password"
                 value={form.password}
                 onChange={handleChange('password')}
                 onFocus={() => setFocusedField('password')}
@@ -252,8 +255,8 @@ export default function StudentLoginPage() {
           <div className="flex gap-3 p-3.5 rounded-[16px] bg-[#F1F5FF]">
             <Info className="w-5 h-5 text-[#1D4ED8] shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-[13px] text-[#334155] leading-[1.5]">
-              <strong className="text-[#0F172A]">First time here?</strong> Sign in with your register
-              number as the password. You’ll set your own password next.
+              <strong className="text-[#0F172A]">First time?</strong> Your password is your register number.
+              You will set your own next.
             </p>
           </div>
 
@@ -261,7 +264,7 @@ export default function StudentLoginPage() {
           <p className="mt-auto pt-2 text-center text-[13px] text-[#475569]">
             Faculty or placement staff?{' '}
             <Link to="/login" className="font-bold text-[#1D4ED8] hover:text-[#1E3A8A] transition-colors">
-              Staff sign in
+              Institution login
             </Link>
           </p>
         </form>

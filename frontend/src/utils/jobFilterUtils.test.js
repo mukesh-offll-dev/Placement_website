@@ -76,3 +76,48 @@ describe('getJobDriveStatusBadge', () => {
     assert.equal(getJobDriveStatusBadge({ status: 'CLOSED', expired: false }).label, 'Closed');
   });
 });
+
+import { isAllowedStatusTransition, toLocalIsoDate } from './jobFilterUtils.js';
+
+describe('Interview scheduling rules', () => {
+  it('rejects a date or time already in the past', () => {
+    const now = new Date(2026, 10, 28, 15, 30);
+    const base = { date: '2026-11-28', time: '16:00', mode: 'Offline', round: 'HR', venue: 'Hall' };
+    assert.deepEqual(validateInterviewSchedule(base, now), {});
+    assert.ok(validateInterviewSchedule({ ...base, date: '2026-11-27' }, now).date);
+    assert.ok(validateInterviewSchedule({ ...base, time: '09:00' }, now).time);
+    assert.deepEqual(validateInterviewSchedule({ ...base, date: '2026-11-29', time: '09:00' }, now), {});
+    assert.equal(toLocalIsoDate(now), '2026-11-28');
+  });
+
+  it('only offers status moves the server accepts', () => {
+    assert.equal(isAllowedStatusTransition('SHORTLISTED', 'INTERVIEW'), true);
+    assert.equal(isAllowedStatusTransition('REJECTED', 'INTERVIEW'), false);
+    assert.equal(isAllowedStatusTransition('REJECTED', 'SHORTLISTED'), true);
+    assert.equal(isAllowedStatusTransition('SELECTED', 'REJECTED'), true);
+    assert.equal(isAllowedStatusTransition('SELECTED', 'INTERVIEW'), false);
+    assert.equal(isAllowedStatusTransition('INTERVIEW', 'APPLIED'), false);
+    assert.equal(isAllowedStatusTransition('WITHDRAWN', 'SHORTLISTED'), false);
+  });
+});
+
+import { closingInfo, daysUntil } from './jobFilterUtils.js';
+
+describe('Drive closing label', () => {
+  const now = new Date(2026, 10, 28, 9, 0);
+  it('counts days to the deadline', () => {
+    assert.equal(daysUntil('2026-12-10', now), 12);
+    assert.equal(daysUntil('2026-11-28', now), 0);
+    assert.equal(daysUntil('2026-11-20', now), -8);
+    assert.equal(daysUntil(null, now), null);
+  });
+  it('words it for each case', () => {
+    assert.deepEqual(closingInfo({ status: 'ACTIVE', applicationDeadline: '2026-12-10' }, now), { text: 'Closes in 12 days', tone: 'open' });
+    assert.deepEqual(closingInfo({ status: 'ACTIVE', applicationDeadline: '2026-12-02' }, now), { text: 'Closes in 4 days', tone: 'soon' });
+    assert.equal(closingInfo({ status: 'ACTIVE', applicationDeadline: '2026-11-29' }, now).text, 'Closes tomorrow');
+    assert.equal(closingInfo({ status: 'ACTIVE', applicationDeadline: '2026-11-28' }, now).text, 'Closes today');
+    assert.equal(closingInfo({ status: 'CLOSED', applicationDeadline: '2026-12-30' }, now).text, 'Closed');
+    assert.equal(closingInfo({ status: 'ACTIVE', applicationDeadline: '2026-11-01' }, now).text, 'Closed');
+    assert.equal(closingInfo({ status: 'ACTIVE', expired: true, applicationDeadline: '2026-12-30' }, now).tone, 'closed');
+  });
+});

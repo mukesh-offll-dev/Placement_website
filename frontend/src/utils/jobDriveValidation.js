@@ -24,14 +24,12 @@ export const JOB_STATUSES = [
 export const MAX_SKILLS = 50;
 export const MAX_REQUIREMENTS = 50;
 export const MAX_DEGREE_LENGTH = 60;
+export const MAX_RESPONSIBILITIES = 50;
+export const MAX_PERKS = 50;
+export const MAX_ROUNDS = 20;
+export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 export const MAX_DEPARTMENT_CODE_LENGTH = 10;
-
-/**
- * Degree suggestions for the eligibility picker. The backend compares a student's degree to
- * these case-insensitively and exactly, and student records store values such as "B.E CSE",
- * so the admin can also type the exact value.
- */
-export const DEGREE_SUGGESTIONS = ['B.E', 'B.Tech', 'M.E', 'M.Tech', 'MBA', 'MCA'];
 
 export const emptyJobDrive = () => ({
   companyId: '',
@@ -50,6 +48,12 @@ export const emptyJobDrive = () => ({
   status: 'ACTIVE',
   skills: [],
   requirements: [],
+  responsibilities: [],
+  perks: [],
+  selectionRounds: [],
+  // Set when a logo is uploaded for the selected company; removeLogo clears the current one.
+  companyLogoUrl: '',
+  removeLogo: false,
   // Empty means "open to every department / degree".
   eligibleDepartments: [],
   eligibleDegrees: [],
@@ -206,6 +210,18 @@ export function validateJobDrive(form = {}) {
     errors.requirements = 'Each requirement must be 300 characters or fewer';
   }
 
+  // These lists are edited row by row: a blank row is simply ignored (and dropped on save).
+  const listRules = [
+    ['responsibilities', 'responsibilities', MAX_RESPONSIBILITIES, 300],
+    ['perks', 'perks', MAX_PERKS, 150],
+    ['selectionRounds', 'interview rounds', MAX_ROUNDS, 120],
+  ];
+  for (const [field, noun, max, maxLen] of listRules) {
+    const filled = (Array.isArray(form[field]) ? form[field] : []).map((v) => String(v ?? '').trim()).filter(Boolean);
+    if (filled.length > max) errors[field] = `A drive cannot list more than ${max} ${noun}`;
+    else if (filled.some((v) => v.length > maxLen)) errors[field] = `Each entry must be ${maxLen} characters or fewer`;
+  }
+
   const departments = Array.isArray(form.eligibleDepartments) ? form.eligibleDepartments : [];
   if (departments.some((d) => isBlank(d))) {
     errors.eligibleDepartments = 'Remove the blank department entries';
@@ -235,6 +251,10 @@ const cleanList = (values) => {
       return true;
     });
 };
+
+/** Trim and drop blank rows, keeping order and repeats (steps and rounds may legitimately repeat). */
+const nonBlank = (values) =>
+  (Array.isArray(values) ? values : []).map((v) => String(v ?? '').trim()).filter(Boolean);
 
 /**
  * Converts form state into a JobRequest body.
@@ -266,6 +286,12 @@ export function buildJobPayload(form) {
     requirements: (form.requirements || []).map((r) => r.trim()).filter(Boolean),
     eligibleDepartments: cleanList(form.eligibleDepartments).map((d) => d.toUpperCase()),
     eligibleDegrees: cleanList(form.eligibleDegrees),
+    // Always sent: the form edits these lists, and the server replaces them with what it receives.
+    responsibilities: nonBlank(form.responsibilities),
+    perks: cleanList(form.perks),
+    selectionRounds: nonBlank(form.selectionRounds),
+    companyLogoUrl: form.removeLogo ? null : text(form.companyLogoUrl),
+    removeLogo: Boolean(form.removeLogo),
     notifyEligibleStudents: Boolean(form.notifyEligibleStudents),
   };
 }
@@ -293,5 +319,10 @@ export function jobResponseToForm(job) {
     requirements: Array.isArray(job.requirements) ? [...job.requirements] : [],
     eligibleDepartments: Array.isArray(job.eligibleDepartments) ? [...job.eligibleDepartments] : [],
     eligibleDegrees: Array.isArray(job.eligibleDegrees) ? [...job.eligibleDegrees] : [],
+    responsibilities: Array.isArray(job.responsibilities) ? [...job.responsibilities] : [],
+    perks: Array.isArray(job.perks) ? [...job.perks] : [],
+    selectionRounds: Array.isArray(job.selectionRounds)
+      ? job.selectionRounds.map((r) => (typeof r === 'string' ? r : r?.roundName || '')).filter(Boolean)
+      : [],
   };
 }

@@ -160,6 +160,12 @@ export const resetStudentPassword = async (id) => {
   return response;
 };
 
+/** GET /api/admin/students/profile-reminders/preview: {count, students:[{name, registerNumber, completionPercent, missing}]}; sends nothing. */
+export const previewProfileReminders = async () => {
+  const response = await axiosClient.get('/admin/students/profile-reminders/preview');
+  return response.data;
+};
+
 /** POST /api/admin/students/profile-reminders: sends the "complete your profile" reminder now. */
 export const sendProfileReminders = async () => {
   const response = await axiosClient.post('/admin/students/profile-reminders');

@@ -112,6 +112,32 @@ export const deleteJob = async (id, options = {}) => {
   return response.data;
 };
 
+/** Close a drive now. PATCH /api/admin/jobs/{id}/close */
+export const closeJob = async (id, options = {}) => {
+  const response = await axiosClient.patch(`/admin/jobs/${id}/close`, null, options);
+  return response.data;
+};
+
+/** Reopen a closed drive (refused once its deadline has passed). PATCH /api/admin/jobs/{id}/reopen */
+export const reopenJob = async (id, options = {}) => {
+  const response = await axiosClient.patch(`/admin/jobs/${id}/reopen`, null, options);
+  return response.data;
+};
+
+/**
+ * Upload a company logo (PNG, JPG or WebP, up to 2 MB). POST /api/admin/jobs/logo
+ * @returns {Promise<{logoUrl: string, fileName: string}>}
+ */
+export const uploadCompanyLogo = async (file, options = {}) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await axiosClient.post('/admin/jobs/logo', formData, {
+    ...options,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
 /**
  * Every job page by page (the backend caps a page at 100 rows).
  * @param {boolean} admin - true for /admin/jobs (all statuses), false for /jobs
@@ -147,6 +173,9 @@ const jobService = {
   createJob,
   updateJob,
   deleteJob,
+  closeJob,
+  reopenJob,
+  uploadCompanyLogo,
 };
 
 export default jobService;

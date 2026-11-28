@@ -463,4 +463,26 @@ class SecurityFixesIntegrationTest {
                 .postedBy(admin)
                 .build());
     }
+
+    @Test
+    @DisplayName("Company logos are public, resumes and other files are not")
+    void logosArePublicOthersNot() throws Exception {
+        byte[] png = java.util.HexFormat.of().parseHex(
+                "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C4890000000D4944415478DA6364F8FF0F00050101009C4F0A8A0000000049454E44AE426082");
+        org.springframework.mock.web.MockMultipartFile file =
+                new org.springframework.mock.web.MockMultipartFile("file", "logo.png", "image/png", png);
+        MvcResult uploaded = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .multipart("/admin/jobs/logo").file(file).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String logoUrl = objectMapper.readTree(uploaded.getResponse().getContentAsString())
+                .path("data").path("logoUrl").asText();
+
+        // The stored URL starts with the /api context path; the request path does not.
+        String path = logoUrl.replaceFirst("^/api", "");
+        mockMvc.perform(get(path)).andExpect(status().isOk());
+
+        mockMvc.perform(get("/files/view/resumes/anything.pdf")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/files/view/projects/anything.png")).andExpect(status().isUnauthorized());
+    }
 }

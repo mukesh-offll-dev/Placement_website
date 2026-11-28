@@ -8,6 +8,8 @@ import StudentLoginPage from './pages/StudentLoginPage';
 import StudentSetupPage from './pages/StudentSetupPage';
 import FacultyLoginPage from './pages/FacultyLoginPage';
 import StaffChangePasswordPage from './pages/StaffChangePasswordPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 import AdminLayout from './layouts/AdminLayout';
 import StudentLayout from './layouts/StudentLayout';
@@ -40,7 +42,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { loginPathForRole } from './utils/roles';
 
-const AUTH_PAGES = ['/login', '/admin/login', '/student/login', '/faculty/login'];
+const AUTH_PAGES = ['/login', '/admin/login', '/student/login', '/faculty/login', '/forgot-password', '/reset-password'];
 
 /**
  * Listens for centralized 401 unauthorized events inside the React Router context.
@@ -88,6 +90,10 @@ export default function App() {
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+
+        {/* Password recovery: public, for every role. */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Admin Auth */}
         <Route path="/admin/login" element={<AdminLoginPage />} />

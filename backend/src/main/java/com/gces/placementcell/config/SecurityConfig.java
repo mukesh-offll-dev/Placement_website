@@ -112,6 +112,8 @@ public class SecurityConfig {
                 .requestMatchers("/students/**").authenticated()
                 // Project images stay behind sign-in like every other file: the frontend
                 // fetches them with the token (ProtectedMedia), so no public rule is needed.
+                // Company logos only; resumes, project files and verification documents stay private.
+                .requestMatchers(HttpMethod.GET, "/files/view/logos/**", "/files/download/logos/**").permitAll()
                 .requestMatchers("/files/**").authenticated()
                 .requestMatchers("/notifications/**").authenticated()
                 // Deny by default: a new controller is protected until a rule opens it.

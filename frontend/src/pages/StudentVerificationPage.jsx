@@ -52,7 +52,7 @@ const formatDateOnly = (value) => {
 };
 
 const MOBILE_HISTORY_BADGE = {
-  PENDING: { box: 'bg-[#FEF3C7] text-[#92400E]', label: 'Pending', labelCls: 'text-[#92400E]' },
+  PENDING: { box: 'bg-yellow-100 text-yellow-800', label: 'Pending', labelCls: 'text-yellow-800' },
   APPROVED: { box: 'bg-[#ECFDF5] text-[#059669]', label: 'Approved', labelCls: 'text-[#059669]' },
   REJECTED: { box: 'bg-red-50 text-red-600', label: 'Returned', labelCls: 'text-red-600' },
   WITHDRAWN: { box: 'bg-slate-100 text-[#475569]', label: 'Withdrawn', labelCls: 'text-[#64748B]' },
@@ -370,7 +370,7 @@ export default function StudentVerificationPage() {
             <section className="bg-white rounded-[22px] border border-[#E5E9F2] shadow-[0_1px_3px_rgba(15,23,42,0.04)] p-4.5">
               {/* Top Status Pill */}
               {isPending ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12.5px] font-bold bg-[#FEF3C7] text-[#92400E]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12.5px] font-bold bg-yellow-100 text-yellow-800">
                   <Clock className="w-3.5 h-3.5" strokeWidth={2.2} />
                   Pending review
                 </span>

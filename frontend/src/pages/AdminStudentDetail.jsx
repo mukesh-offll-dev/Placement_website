@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   GraduationCap,
@@ -121,6 +121,14 @@ export default function AdminStudentDetail({
   fetchApplications = fetchStudentApplications,
 }) {
   const { id } = useParams();
+  const location = useLocation();
+  // Back goes to the exact page the officer came from (for example Manage Students with its tab and
+  // filters); a direct link falls back to the Students list. Only same-site paths are followed.
+  const cameFrom = typeof location.state?.from === 'string' && location.state.from.startsWith('/') && !location.state.from.startsWith('//')
+    ? location.state.from
+    : null;
+  const backPath = cameFrom || backTo;
+  const backText = cameFrom && cameFrom.startsWith('/admin/students/manage') ? 'Back to Manage Students' : backLabel;
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = fetchApplications && searchParams.get('tab') === 'applications' ? 'applications' : 'profile';
   const selectTab = (value) => setSearchParams(value === 'profile' ? {} : { tab: value }, { replace: true });
@@ -178,7 +186,8 @@ export default function AdminStudentDetail({
             const completion = Number(studentData.profileCompletionPercent);
             setStudent({
               id: studentData.id,
-              name: studentData.fullName || 'Student',
+              // No name yet (account not set up): the register number identifies the student.
+              name: studentData.fullName || studentData.rollNo || 'Student',
               dept: studentData.department || studentData.departmentCode || null,
               cgpa: studentData.cgpa != null && studentData.cgpa !== '' ? Number(studentData.cgpa) : null,
               sem: studentData.semester ?? null,
@@ -280,8 +289,8 @@ export default function AdminStudentDetail({
             title={error || 'Student Profile Not Found'}
             description={`Unable to locate student records with ID "${studentId}" in the Placement Cell system.`}
             action={{
-              label: backLabel,
-              to: backTo,
+              label: backText,
+              to: backPath,
               icon: ArrowLeft,
             }}
           />
@@ -293,10 +302,10 @@ export default function AdminStudentDetail({
   return (
     <main className="flex-1 px-4 md:px-8 py-6 overflow-x-hidden">
       <Link
-        to={backTo}
+        to={backPath}
         className="inline-flex items-center gap-1.5 text-blue-600 text-sm hover:underline mb-5 font-medium"
       >
-        <ArrowLeft className="w-4 h-4" /> {backLabel}
+        <ArrowLeft className="w-4 h-4" /> {backText}
       </Link>
 
       {fetchApplications && (
@@ -335,14 +344,8 @@ export default function AdminStudentDetail({
         <div className="lg:col-span-2 space-y-5">
           {/* Profile Header */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="h-28 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <div className="p-5 relative">
-              <div className="absolute -top-12 left-5">
-                <div className="w-20 h-20 rounded-full border-4 border-white bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-md">
-                  {student.name[0]}
-                </div>
-              </div>
-              <div className="mt-10">
+              <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>

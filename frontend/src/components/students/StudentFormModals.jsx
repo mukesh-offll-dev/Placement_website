@@ -168,7 +168,7 @@ export function BulkAddModal({ api, departments = [], fixedDepartment = null, on
         year: Number(form.year),
       });
       setResult(res);
-      toastSuccess(`${res?.created ?? 0} student(s) added, ${res?.skipped ?? 0} already existed.`);
+      toastSuccess(`${res?.created ?? 0} added, ${res?.skipped ?? 0} skipped.`);
       onAdded?.();
     } catch (err) {
       setErrors({ form: err.message || 'Could not add the students.' });
@@ -187,7 +187,7 @@ export function BulkAddModal({ api, departments = [], fixedDepartment = null, on
             <div>
               <p className="font-semibold text-green-900">{result.created ?? 0} student(s) added</p>
               <p className="text-xs text-green-800">
-                {result.skipped > 0 ? `${result.skipped} already existed and were skipped.` : 'No register numbers were skipped.'}
+                {result.skipped > 0 ? `${result.skipped} skipped because they already exist. The rest were added.` : 'None skipped.'}
               </p>
             </div>
           </div>

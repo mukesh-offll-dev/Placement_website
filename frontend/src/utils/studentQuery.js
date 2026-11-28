@@ -109,7 +109,7 @@ export const LIFECYCLE_BADGES = Object.freeze({
 });
 
 export const VERIFICATION_BADGES = Object.freeze({
-  PENDING: { label: 'Pending', cls: 'bg-amber-100 text-amber-700' },
+  PENDING: { label: 'Pending', cls: 'bg-yellow-100 text-yellow-800' },
   VERIFIED: { label: 'Verified', cls: 'bg-green-100 text-green-700' },
   REJECTED: { label: 'Rejected', cls: 'bg-red-100 text-red-700' },
   NOT_SUBMITTED: { label: 'Not submitted', cls: 'bg-gray-100 text-gray-600' },

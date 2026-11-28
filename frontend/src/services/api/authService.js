@@ -213,6 +213,29 @@ export const changeStaffPassword = async ({ currentPassword, newPassword } = {})
 };
 
 /**
+ * Ask for a password reset link by email. The identifier is an email address (any role) or a
+ * student's register number. The server answers the same way whether or not an account matches.
+ * POST /api/auth/forgot-password
+ * @param {string} identifier
+ * @returns {Promise<string>} the message to show the user
+ */
+export const requestPasswordReset = async (identifier) => {
+  const response = await axiosClient.post('/auth/forgot-password', { identifier: String(identifier ?? '').trim() });
+  return response?.message || '';
+};
+
+/**
+ * Set a new password with the token from the emailed link. Does not sign anyone in.
+ * POST /api/auth/reset-password
+ * @param {{ token: string, newPassword: string }} data
+ * @returns {Promise<{ message: string, role: string|null }>} role picks the right sign-in page
+ */
+export const resetPassword = async ({ token, newPassword } = {}) => {
+  const response = await axiosClient.post('/auth/reset-password', { token, newPassword });
+  return { message: response?.message || '', role: response?.data?.role || null };
+};
+
+/**
  * Register an admin account (Admin-only).
  * POST /api/auth/register/admin
  * @param {Object} adminData - { email, password, fullName, department }
@@ -285,6 +308,8 @@ const authService = {
   completeFirstLogin,
   changePassword,
   changeStaffPassword,
+  requestPasswordReset,
+  resetPassword,
   registerAdmin,
   getCurrentUser,
   authFetch,

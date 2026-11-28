@@ -21,7 +21,7 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { JobCardSkeleton } from '../components/Skeleton';
 import { toastError, toastSuccess } from '../utils/toast';
-import { getCtcInLpa } from '../utils/jobFilterUtils';
+import { getCtcInLpa, closingInfo } from '../utils/jobFilterUtils';
 
 const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 
@@ -93,6 +93,7 @@ export default function JobsPage({ isAdmin = false }) {
   const [loading, setLoading] = useState(() => !jobsCache.has(cacheKey));
   const [error, setError] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
@@ -247,6 +248,27 @@ export default function JobsPage({ isAdmin = false }) {
     { length: Math.min(totalPages, 5) },
     (_, i) => firstPageButton + i
   );
+
+  // Close a drive now, or reopen a closed one (the server refuses to reopen after the deadline).
+  const toggleOpen = async (job) => {
+    const closing = closingInfo(job.raw).tone === 'closed';
+    setTogglingId(job.id);
+    try {
+      if (closing) {
+        await jobService.reopenJob(job.id);
+        toastSuccess(`${job.role} at ${job.company} reopened.`);
+      } else {
+        await jobService.closeJob(job.id);
+        toastSuccess(`${job.role} at ${job.company} closed. Students can no longer apply.`);
+      }
+      jobsCache.delete(cacheKey);
+      await fetchJobs();
+    } catch (err) {
+      toastError(err, closing ? 'Could not reopen this job drive.' : 'Could not close this job drive.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -563,6 +585,15 @@ export default function JobsPage({ isAdmin = false }) {
                       <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#64748B] bg-[#F4F6FB] px-2.5 py-1 rounded-[8px]">
                         <Clock className="w-3 h-3" /> {job.deadline}
                       </span>
+                      {(() => {
+                        const closing = closingInfo(job.raw);
+                        const tone = {
+                          open: 'bg-[#ECFDF5] text-[#047857]',
+                          soon: 'bg-[#FEF3C7] text-[#B45309]',
+                          closed: 'bg-slate-100 text-[#475569]',
+                        }[closing.tone];
+                        return <span className={`text-[12px] font-semibold px-2.5 py-1 rounded-[8px] ${tone}`}>{closing.text}</span>;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -576,6 +607,14 @@ export default function JobsPage({ isAdmin = false }) {
                         className="bg-[#F4F6FB] text-[#334155] text-sm font-semibold px-4 py-2.5 rounded-[12px] hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
                       >
                         <Pencil className="w-4 h-4" /> Manage
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleOpen(job)}
+                        disabled={togglingId === job.id}
+                        className="text-[#334155] text-sm font-semibold px-3 py-2.5 rounded-[12px] hover:bg-slate-100 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {closingInfo(job.raw).tone === 'closed' ? 'Reopen' : 'Close'}
                       </button>
                       <button
                         type="button"

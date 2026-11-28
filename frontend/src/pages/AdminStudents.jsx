@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
   Download,
@@ -12,11 +12,12 @@ import {
   RefreshCw,
   GraduationCap,
 } from 'lucide-react';
-import { getAllStudents, exportStudentsCsv } from '../services/api/adminService';
-import { downloadBlob } from '../utils/download';
+import { getAllStudents } from '../services/api/adminService';
+import StudentReportDialog from '../components/students/StudentReportDialog';
+import { filterStudents, summarizeStudents } from '../utils/studentReport';
 import EmptyState from '../components/EmptyState';
 import useDepartments from '../hooks/useDepartments';
-import { toastSuccess, toastError } from '../utils/toast';
+import { toastError } from '../utils/toast';
 import { isPlaced, placementLabel, placementBadgeClass } from '../utils/placement';
 
 const profileBarColor = (p) => {
@@ -30,6 +31,7 @@ const PAGE_SIZE = 5;
 
 export default function AdminStudents() {
   const navigate = useNavigate();
+  const location = useLocation();
   // The filter lists the college's departments (by code), so one added later shows up here too.
   const { departments } = useDepartments();
   const [search, setSearch] = useState('');
@@ -40,27 +42,7 @@ export default function AdminStudents() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [exporting, setExporting] = useState(false);
-
-  /**
-   * Downloads the placement report from the backend: every student matching the
-   * search and department filter, with placed company, CTC and placement date.
-   * Built server-side so it covers all matching rows, not just the loaded page,
-   * and so values are escaped against spreadsheet formula injection.
-   */
-  const handleExport = async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const blob = await exportStudentsCsv({ search: search.trim(), department: deptFilter });
-      downloadBlob(blob, `placement_report_${new Date().toISOString().slice(0, 10)}.csv`);
-      toastSuccess('Placement report downloaded.');
-    } catch (err) {
-      toastError(err.message || 'Could not export the placement report.');
-    } finally {
-      setExporting(false);
-    }
-  };
+  const [reportOpen, setReportOpen] = useState(false);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -69,13 +51,16 @@ export default function AdminStudents() {
       const data = await getAllStudents();
       const mapped = (Array.isArray(data) ? data : []).map((s) => ({
         id: s.id,
-        name: s.fullName || 'Student',
+        // No name yet (account not set up): show the register number instead of a blank.
+        name: s.fullName || s.rollNo || 'Student',
         dept: s.departmentCode || s.department || 'General',
         cgpa: s.cgpa ? Number(s.cgpa) : 0,
         sem: s.semester ? `Sem ${s.semester}` : 'N/A',
         profile: Number.isFinite(Number(s.profileCompletionPercent)) && s.profileCompletionPercent !== null ? Number(s.profileCompletionPercent) : 0,
         status: s.placementStatus || 'PENDING',
         placedCompany: s.placedCompanyName || null,
+        placedCtc: s.placedCtc ?? null,
+        placedOn: s.placedOn || null,
         email: s.email,
         rollNo: s.rollNo,
       }));
@@ -93,17 +78,11 @@ export default function AdminStudents() {
     fetchStudents();
   }, []);
 
-  const filtered = students.filter((s) => {
-    const matchSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.dept.toLowerCase().includes(search.toLowerCase()) ||
-      (s.rollNo && s.rollNo.toLowerCase().includes(search.toLowerCase()));
-    const matchDept = deptFilter === 'All' || s.dept.toLowerCase() === deptFilter.toLowerCase();
-    const matchCgpa = cgpaFilter === 'All' || s.cgpa >= parseFloat(cgpaFilter);
-    const matchPlacement =
-      placementFilter === 'All' || (placementFilter === 'PLACED') === isPlaced(s.status);
-    return matchSearch && matchDept && matchCgpa && matchPlacement;
-  });
+  const filters = { search, dept: deptFilter, cgpa: cgpaFilter, placement: placementFilter };
+  const filtered = filterStudents(students, filters);
+  // The cards describe the students matching search, department and CGPA; the Placed / Not placed
+  // cards are themselves a filter, so they ignore the placement choice (clicking one must not zero the other).
+  const scoped = filterStudents(students, { ...filters, placement: 'All' });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -117,9 +96,7 @@ export default function AdminStudents() {
   };
 
   // Stats calculation: placement is just Placed / Not placed.
-  const totalCount = students.length;
-  const placedCount = students.filter((s) => isPlaced(s.status)).length;
-  const notPlacedCount = totalCount - placedCount;
+  const { total: totalCount, placed: placedCount, notPlaced: notPlacedCount } = summarizeStudents(scoped);
   const showPlacement = (value) => {
     setPlacementFilter(value);
     setPage(1);
@@ -165,7 +142,9 @@ export default function AdminStudents() {
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <p className="text-gray-500 text-sm">Registered Students</p>
           <p className="text-3xl font-bold mt-1 text-gray-900">{totalCount}</p>
-          <p className="text-blue-500 text-xs mt-1">Total active profiles</p>
+          <p className="text-blue-500 text-xs mt-1">
+            {scoped.length === students.length ? 'All registered profiles' : `Matching your filters (of ${students.length})`}
+          </p>
         </div>
         <button
           type="button"
@@ -262,12 +241,12 @@ export default function AdminStudents() {
           </div>
           <button
             type="button"
-            onClick={handleExport}
-            disabled={exporting}
+            onClick={() => setReportOpen(true)}
+            disabled={loading || students.length === 0}
             className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {exporting ? 'Exporting…' : 'Export Placement Report'}
+            <Download className="w-4 h-4" />
+            Export Placement Report
           </button>
         </div>
       </div>
@@ -325,9 +304,6 @@ export default function AdminStudents() {
                 className="grid grid-cols-6 px-4 py-3 border-b items-center hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-sm shrink-0">
-                    {s.name[0]}
-                  </div>
                   <div>
                     <p className="font-medium text-sm text-gray-900">{s.name}</p>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${placementBadgeClass(s.status)}`}>
@@ -349,7 +325,7 @@ export default function AdminStudents() {
                 </div>
                 <div className="flex gap-3">
                   <button
-                    onClick={() => navigate(`/admin/students/${s.id}`)}
+                    onClick={() => navigate(`/admin/students/${s.id}`, { state: { from: `${location.pathname}${location.search}` } })}
                     className="flex items-center gap-1 text-blue-600 hover:underline text-xs font-semibold"
                   >
                     <Eye className="w-3.5 h-3.5" /> View Profile
@@ -396,6 +372,14 @@ export default function AdminStudents() {
             </button>
           </div>
         </div>
+      )}
+      {reportOpen && (
+        <StudentReportDialog
+          students={students}
+          departments={departments}
+          initialFilters={filters}
+          onClose={() => setReportOpen(false)}
+        />
       )}
     </main>
   );

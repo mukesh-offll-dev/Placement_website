@@ -11,7 +11,7 @@ export default function LoginPage() {
     <AuthShell current="institution" audience="Institution">
       <div className="w-full max-w-3xl">
         <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">Institution Login</h1>
-        <p className="text-gray-500 mb-10 text-center">For faculty and placement cell staff. Choose your role to sign in.</p>
+        <p className="text-gray-500 mb-8 text-center">Choose your role to sign in.</p>
 
         <div className="grid md:grid-cols-2 gap-6">
           <Link
@@ -22,9 +22,7 @@ export default function LoginPage() {
               <UserCheck className="w-10 h-10 text-indigo-700" />
             </div>
             <h2 className="text-2xl font-bold mb-3 text-gray-900">Faculty Advisor</h2>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">
-              Review and verify your department&apos;s student profiles, and manage your students&apos; accounts.
-            </p>
+            <p className="text-gray-500 text-sm mb-8">Verify your department&apos;s student profiles.</p>
             <span className="mt-auto flex items-center gap-2 border-2 border-blue-600 text-blue-600 font-semibold px-6 py-3 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors w-full justify-center">
               Faculty Login <ArrowRight className="w-4 h-4" />
             </span>
@@ -38,9 +36,7 @@ export default function LoginPage() {
               <ShieldCheck className="w-10 h-10 text-blue-700" />
             </div>
             <h2 className="text-2xl font-bold mb-3 text-gray-900">Admin &amp; Placement Officer</h2>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">
-              Manage student records, coordinate with recruiters, and run the complete placement process.
-            </p>
+            <p className="text-gray-500 text-sm mb-8">Manage students, job drives and applications.</p>
             <span className="mt-auto flex items-center gap-2 bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg group-hover:bg-blue-700 transition-colors w-full justify-center">
               Admin Login <ArrowRight className="w-4 h-4" />
             </span>

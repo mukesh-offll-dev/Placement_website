@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, Eye, EyeOff, Info, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -86,9 +86,7 @@ export default function FacultyLoginPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 text-center mb-1">Faculty Advisor Login</h1>
-          <p className="text-gray-500 text-center text-sm mb-6">
-            Review your department&apos;s student profiles and verification requests
-          </p>
+          <p className="text-gray-500 text-center text-sm mb-6">Sign in to review your department&apos;s students</p>
 
           {apiError && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4" role="alert">
@@ -104,7 +102,6 @@ export default function FacultyLoginPage() {
                 id="faculty-email"
                 type="email"
                 autoComplete="username"
-                placeholder="you@gce.edu.in"
                 value={form.email}
                 onChange={handleChange('email')}
                 disabled={loading}
@@ -116,13 +113,17 @@ export default function FacultyLoginPage() {
             </div>
 
             <div>
-              <label htmlFor="faculty-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div className="flex justify-between items-center mb-1">
+                <label htmlFor="faculty-password" className="text-sm font-medium text-gray-700">Password</label>
+                <Link to="/forgot-password?role=faculty" className="text-blue-600 text-xs font-medium hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="faculty-password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
-                  placeholder="Enter password"
                   value={form.password}
                   onChange={handleChange('password')}
                   disabled={loading}
@@ -144,7 +145,7 @@ export default function FacultyLoginPage() {
 
             <p className="flex items-start gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              First time here? Sign in with the temporary password the placement cell gave you. You will be asked to choose your own.
+              First time? Use the temporary password from the placement cell, then choose your own.
             </p>
 
             <button

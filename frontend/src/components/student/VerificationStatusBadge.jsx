@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, FilePen, Undo2, XCircle, CircleDashed, Trash2 } fr
 const STYLES = {
   VERIFIED: { label: 'Verified', cls: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle2 },
   APPROVED: { label: 'Approved', cls: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle2 },
-  PENDING: { label: 'Pending review', cls: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
+  PENDING: { label: 'Pending review', cls: 'bg-yellow-50 text-yellow-800 border-yellow-300', icon: Clock },
   REJECTED: { label: 'Changes requested', cls: 'bg-red-50 text-red-700 border-red-200', icon: XCircle },
   DRAFT: { label: 'Draft', cls: 'bg-blue-50 text-blue-700 border-blue-200', icon: FilePen },
   WITHDRAWN: { label: 'Withdrawn', cls: 'bg-gray-100 text-gray-600 border-gray-200', icon: Undo2 },

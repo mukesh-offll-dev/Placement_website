@@ -113,4 +113,22 @@ class ProfileReminderServiceTest {
 
         verify(userRepository, never()).findByRoleAndIsActiveTrueAndIsDeletedFalse(any(UserRole.class));
     }
+
+    @Test
+    @DisplayName("Preview counts who a reminder would reach and sends nothing")
+    void previewSendsNothing() {
+        StudentProfile missing = student(7L, "9876543210", null, null);
+        StudentProfile complete = student(8L, "9876543211", new BigDecimal("8.1"), "/files/resumes/r.pdf");
+        when(studentProfileRepository.findNeedingProfileReminder(any(LocalDateTime.class)))
+                .thenReturn(List.of(missing, complete));
+
+        ProfileReminderService.ReminderPreview preview = service.preview();
+
+        assertEquals(1, preview.count());
+        assertEquals("Student 7", preview.students().get(0).name());
+        assertTrue(preview.students().get(0).missing().containsAll(List.of("CGPA", "resume")));
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(studentProfileRepository, never()).save(any(StudentProfile.class));
+        assertNull(missing.getProfileReminderSentAt());
+    }
 }

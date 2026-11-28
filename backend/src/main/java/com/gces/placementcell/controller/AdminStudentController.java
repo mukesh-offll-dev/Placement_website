@@ -216,6 +216,12 @@ public class AdminStudentController {
         return ResponseEntity.ok(ApiResponse.success("Password reset to the register number. The student must change it at next login."));
     }
 
+    /** GET /api/admin/students/profile-reminders/preview: how many students a reminder would reach (sends nothing). */
+    @GetMapping("/profile-reminders/preview")
+    public ResponseEntity<ApiResponse<ProfileReminderService.ReminderPreview>> previewProfileReminders() {
+        return ResponseEntity.ok(ApiResponse.success(profileReminderService.preview()));
+    }
+
     /** POST /api/admin/students/profile-reminders: sends the "complete your profile" reminder now. */
     @PostMapping("/profile-reminders")
     public ResponseEntity<ApiResponse<Integer>> sendProfileReminders() {

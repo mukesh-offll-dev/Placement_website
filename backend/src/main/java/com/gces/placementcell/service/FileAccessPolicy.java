@@ -63,6 +63,10 @@ public class FileAccessPolicy {
 
     @Transactional(readOnly = true)
     public void verifyCanRead(UserDetails caller, String category, String fileName) {
+        // Company logos are public (the job list that shows them is public too): no sign-in needed.
+        if (properties.getLogoSubdir().equals(category) && fileName != null && !fileName.isBlank()) {
+            return;
+        }
         if (caller == null) {
             throw new InsufficientAuthenticationException("Authentication is required to access this resource");
         }

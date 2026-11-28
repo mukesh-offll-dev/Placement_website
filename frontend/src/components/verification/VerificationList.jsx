@@ -92,7 +92,7 @@ export default function VerificationList({ api, title, description, departments 
             >
               {t.label}
               {count != null && (
-                <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded-full ${t.value === 'PENDING' && count > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{count}</span>
+                <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded-full ${t.value === 'PENDING' && count > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>{count}</span>
               )}
             </button>
           );

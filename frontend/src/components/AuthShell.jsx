@@ -16,10 +16,13 @@ const LOGIN_OPTIONS = {
  * @param {object} props
  * @param {'student'|'faculty'|'admin'|'institution'} props.current - the page being shown
  * @param {string} [props.audience] - "Students" or "Institution", shown under the college name
+ * @param {boolean} [props.hideSwitcher] - leave out the "Sign in as" links (password recovery pages)
  */
-export default function AuthShell({ current, audience, children }) {
+export default function AuthShell({ current, audience, hideSwitcher = false, children }) {
   // The institution page links every login in its body, so it shows no switcher.
-  const others = current === 'institution' ? [] : Object.entries(LOGIN_OPTIONS).filter(([key]) => key !== current);
+  const others = hideSwitcher || current === 'institution'
+    ? []
+    : Object.entries(LOGIN_OPTIONS).filter(([key]) => key !== current);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

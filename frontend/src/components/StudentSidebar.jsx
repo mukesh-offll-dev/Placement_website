@@ -23,7 +23,7 @@ const navItems = [
 ];
 
 const VERIFICATION_BADGE = {
-  PENDING: { text: 'Pending', cls: 'bg-[#FEF3C7] text-[#B45309]', label: 'Verification pending review' },
+  PENDING: { text: 'Pending', cls: 'bg-yellow-100 text-yellow-800', label: 'Verification pending review' },
   REJECTED: { text: 'Action', cls: 'bg-red-100 text-red-700', label: 'Verification changes requested' },
 };
 

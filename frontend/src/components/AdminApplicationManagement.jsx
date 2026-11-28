@@ -35,7 +35,7 @@ import {
 } from '../services/api/adminService';
 import { getAllJobs } from '../services/api/jobService';
 import InterviewSchedulingModal from './InterviewSchedulingModal';
-import { buildInterviewStatusPayload, getJobDriveStatusBadge } from '../utils/jobFilterUtils';
+import { buildInterviewStatusPayload, getJobDriveStatusBadge, isAllowedStatusTransition } from '../utils/jobFilterUtils';
 
 const APPLICATIONS_PAGE_SIZE = 20;
 
@@ -205,6 +205,7 @@ export default function AdminApplicationManagement({
   });
 
   // Interview scheduling modal when advancing an application to INTERVIEW
+  const [interviewError, setInterviewError] = useState('');
   const [interviewModal, setInterviewModal] = useState({
     isOpen: false,
     application: null,
@@ -254,6 +255,8 @@ export default function AdminApplicationManagement({
   }, []);
 
   // Execute actual status update call to Spring Boot backend
+  // Resolves true when the server accepted the change, false otherwise (callers with their own
+  // dialog use it to stay open and show the message next to the form).
   const handleExecuteStatusUpdate = async (applicationId, newStatus, remarks = '', extra = {}) => {
     setUpdatingId(applicationId);
     setFeedback(null);
@@ -280,6 +283,7 @@ export default function AdminApplicationManagement({
 
       // Also refresh background data to keep any linked counters synced
       fetchApplications();
+      return true;
     } catch (err) {
       console.error('Failed to update application status:', err);
       // 400: the server refused the transition; 409: someone else changed this application
@@ -296,6 +300,11 @@ export default function AdminApplicationManagement({
       if (err?.status === 400 || conflict) {
         fetchApplications();
       }
+      extra.onError?.(
+        (conflict ? `${err.message || 'This application was changed by someone else.'}` : err?.message) ||
+          'Could not save. Please try again.'
+      );
+      return false;
     } finally {
       setUpdatingId(null);
     }
@@ -319,6 +328,7 @@ export default function AdminApplicationManagement({
 
     // Prompt for interview date, time and mode/venue when moving to INTERVIEW
     if (newStatus === 'INTERVIEW') {
+      setInterviewError('');
       setInterviewModal({
         isOpen: true,
         application,
@@ -334,11 +344,18 @@ export default function AdminApplicationManagement({
     if (!interviewModal.application) return;
     const appId = interviewModal.application.id;
     const payload = buildInterviewStatusPayload(details);
-    await handleExecuteStatusUpdate(appId, payload.status, payload.remarks, {
+    setInterviewError('');
+    const saved = await handleExecuteStatusUpdate(appId, payload.status, payload.remarks, {
       currentStage: payload.currentStage,
       stageDate: payload.stageDate,
+      onError: setInterviewError,
     });
-    setInterviewModal({ isOpen: false, application: null });
+    // Close only when saved; on a failure the popup stays open with the reason shown inside it.
+    if (saved) {
+      setInterviewModal({ isOpen: false, application: null });
+    } else {
+      setFeedback(null);
+    }
   };
 
   const handleConfirmModalSubmit = () => {
@@ -897,12 +914,22 @@ export default function AdminApplicationManagement({
                               aria-label={`Change status for ${studentName}`}
                               className="text-xs font-semibold bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
                             >
-                              <option value="APPLIED">Applied</option>
-                              <option value="UNDER_REVIEW">Under Review</option>
-                              <option value="SHORTLISTED">Shortlisted</option>
-                              <option value="INTERVIEW">Interview</option>
-                              <option value="SELECTED">Selected</option>
-                              <option value="REJECTED">Rejected</option>
+                              {[
+                                ['APPLIED', 'Applied'],
+                                ['UNDER_REVIEW', 'Under Review'],
+                                ['SHORTLISTED', 'Shortlisted'],
+                                ['INTERVIEW', 'Interview'],
+                                ['SELECTED', 'Selected'],
+                                ['REJECTED', 'Rejected'],
+                              ].map(([value, label]) => (
+                                <option
+                                  key={value}
+                                  value={value}
+                                  disabled={!isAllowedStatusTransition(app.status || 'APPLIED', value)}
+                                >
+                                  {label}
+                                </option>
+                              ))}
                               {app.status === 'WITHDRAWN' && (
                                 <option value="WITHDRAWN" disabled>Withdrawn</option>
                               )}
@@ -1330,6 +1357,7 @@ export default function AdminApplicationManagement({
           isOpen={interviewModal.isOpen}
           application={interviewModal.application}
           busy={updatingId === interviewModal.application.id}
+          submitError={interviewError}
           onClose={() => setInterviewModal({ isOpen: false, application: null })}
           onConfirm={handleInterviewConfirm}
         />

@@ -1,13 +1,12 @@
 import { useCallback, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Archive, ArrowLeft, Building2, Info, Loader2, Mail } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeft, Building2, Info, Mail } from 'lucide-react';
 import StudentManager from '../components/students/StudentManager';
 import ArchiveBatchDialog from '../components/students/ArchiveBatchDialog';
+import ReminderDialog from '../components/students/ReminderDialog';
 import useDepartments from '../hooks/useDepartments';
 import { useAuth } from '../context/AuthContext';
 import { adminStudentApi } from '../services/api/studentManagementApi';
-import { sendProfileReminders } from '../services/api/adminService';
-import { toastError, toastSuccess } from '../utils/toast';
 import { VERIFICATION_STATUSES } from '../utils/studentQuery';
 
 /**
@@ -20,7 +19,7 @@ export default function AdminManageStudents() {
   const { role } = useAuth();
   const isAdmin = role === 'ADMIN';
   const { departments, active: activeDepartments, loading: departmentsLoading, reload: reloadDepartments } = useDepartments();
-  const [reminding, setReminding] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -35,20 +34,6 @@ export default function AdminManageStudents() {
   const initialFilters = {
     lifecycle: ['ACTIVE', 'DISABLED', 'ARCHIVED', 'ALL'].includes(searchParams.get('lifecycle')) ? searchParams.get('lifecycle') : 'ACTIVE',
     verificationStatus: VERIFICATION_STATUSES.includes(requestedVerification) ? requestedVerification : '',
-  };
-
-  const handleReminders = async () => {
-    if (reminding) return;
-    setReminding(true);
-    try {
-      const result = await sendProfileReminders();
-      const count = typeof result === 'number' ? result : Number(result?.data ?? result ?? 0);
-      toastSuccess(count > 0 ? `${count} student(s) reminded to complete their profile.` : 'Nobody needs a reminder right now.');
-    } catch (err) {
-      toastError(err, err.message || 'Could not send reminders.');
-    } finally {
-      setReminding(false);
-    }
   };
 
   const noDepartments = !departmentsLoading && activeDepartments.length === 0;
@@ -77,12 +62,11 @@ export default function AdminManageStudents() {
           )}
           <button
             type="button"
-            onClick={handleReminders}
-            disabled={reminding}
-            className="flex items-center justify-center gap-1.5 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition font-medium disabled:opacity-60"
-            title="Email students whose profile is incomplete"
+            onClick={() => setReminderOpen(true)}
+            className="flex items-center justify-center gap-1.5 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition font-medium"
+            title="See who has an incomplete profile, then send them a reminder"
           >
-            {reminding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            <Mail className="w-4 h-4" />
             Remind incomplete profiles
           </button>
         </div>
@@ -124,6 +108,8 @@ export default function AdminManageStudents() {
           </button>
         ) : null}
       />
+
+      {reminderOpen && <ReminderDialog onClose={() => setReminderOpen(false)} />}
 
       {archiveOpen && (
         <ArchiveBatchDialog

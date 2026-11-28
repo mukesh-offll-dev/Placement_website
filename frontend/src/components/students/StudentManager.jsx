@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   Archive,
@@ -115,12 +115,16 @@ export default function StudentManager({
   onChanged,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [urlParams, setUrlParams] = useSearchParams();
   const [lifecycle, setLifecycle] = useState(initialFilters.lifecycle || 'ACTIVE');
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
+  // The filters live in the page URL too, so opening a student and pressing Back returns to the same
+  // tab, search and filters (the detail page goes back to the exact URL it was opened from).
+  const [searchInput, setSearchInput] = useState(urlParams.get('q') || '');
+  const [search, setSearch] = useState(urlParams.get('q') || '');
   const [verificationStatus, setVerificationStatus] = useState(initialFilters.verificationStatus || '');
-  const [batch, setBatch] = useState(initialFilters.batch || '');
-  const [department, setDepartment] = useState('');
+  const [batch, setBatch] = useState(initialFilters.batch || urlParams.get('batch') || '');
+  const [department, setDepartment] = useState(urlParams.get('dept') || '');
   const [page, setPage] = useState(0);
   const [tick, setTick] = useState(0);
   const [result, setResult] = useState({ key: null, page: pageOf(null), error: '' });
@@ -143,6 +147,25 @@ export default function StudentManager({
     batch: batch.trim(),
     department: fixedDepartment ? '' : department,
   }), [search, lifecycle, verificationStatus, batch, department, fixedDepartment]);
+
+  useEffect(() => {
+    setUrlParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const put = (key, value, fallback = '') => (value && value !== fallback ? next.set(key, value) : next.delete(key));
+        put('lifecycle', lifecycle, 'ACTIVE');
+        put('verification', verificationStatus);
+        put('batch', batch.trim());
+        put('dept', fixedDepartment ? '' : department);
+        put('q', search);
+        return next.toString() === prev.toString() ? prev : next;
+      },
+      { replace: true }
+    );
+  }, [lifecycle, verificationStatus, batch, department, search, fixedDepartment, setUrlParams]);
+
+  const openDetail = (studentId) =>
+    navigate(api.detailPath(studentId), { state: { from: `${location.pathname}${location.search}` } });
 
   const requestKey = JSON.stringify({ ...filters, page, tick, reloadKey });
   const loading = result.key !== requestKey;
@@ -304,7 +327,7 @@ export default function StudentManager({
 
   const rowItems = (s) => {
     const lc = lifecycleOf(s);
-    const items = [{ key: 'view', label: 'View profile', icon: Eye, onClick: () => navigate(api.detailPath(s.id)) }];
+    const items = [{ key: 'view', label: 'View profile', icon: Eye, onClick: () => openDetail(s.id) }];
     if (lc === 'ACTIVE') items.push({ key: 'deactivate', label: 'Disable', icon: Ban, tone: 'warn', onClick: () => setConfirm({ kind: 'deactivate', student: s, typed: '' }) });
     if (lc === 'DISABLED') items.push({ key: 'reactivate', label: 'Enable', icon: RotateCcw, tone: 'good', onClick: () => setConfirm({ kind: 'reactivate', student: s, typed: '' }) });
     if (lc !== 'ARCHIVED') items.push({ key: 'archive', label: 'Archive', icon: Archive, tone: 'warn', onClick: () => setConfirm({ kind: 'archive', student: s, typed: '' }) });
@@ -497,7 +520,7 @@ export default function StudentManager({
                     />
                   </div>
                   <div className="font-mono text-xs text-gray-800 break-all">
-                    <Link to={api.detailPath(s.id)} className="hover:text-blue-700 hover:underline">{s.rollNo || '—'}</Link>
+                    <Link to={api.detailPath(s.id)} state={{ from: `${location.pathname}${location.search}` }} className="hover:text-blue-700 hover:underline">{s.rollNo || '—'}</Link>
                   </div>
                   <div className="min-w-0">
                     <p className={`truncate ${notSetUp ? 'text-gray-400 italic' : 'font-medium text-gray-900'}`}>

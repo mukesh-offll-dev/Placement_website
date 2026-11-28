@@ -107,6 +107,31 @@ public class ProfileReminderService {
         return reminded;
     }
 
+    /** Who a reminder sent right now would reach; nothing is sent or recorded. */
+    public record ReminderPreview(int count, List<Entry> students) {
+        public record Entry(String name, String registerNumber, int completionPercent, List<String> missing) {}
+    }
+
+    /** The same selection as {@link #sendReminders()}, so the officer sees the count before sending. */
+    @Transactional(readOnly = true)
+    public ReminderPreview preview() {
+        List<StudentProfile> due = studentProfileRepository
+                .findNeedingProfileReminder(LocalDateTime.now().minusDays(intervalDays));
+        List<ReminderPreview.Entry> entries = new ArrayList<>();
+        for (StudentProfile profile : due) {
+            List<String> missing = missingItems(profile);
+            if (missing.isEmpty()) {
+                continue;
+            }
+            entries.add(new ReminderPreview.Entry(
+                    profile.getFullName(),
+                    profile.getRollNo(),
+                    profile.getProfileCompletionPercent() == null ? 0 : profile.getProfileCompletionPercent(),
+                    missing));
+        }
+        return new ReminderPreview(entries.size(), entries.stream().limit(10).toList());
+    }
+
     /** The profile details a placement cell needs that this student has not filled in yet. */
     static List<String> missingItems(StudentProfile profile) {
         List<String> missing = new ArrayList<>();
