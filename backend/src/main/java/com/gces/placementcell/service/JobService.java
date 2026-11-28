@@ -212,10 +212,11 @@ public class JobService {
             company = companyRepository.findByNameIgnoreCase(trimmedName)
                     .orElseGet(() -> {
                         String shortName = buildShortName(trimmedName);
+                        // logoColor holds a short hex colour (max 10 chars); leave it empty so the
+                        // app uses its default monogram colours. A CSS class name here failed the insert.
                         return companyRepository.save(Company.builder()
                                 .name(trimmedName)
                                 .shortName(shortName)
-                                .logoColor("bg-blue-100 text-blue-700")
                                 .build());
                     });
         } else {

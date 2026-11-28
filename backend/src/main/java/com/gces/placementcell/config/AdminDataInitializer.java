@@ -41,7 +41,7 @@ public class AdminDataInitializer implements CommandLineRunner {
     @Value("${app.admin.default-password:Admin@1234}")
     private String defaultPassword;
 
-    @Value("${app.admin.default-name:Placement Officer}")
+    @Value("${app.admin.default-name:Administrator}")
     private String defaultName;
 
     public AdminDataInitializer(UserRepository userRepository,
@@ -96,7 +96,7 @@ public class AdminDataInitializer implements CommandLineRunner {
         adminProfileRepository.save(AdminProfile.builder()
                 .user(adminUser)
                 .name(defaultName)
-                .designation("Placement Officer")
+                .designation("Administrator")
                 .build());
 
         log.info("Default admin account created successfully.");

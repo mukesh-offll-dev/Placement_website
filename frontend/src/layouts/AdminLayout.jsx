@@ -112,6 +112,13 @@ export default function AdminLayout() {
         { label: 'Student Profile' },
       ];
     }
+    if (location.pathname.startsWith('/admin/jobs/')) {
+      return [
+        { label: 'Admin', to: '/admin/dashboard' },
+        { label: 'Job Drives', to: '/admin/jobs' },
+        { label: location.pathname.endsWith('/new') ? 'Post a Job Drive' : 'Edit Job Drive' },
+      ];
+    }
     return [{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Portal' }];
   };
 
